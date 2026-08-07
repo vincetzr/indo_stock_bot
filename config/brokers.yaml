@@ -1,0 +1,73 @@
+# IDX (Bursa Efek Indonesia) exchange member codes.
+#
+# ---------------------------------------------------------------------------
+# VERIFY THIS FILE BEFORE TRADING ON IT.
+# ---------------------------------------------------------------------------
+# Broker codes are assigned by IDX and change when firms merge, rebrand or lose
+# their licence (e.g. Credit Suisse Sekuritas was absorbed by UBS after the 2023
+# global merger; Danareksa and BRI Danareksa consolidated). The authoritative
+# list is IDX's "Anggota Bursa" (Exchange Members) directory:
+#   https://www.idx.co.id/en/members-and-participants/exchange-member-profile/
+#
+# `confidence: high`   -> long-standing, widely-referenced code/name pairing.
+# `confidence: medium` -> pairing believed correct but affected by recent
+#                         corporate actions or less commonly referenced.
+#
+# Nothing in the engine hard-codes a broker code. Every rule reads `tier` and
+# `foreign` from this file, so relabelling a broker here changes the analytics
+# without touching code. If your data vendor uses a code not listed here it is
+# still ingested; it simply defaults to tier "unknown".
+#
+# tier:
+#   bulge      - global bulge-bracket / major foreign institutional desks.
+#                These are the "smart money" flows the engine reverse-engineers.
+#   foreign    - other foreign-affiliated houses, mixed institutional flow.
+#   local_inst - domestic institutional / state-linked houses.
+#   retail     - retail-dominated order flow (used as the "dumb money" contra
+#                signal, not an insult - these desks simply aggregate many
+#                small tickets).
+
+brokers:
+  # ---------------- bulge bracket / global institutional ----------------
+  BK: {name: "J.P. Morgan Sekuritas Indonesia", tier: bulge, foreign: true, confidence: high}
+  AK: {name: "UBS Sekuritas Indonesia", tier: bulge, foreign: true, confidence: high}
+  KZ: {name: "CLSA Sekuritas Indonesia", tier: bulge, foreign: true, confidence: high}
+  MS: {name: "Morgan Stanley Sekuritas Indonesia", tier: bulge, foreign: true, confidence: high}
+  ML: {name: "Merrill Lynch Sekuritas Indonesia", tier: bulge, foreign: true, confidence: high}
+  CG: {name: "Citigroup Sekuritas Indonesia", tier: bulge, foreign: true, confidence: high}
+  RX: {name: "Macquarie Sekuritas Indonesia", tier: bulge, foreign: true, confidence: high}
+  DB: {name: "Deutsche Sekuritas Indonesia", tier: bulge, foreign: true, confidence: medium}
+  CS: {name: "Credit Suisse Sekuritas Indonesia (merged into UBS)", tier: bulge, foreign: true, confidence: medium}
+
+  # ---------------- other foreign-affiliated ----------------
+  ZP: {name: "Maybank Sekuritas Indonesia", tier: foreign, foreign: true, confidence: high}
+  YU: {name: "CGS International Sekuritas Indonesia", tier: foreign, foreign: true, confidence: high}
+  AI: {name: "UOB Kay Hian Sekuritas", tier: foreign, foreign: true, confidence: high}
+  DR: {name: "RHB Sekuritas Indonesia", tier: foreign, foreign: true, confidence: high}
+  BQ: {name: "Korea Investment and Sekuritas Indonesia", tier: foreign, foreign: true, confidence: medium}
+  FS: {name: "Yuanta Sekuritas Indonesia", tier: foreign, foreign: true, confidence: medium}
+  TP: {name: "OCBC Sekuritas Indonesia", tier: foreign, foreign: true, confidence: medium}
+  SQ: {name: "BCA Sekuritas", tier: local_inst, foreign: false, confidence: medium}
+  YP: {name: "Mirae Asset Sekuritas Indonesia", tier: retail, foreign: true, confidence: high}
+
+  # ---------------- domestic institutional ----------------
+  CC: {name: "Mandiri Sekuritas", tier: local_inst, foreign: false, confidence: high}
+  NI: {name: "BNI Sekuritas", tier: local_inst, foreign: false, confidence: high}
+  OD: {name: "BRI Danareksa Sekuritas", tier: local_inst, foreign: false, confidence: medium}
+  LG: {name: "Trimegah Sekuritas Indonesia", tier: local_inst, foreign: false, confidence: high}
+  DH: {name: "Sinarmas Sekuritas", tier: local_inst, foreign: false, confidence: high}
+  AZ: {name: "Sucor Sekuritas", tier: local_inst, foreign: false, confidence: high}
+  KI: {name: "Ciptadana Sekuritas Asia", tier: local_inst, foreign: false, confidence: high}
+  GR: {name: "Panin Sekuritas", tier: local_inst, foreign: false, confidence: high}
+  IF: {name: "Samuel Sekuritas Indonesia", tier: local_inst, foreign: false, confidence: medium}
+  HP: {name: "Henan Putihrai Sekuritas", tier: local_inst, foreign: false, confidence: medium}
+  EP: {name: "MNC Sekuritas", tier: local_inst, foreign: false, confidence: high}
+
+  # ---------------- retail-dominated flow ----------------
+  PD: {name: "Indo Premier Sekuritas", tier: retail, foreign: false, confidence: high}
+  XL: {name: "Mahakarya Artha Sekuritas", tier: retail, foreign: false, confidence: medium}
+  XA: {name: "Wanteg Sekuritas", tier: retail, foreign: false, confidence: medium}
+  AT: {name: "Phintraco Sekuritas", tier: retail, foreign: false, confidence: medium}
+  YJ: {name: "Lotus Andalan Sekuritas", tier: retail, foreign: false, confidence: medium}
+  PC: {name: "First Asia Capital", tier: retail, foreign: false, confidence: medium}
+  MG: {name: "Semesta Indovest Sekuritas", tier: retail, foreign: false, confidence: medium}

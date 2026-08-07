@@ -1,0 +1,124 @@
+// =============================================================================
+// IDX Broker Campaign Overlay - draws an idxbot trading plan on the chart
+// =============================================================================
+// Takes the numbers the CLI computed from broker summary and renders them as
+// levels: the lead desk's reconstructed cost basis, the entry band, the stop,
+// and the profit targets learned from that desk's own campaign history.
+//
+// Generate the input block for a ticker with:
+//
+//     idxbot pine BBCA
+//
+// then paste the values into the indicator settings (or into the defaults
+// below). TradingView cannot fetch broker data itself, which is why these
+// arrive as inputs rather than being computed here.
+// =============================================================================
+
+//@version=5
+indicator("IDX Broker Campaign", shorttitle="IDX PLAN", overlay=true)
+
+// ---------------------------------------------------------------- inputs ----
+brokerCode  = input.string("BK",  "Lead broker code",           group="Plan")
+brokerCost  = input.float(0.0,    "Broker average cost",        group="Plan", step=1)
+entryLow    = input.float(0.0,    "Entry zone low",             group="Plan", step=1)
+entryHigh   = input.float(0.0,    "Entry zone high",            group="Plan", step=1)
+stopPrice   = input.float(0.0,    "Stop",                       group="Plan", step=1)
+target1     = input.float(0.0,    "Target 1",                   group="Plan", step=1)
+target2     = input.float(0.0,    "Target 2",                   group="Plan", step=1)
+target3     = input.float(0.0,    "Target 3",                   group="Plan", step=1)
+campaignStart = input.time(timestamp("2026-01-01T00:00:00"), "Campaign start",
+                           group="Plan")
+showVwap    = input.bool(true,    "Anchored VWAP from campaign start", group="Display")
+showZones   = input.bool(true,    "Shade entry / stop / target zones",  group="Display")
+extendRight = input.int(30,       "Extend levels (bars)", minval=0, maxval=200,
+                        group="Display")
+
+// ------------------------------------------------- anchored VWAP -------------
+// VWAP anchored at the campaign start approximates the average price paid by
+// everyone who transacted during the accumulation. When the broker's own cost
+// basis sits BELOW this line, they accumulated better than the crowd.
+var float cumPV = 0.0
+var float cumV  = 0.0
+inCampaign = time >= campaignStart
+if inCampaign
+    if not inCampaign[1]
+        cumPV := 0.0
+        cumV  := 0.0
+    src = (high + low + close) / 3.0
+    cumPV := cumPV + src * volume
+    cumV  := cumV + volume
+anchoredVwap = cumV > 0 ? cumPV / cumV : na
+
+plot(showVwap and inCampaign ? anchoredVwap : na, "Anchored VWAP",
+     color=color.new(color.orange, 0), linewidth=2)
+
+// ------------------------------------------------------------- levels -------
+levelColour(price, base) => price > 0 ? base : na
+
+pBrokerCost = plot(brokerCost > 0 ? brokerCost : na, "Broker cost",
+                   color=color.new(color.yellow, 0), linewidth=2,
+                   style=plot.style_linebr)
+pEntryLow   = plot(entryLow  > 0 ? entryLow  : na, "Entry low",
+                   color=color.new(color.teal, 30), style=plot.style_linebr)
+pEntryHigh  = plot(entryHigh > 0 ? entryHigh : na, "Entry high",
+                   color=color.new(color.teal, 30), style=plot.style_linebr)
+pStop       = plot(stopPrice > 0 ? stopPrice : na, "Stop",
+                   color=color.new(color.red, 0), linewidth=2, style=plot.style_linebr)
+pT1         = plot(target1 > 0 ? target1 : na, "T1", color=color.new(color.green, 40),
+                   style=plot.style_linebr)
+pT2         = plot(target2 > 0 ? target2 : na, "T2", color=color.new(color.green, 25),
+                   style=plot.style_linebr)
+pT3         = plot(target3 > 0 ? target3 : na, "T3", color=color.new(color.green, 10),
+                   style=plot.style_linebr)
+
+fill(pEntryLow, pEntryHigh, color=showZones ? color.new(color.teal, 88) : na,
+     title="Entry zone")
+fill(pT1, pT3, color=showZones ? color.new(color.green, 92) : na, title="Target zone")
+
+// -------------------------------------------------------------- labels ------
+var label lblCost = na
+var label lblStop = na
+var label lblT1 = na
+var label lblT2 = na
+var label lblT3 = na
+
+if barstate.islast
+    label.delete(lblCost)
+    label.delete(lblStop)
+    label.delete(lblT1)
+    label.delete(lblT2)
+    label.delete(lblT3)
+
+    x = bar_index + extendRight
+    if brokerCost > 0
+        pnl = (close - brokerCost) / brokerCost * 100.0
+        lblCost := label.new(x, brokerCost,
+             brokerCode + " cost " + str.tostring(brokerCost, "#") +
+             "  (" + str.tostring(pnl, "+#.0") + "%)",
+             style=label.style_label_left, color=color.new(color.yellow, 20),
+             textcolor=color.black, size=size.small)
+    if stopPrice > 0
+        lblStop := label.new(x, stopPrice, "STOP " + str.tostring(stopPrice, "#"),
+             style=label.style_label_left, color=color.new(color.red, 20),
+             textcolor=color.white, size=size.small)
+    if target1 > 0
+        lblT1 := label.new(x, target1, "T1 " + str.tostring(target1, "#"),
+             style=label.style_label_left, color=color.new(color.green, 40),
+             textcolor=color.white, size=size.small)
+    if target2 > 0
+        lblT2 := label.new(x, target2, "T2 " + str.tostring(target2, "#"),
+             style=label.style_label_left, color=color.new(color.green, 25),
+             textcolor=color.white, size=size.small)
+    if target3 > 0
+        lblT3 := label.new(x, target3, "T3 " + str.tostring(target3, "#"),
+             style=label.style_label_left, color=color.new(color.green, 10),
+             textcolor=color.white, size=size.small)
+
+// -------------------------------------------------------------- alerts ------
+alertcondition(ta.crossunder(close, stopPrice), "Stop hit",
+               "Price closed below the plan stop")
+alertcondition(ta.crossover(close, target1), "Target 1 reached", "Price reached T1")
+alertcondition(ta.crossover(close, target2), "Target 2 reached", "Price reached T2")
+alertcondition(ta.crossover(close, target3), "Target 3 reached", "Price reached T3")
+alertcondition(close >= entryLow and close <= entryHigh, "In entry zone",
+               "Price is inside the plan's entry band")

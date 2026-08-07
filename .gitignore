@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+
+# Cached market data and generated reports are reproducible; keep the dirs.
+data/cache/
+data/broker_summary/*
+!data/broker_summary/.gitkeep
+reports/*
+!reports/backtest_real.txt
+!reports/data_availability.csv

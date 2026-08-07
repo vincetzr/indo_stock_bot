@@ -1,0 +1,101 @@
+# idxbot configuration. Every threshold the engine uses lives here.
+
+data:
+  cache_dir: "data/cache"
+  # Providers are tried in order; the first that returns data wins.
+  # See README "Data sources" for what each one needs.
+  ohlcv_provider: "yahoo"
+  broker_summary_providers: ["csv", "synthetic"]
+  csv_dir: "data/broker_summary"       # drop your exported broker summary here
+  max_history: true                    # pull from first trade date, not N years
+  request_timeout: 30
+  request_retries: 4
+
+market:
+  lot_size: 100                        # 1 lot = 100 shares on IDX
+  currency: "IDR"
+  # Fraksi harga (tick size) bands: [max_price_exclusive, tick].
+  # Prices >= the last band's threshold use the final tick.
+  tick_bands:
+    - [200, 1]
+    - [500, 2]
+    - [2000, 5]
+    - [5000, 10]
+    - [null, 25]
+  # Auto rejection limits. IDX has changed these repeatedly (notably the
+  # asymmetric ARB regime of 2020-2023). Confirm against the current IDX
+  # regulation before sizing positions near a limit.
+  auto_rejection:
+    ara:                               # [max_price_exclusive, pct]
+      - [200, 0.35]
+      - [5000, 0.25]
+      - [null, 0.20]
+    arb_symmetric_pct: 0.15
+  # Costs used by the backtester and the trading plan's break-even maths.
+  costs:
+    buy_fee_pct: 0.0015                # typical retail all-in buy fee
+    sell_fee_pct: 0.0025               # includes 0.1% final income tax on sale
+    slippage_ticks: 1
+
+# ---------------------------------------------------------------------------
+# Broker-flow reverse engineering
+# ---------------------------------------------------------------------------
+campaigns:
+  # A campaign leg is confirmed when inventory retraces this fraction of the
+  # prior swing. Higher = fewer, larger campaigns.
+  zigzag_retrace: 0.25
+  # Ignore campaigns whose size is below this share of the broker's typical
+  # inventory swing in that ticker (filters noise).
+  min_peak_share: 0.15
+  min_accumulation_days: 5
+  # Reject legs longer than this: a build spanning most of a year is structural
+  # drift (index or custody flow), not a trading campaign.
+  max_accumulation_days: 120
+  # Span of the EWMA subtracted from inventory to remove that structural drift.
+  detrend_span: 120
+  # Trailing window used to score "where in the range did they buy".
+  entry_percentile_window: 120
+  # A leg is "stealth" when price moved less than this while inventory grew.
+  stealth_price_move_pct: 0.08
+
+accumulation:
+  lookback: 60                         # main detection window (trading days)
+  short_lookback: 20
+  atr_period: 14
+  volume_ma: 20
+  # Composite score weights. Must be positive; they are normalised internally.
+  weights:
+    inventory_zscore: 0.22             # bulge-desk inventory build vs history
+    stealth: 0.18                      # buying without moving price
+    concentration: 0.12                # few brokers taking most of the supply
+    smart_dumb_divergence: 0.14        # institutions buy while retail sells
+    volume_dryup: 0.08                 # supply exhaustion in the base
+    range_compression: 0.08            # coiling / narrowing range
+    obv_divergence: 0.10               # accumulation visible in volume flow
+    relative_strength: 0.08            # outperforming IHSG during the base
+    wyckoff: 0.15                      # phase structure (spring / sign of strength)
+  # Screener emits a signal at or above this score.
+  signal_threshold: 65
+  strong_threshold: 78
+
+plan:
+  account_equity_idr: 100000000        # 100 juta - override with --equity
+  risk_per_trade_pct: 0.01             # 1% of equity at risk per position
+  max_position_pct: 0.20               # cap any single name at 20% of equity
+  atr_stop_multiple: 2.0
+  # Fallback targets (% gain) when a broker has no campaign history to learn
+  # from. When history exists, targets come from that broker's own realised
+  # markup distribution.
+  fallback_targets: [0.08, 0.15, 0.25]
+  time_stop_multiple: 1.5              # x median campaign holding days
+  max_time_stop_days: 120              # hard cap regardless of the broker's median
+  min_reward_risk: 1.8                 # reject plans below this R:R
+
+backtest:
+  horizons: [5, 10, 20, 60]
+  score_buckets: [0, 40, 55, 65, 78, 101]
+  min_samples: 30
+
+tradingview:
+  exchange_prefix: "IDX"
+  default_interval: "D"

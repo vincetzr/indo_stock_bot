@@ -1,0 +1,116 @@
+Walk-forward evaluation across 68 tickers (every 5 bars)...
+
+  [  1/68] ACES    860 observations
+  [  2/68] ADMR    161 observations
+  [  3/68] ADRO    827 observations
+  [  4/68] AKRA    967 observations
+  [  5/68] AMMN     88 observations
+  [  6/68] AMRT    804 observations
+  [  7/68] ANTM    967 observations
+  [  8/68] ARTO    459 observations
+  [  9/68] ASII   1223 observations
+  [ 10/68] BBCA   1034 observations
+  [ 11/68] BBNI   1057 observations
+  [ 12/68] BBRI   1064 observations
+  [ 13/68] BBTN    758 observations
+  [ 14/68] BMRI   1081 observations
+  [ 15/68] BRIS    344 observations
+  [ 16/68] BRPT   1135 observations
+  [ 17/68] BUKA    181 observations
+  [ 18/68] CPIN    967 observations
+  [ 19/68] CTRA   1221 observations
+  [ 20/68] ESSA    654 observations
+  [ 21/68] EXCL   /home/user/indo_stock_bot/src/idxbot/analytics/accumulation.py:41: RuntimeWarning: overflow encountered in exp
+  return float(1.0 / (1.0 + np.exp(-x / max(scale, 1e-9))))
+ 967 observations
+  [ 22/68] GOTO    147 observations
+  [ 23/68] ICBP   1225 observations
+  [ 24/68] INCO    967 observations
+  [ 25/68] INDF   1226 observations
+  [ 26/68] INKP   1215 observations
+  [ 27/68] ISAT   1045 observations
+  [ 28/68] ITMG    854 observations
+  [ 29/68] JSMR    859 observations
+  [ 30/68] KLBF   1059 observations
+  [ 31/68] MAPI   1011 observations
+  [ 32/68] MBMA     97 observations
+  [ 33/68] MDKA    487 observations
+  [ 34/68] MEDC   1242 observations
+  [ 35/68] MTEL    166 observations
+  [ 36/68] PGAS   1058 observations
+  [ 37/68] PGEO    104 observations
+  [ 38/68] PTBA   1109 observations
+  [ 39/68] SIDO    560 observations
+  [ 40/68] SMGR    967 observations
+  [ 41/68] SMRA   1128 observations
+  [ 42/68] TLKM   1017 observations
+  [ 43/68] TOWR    747 observations
+  [ 44/68] UNTR   1229 observations
+  [ 45/68] UNVR   /home/user/indo_stock_bot/src/idxbot/analytics/accumulation.py:41: RuntimeWarning: overflow encountered in exp
+  return float(1.0 / (1.0 + np.exp(-x / max(scale, 1e-9))))
+1073 observations
+  [ 46/68] GGRM   1190 observations
+  [ 47/68] HMSP   1174 observations
+  [ 48/68] INTP   1216 observations
+  [ 49/68] AALI   1199 observations
+  [ 50/68] LSIP   1144 observations
+  [ 51/68] TINS   1202 observations
+  [ 52/68] MNCN    879 observations
+  [ 53/68] BUMI   1190 observations
+  [ 54/68] ENRG   1034 observations
+  [ 55/68] DEWA    865 observations
+  [ 56/68] BRMS    710 observations
+  [ 57/68] PSAB   /home/user/indo_stock_bot/src/idxbot/analytics/accumulation.py:41: RuntimeWarning: overflow encountered in exp
+  return float(1.0 / (1.0 + np.exp(-x / max(scale, 1e-9))))
+1092 observations
+  [ 58/68] SRTG    585 observations
+  [ 59/68] BIPI    751 observations
+  [ 60/68] TRAM     ! TRAM: only 1 bars, skipping
+insufficient history
+  [ 61/68] KRAS    714 observations
+  [ 62/68] WSKT     ! WSKT: only 1 bars, skipping
+insufficient history
+  [ 63/68] WIKA    862 observations
+  [ 64/68] PTPP    751 observations
+  [ 65/68] ADHI   1045 observations
+  [ 66/68] AGRO   1032 observations
+  [ 67/68] BBHI    480 observations
+  [ 68/68] BANK    206 observations
+
+==============================================================================
+ ACCUMULATION SCORE - WALK-FORWARD EVALUATION
+==============================================================================
+ observations : 56,732
+ tickers      : 66
+ period       : 2001-07-31 -> 2026-08-07
+ mode         : price-only (56,732 observations)
+ round-trip cost assumption: 0.40%
+
+ SIGNAL COHORT vs BASELINE
+  horizon   baseline     signal    excess   net cost     hit       t        n
+       5d     0.43%     0.07%   -0.36%    -0.33%  42.7%   -2.48    2,604
+      10d     0.83%     0.24%   -0.59%    -0.16%  43.5%   -2.97    2,594
+      20d     1.64%     0.63%   -1.02%     0.23%  44.7%   -3.53    2,542
+      60d     5.36%     4.49%   -0.87%     4.09%  48.2%   -1.32    2,426
+
+ MEAN FORWARD RETURN BY SCORE BUCKET
+     bucket       n        5d       10d       20d       60d
+       0-39  24,433    0.76%     1.37%     2.44%     6.86% 
+      40-54  22,039    0.27%     0.51%     1.18%     4.07% 
+      55-64   7,647    0.00%     0.22%     0.76%     4.52% 
+      65-77   2,577    0.08%     0.26%     0.67%     4.59% 
+     78-100      36   -0.39%    -1.16%    -3.04%          -
+
+ MEAN FORWARD RETURN BY WYCKOFF PHASE
+      phase       n        5d       10d       20d       60d
+          A  12,230    0.60%     1.20%     2.61%     8.47% 
+          B  14,301    0.20%     0.40%     0.80%     2.68% 
+          C  14,607    0.16%     0.31%     0.79%     3.38% 
+          D   3,591    0.45%     0.73%     1.14%     3.31% 
+          E   5,716    1.18%     2.19%     4.00%    10.67% 
+       none   6,287    0.59%     1.09%     1.82%     6.29% 
+
+ Caveats: no survivorship adjustment; overlapping forward windows inflate
+ t-statistics; returns are gross unless the net-cost column is shown.
+==============================================================================
+  wrote observations -> reports/backtest_observations.csv

@@ -1,0 +1,32 @@
+# Trading universes. Tickers are bare IDX codes; the Yahoo adapter appends ".JK".
+#
+# NOTE: LQ45 / IDX30 membership is revised by IDX twice a year (February and
+# August). Treat these lists as a starting point and refresh them from
+# https://www.idx.co.id/en/market-data/stock-index/ before relying on them.
+# `idxbot screener --universe all` unions every list defined here.
+
+universes:
+  lq45:
+    - ACES, ADMR, ADRO, AKRA, AMMN, AMRT, ANTM, ARTO, ASII, BBCA
+    - BBNI, BBRI, BBTN, BMRI, BRIS, BRPT, BUKA, CPIN, CTRA, ESSA
+    - EXCL, GOTO, ICBP, INCO, INDF, INKP, ISAT, ITMG, JSMR, KLBF
+    - MAPI, MBMA, MDKA, MEDC, MTEL, PGAS, PGEO, PTBA, SIDO, SMGR
+    - SMRA, TLKM, TOWR, UNTR, UNVR
+
+  # The deepest-history names on the exchange. Used by `idxbot history` to study
+  # broker behaviour across multiple full market cycles (1997 Asian crisis,
+  # 2008 GFC, 2013 taper tantrum, 2015 slump, 2020 COVID, 2022 commodity boom).
+  deep_history:
+    - ASII, BBCA, BBRI, BMRI, BBNI, TLKM, UNVR, GGRM, HMSP, INDF
+    - ICBP, KLBF, SMGR, INTP, PTBA, ADRO, UNTR, AALI, LSIP, ITMG
+    - PGAS, JSMR, INCO, ANTM, TINS, MEDC, EXCL, ISAT, MNCN, CPIN
+
+  # High-beta / speculative names where single-broker "bandar" campaigns are
+  # most visible in broker summary data.
+  speculative:
+    - BUMI, ENRG, DEWA, BRMS, PSAB, SRTG, BIPI, TRAM, KRAS, WSKT
+    - WIKA, PTPP, ADHI, AGRO, BBHI, BANK, ARTO, BUKA, GOTO, PGEO
+
+indices:
+  composite: "^JKSE"    # IHSG / Jakarta Composite Index - daily data from 1990-04
+  lq45_index: "^JKLQ45"

@@ -1,0 +1,184 @@
+// =============================================================================
+// IDX Accumulation Score - price/volume replica of idxbot's screener
+// =============================================================================
+// TradingView carries no broker-summary data, so this indicator reproduces only
+// the components of the idxbot score that can be computed from OHLCV:
+//
+//     volume dry-up, range compression, OBV divergence, relative strength
+//     versus the IHSG, and Wyckoff structure.
+//
+// It is therefore the "price-only mode" score, and it will not agree with the
+// full broker+price score from the CLI. Use it to watch a name live and to see
+// the structure on the chart; use the CLI for the institutional-flow half of
+// the evidence.
+//
+// Install: TradingView -> Pine Editor -> paste -> Add to chart.
+// =============================================================================
+
+//@version=5
+indicator("IDX Accumulation Score", shorttitle="IDX ACC", overlay=false, precision=1)
+
+// ---------------------------------------------------------------- inputs ----
+lookback     = input.int(60,  "Main lookback (bars)",      minval=20, maxval=250)
+shortLook    = input.int(20,  "Short lookback (bars)",     minval=5,  maxval=60)
+benchmark    = input.symbol("IDX:COMPOSITE", "Benchmark index")
+signalLevel  = input.int(65,  "Signal threshold",          minval=0,  maxval=100)
+strongLevel  = input.int(78,  "Strong threshold",          minval=0,  maxval=100)
+showPhase    = input.bool(true, "Shade Wyckoff phase background")
+
+// Weights. These mirror config.yaml but are renormalised over the price-only
+// components, exactly as the Python engine does in price-only mode.
+wVolume      = input.float(0.08, "Weight: volume dry-up",      minval=0, step=0.01)
+wRange       = input.float(0.08, "Weight: range compression",  minval=0, step=0.01)
+wObv         = input.float(0.10, "Weight: OBV divergence",     minval=0, step=0.01)
+wRelative    = input.float(0.08, "Weight: relative strength",  minval=0, step=0.01)
+wWyckoff     = input.float(0.15, "Weight: Wyckoff structure",  minval=0, step=0.01)
+
+// ------------------------------------------------------------- helpers ------
+clamp01(x) => math.max(0.0, math.min(1.0, x))
+sigmoid(x, s) => 1.0 / (1.0 + math.exp(-x / math.max(s, 1e-9)))
+
+// Least-squares slope over `len` bars, normalised by the series level so it is
+// comparable across price scales.
+normSlope(src, len) =>
+    s = ta.linreg(src, len, 0) - ta.linreg(src, len, 1)
+    lvl = math.abs(ta.sma(src, len))
+    lvl > 0 ? s / lvl : 0.0
+
+// ------------------------------------------------- component: volume dry-up --
+volRecent  = ta.sma(volume, shortLook)
+volBase    = ta.sma(volume, lookback * 2)
+volRatio   = volBase > 0 ? volRecent / volBase : 1.0
+cVolume    = clamp01((1.15 - volRatio) / 0.5)
+
+// --------------------------------------------- component: range compression --
+tr         = ta.tr(true)
+trRecent   = ta.sma(tr, shortLook)
+trBase     = ta.sma(tr, lookback * 2)
+compression = trBase > 0 ? trRecent / trBase : 1.0
+cRange     = clamp01((1.10 - compression) / 0.5)
+
+// -------------------------------------------------- component: OBV divergence -
+obvLine    = ta.obv
+obvSlope   = normSlope(obvLine, lookback)
+priceSlope = normSlope(close, lookback)
+obvDiv     = obvSlope - priceSlope
+cObv       = sigmoid(obvDiv, 0.004)
+
+// ----------------------------------------------- component: relative strength -
+benchClose = request.security(benchmark, timeframe.period, close)
+stockRet   = close / close[lookback] - 1.0
+benchRet   = benchClose / benchClose[lookback] - 1.0
+relStrength = stockRet - benchRet
+cRelative  = sigmoid(relStrength, 0.08)
+
+// ------------------------------------------------------- Wyckoff structure ---
+rangeHigh  = ta.highest(high, lookback)
+rangeLow   = ta.lowest(low, lookback)
+rangeWidth = close > 0 ? (rangeHigh - rangeLow) / close : 1.0
+atrVal     = ta.atr(14)
+avgVol     = ta.sma(volume, lookback)
+
+// Sideways: little net drift across the window.
+sideways   = math.abs(normSlope(close, lookback)) < 0.0015 and rangeWidth < 0.45
+
+// Selling climax: wide bar, huge volume, close well off the low.
+barRange   = high - low
+climax     = volume > 2.2 * avgVol and barRange > 1.8 * atrVal and
+             barRange > 0 and (close - low) / barRange > 0.4
+
+// Spring: probe below the prior range low that closes back inside.
+priorLow   = ta.lowest(low[1], lookback)
+spring     = low < priorLow and close > priorLow and volume < 2.5 * avgVol
+
+// Sign of strength: close above the prior range high on expanding volume.
+priorHigh  = ta.highest(high[1], lookback)
+sos        = close > priorHigh and volume > 1.6 * avgVol
+
+// Phase resolution, most advanced first. Latches for `lookback/2` bars so a
+// one-bar event still colours the following sessions.
+var int lastSpringBar = na
+var int lastSosBar    = na
+var int lastClimaxBar = na
+if spring
+    lastSpringBar := bar_index
+if sos
+    lastSosBar := bar_index
+if climax
+    lastClimaxBar := bar_index
+
+recent(b) => not na(b) and (bar_index - b) <= math.round(lookback / 2)
+
+extended = close / rangeLow - 1.0 > 0.35
+phase = recent(lastSosBar) and extended ? "E" :
+        recent(lastSosBar)              ? "D" :
+        recent(lastSpringBar)           ? "C" :
+        sideways                        ? "B" :
+        recent(lastClimaxBar)           ? "A" : "none"
+
+phaseBase = phase == "C" ? 0.95 : phase == "D" ? 0.85 : phase == "B" ? 0.55 :
+            phase == "E" ? 0.30 : phase == "A" ? 0.25 : 0.0
+// Confidence proxy: structure is more trustworthy when volume is also drying up.
+phaseConf = 0.55 + 0.45 * clamp01((1.1 - volRatio) / 0.6)
+cWyckoff  = phaseBase * phaseConf
+
+// ----------------------------------------------------------- composite -------
+wTotal = wVolume + wRange + wObv + wRelative + wWyckoff
+scoreRaw = wTotal > 0 ?
+     (wVolume * cVolume + wRange * cRange + wObv * cObv +
+      wRelative * cRelative + wWyckoff * cWyckoff) / wTotal : 0.0
+score = math.max(0.0, math.min(100.0, scoreRaw * 100.0))
+
+// ------------------------------------------------------------- plotting -----
+scoreColour = score >= strongLevel ? color.new(color.lime, 0) :
+              score >= signalLevel ? color.new(color.teal, 0) :
+              score >= 50          ? color.new(color.orange, 0) :
+                                     color.new(color.gray, 30)
+
+plot(score, "Accumulation score", color=scoreColour, linewidth=2)
+hline(signalLevel, "Signal", color=color.new(color.teal, 50), linestyle=hline.style_dashed)
+hline(strongLevel, "Strong", color=color.new(color.lime, 50), linestyle=hline.style_dashed)
+hline(50, "Watch", color=color.new(color.gray, 70), linestyle=hline.style_dotted)
+
+phaseColour = phase == "C" ? color.new(color.lime, 88) :
+              phase == "D" ? color.new(color.green, 90) :
+              phase == "B" ? color.new(color.blue, 92) :
+              phase == "E" ? color.new(color.red, 93) :
+              phase == "A" ? color.new(color.orange, 93) : na
+bgcolor(showPhase ? phaseColour : na, title="Wyckoff phase")
+
+plotshape(spring, "Spring",          style=shape.triangleup,   location=location.bottom,
+          color=color.lime,   size=size.tiny)
+plotshape(sos,    "Sign of strength", style=shape.triangleup,  location=location.bottom,
+          color=color.green,  size=size.tiny)
+plotshape(climax, "Selling climax",  style=shape.triangledown, location=location.top,
+          color=color.orange, size=size.tiny)
+
+// ---------------------------------------------------------------- table -----
+var table info = table.new(position.top_right, 2, 8, border_width=1)
+if barstate.islast
+    table.cell(info, 0, 0, "Score",        text_color=color.white, bgcolor=color.new(color.black, 20))
+    table.cell(info, 1, 0, str.tostring(score, "#.0"), text_color=color.white,
+               bgcolor=color.new(scoreColour, 40))
+    table.cell(info, 0, 1, "Phase",        text_color=color.silver)
+    table.cell(info, 1, 1, phase,          text_color=color.silver)
+    table.cell(info, 0, 2, "Vol ratio",    text_color=color.silver)
+    table.cell(info, 1, 2, str.tostring(volRatio, "#.00"), text_color=color.silver)
+    table.cell(info, 0, 3, "Compression",  text_color=color.silver)
+    table.cell(info, 1, 3, str.tostring(compression, "#.00"), text_color=color.silver)
+    table.cell(info, 0, 4, "OBV div",      text_color=color.silver)
+    table.cell(info, 1, 4, str.tostring(obvDiv * 1000, "#.00"), text_color=color.silver)
+    table.cell(info, 0, 5, "Rel strength", text_color=color.silver)
+    table.cell(info, 1, 5, str.tostring(relStrength * 100, "#.0") + "%", text_color=color.silver)
+    table.cell(info, 0, 6, "Range pos",    text_color=color.silver)
+    table.cell(info, 1, 6, str.tostring((close - rangeLow) / math.max(rangeHigh - rangeLow, 1e-9) * 100, "#") + "%",
+               text_color=color.silver)
+    table.cell(info, 0, 7, "PRICE ONLY",   text_color=color.yellow)
+    table.cell(info, 1, 7, "no broker data", text_color=color.yellow)
+
+alertcondition(ta.crossover(score, signalLevel), "Accumulation signal",
+               "IDX accumulation score crossed above the signal threshold")
+alertcondition(ta.crossover(score, strongLevel), "Strong accumulation",
+               "IDX accumulation score crossed above the strong threshold")
+alertcondition(spring, "Wyckoff spring", "Possible Wyckoff spring detected")
+alertcondition(sos,    "Sign of strength", "Wyckoff sign of strength detected")
