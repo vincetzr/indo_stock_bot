@@ -24,7 +24,7 @@ PYTHONPATH=src python3 -m idxbot.cli dashboard --universe lq45
 | Tick / lot / ARA-ARB / fee mechanics | ✅ unit tested against IDX rules |
 | Score has no look-ahead | ✅ explicitly tested — scoring bar *i* is unchanged by appending future bars |
 | `accumulation` profile predicts forward returns | ❌ **REFUTED — inverted. See below.** |
-| `momentum` profile predicts forward returns | ✅ **Holds out-of-sample** (60d IC +0.046, t=4.92) |
+| `momentum` profile predicts forward returns | ⚠️ **Holds, but most of the apparent edge was survivorship** — see below |
 | **How J.P. Morgan / UBS / CLSA actually trade** | ❌ **not verified — no real broker-summary data was obtainable** |
 
 ### Two results on 55,699 real observations (66 tickers, 2001–2026)
@@ -48,6 +48,17 @@ or negative — worst `volume_dryup` (t = −6.35). Wyckoff phase E, which the p
 quintile beat bottom by **+5.16% over 60 days (t = 5.90)**; a long-only top-10
 basket beat the equal-weight universe by **+4.67% per period (t = 2.32)** with a
 smaller drawdown (−16.9% vs −32.2% for IHSG).
+
+### ⚠️ Survivorship audit cut these numbers by ~4x
+
+Restricting to names already liquid at the *start* of the holdout (established
+before any measured return happened) collapses CAGR from **35.5% to 8.9%** —
+against IHSG's 4.1%. 49% of picks were names promoted into an index *later*, and
+those returned +15.7% per 60 days vs +4.1% for established names. A separate
+liquidity audit found trades in names with Rp26 juta/day turnover that could
+never have been filled. Both are documented in `docs/FINDINGS.md` §5.
+
+**Treat the honest expectation as high-single-digit CAGR, not 35–40%.**
 
 **But: only 6 of 10 holdout years were positive** (2024: −6.65%), and **~8 points
 of the headline CAGR is survivorship bias**, not skill — the equal-weight universe

@@ -193,6 +193,98 @@ settled result.
 
 ---
 
+## Result 5 — most of the edge was survivorship bias (the decisive test)
+
+Two audits, prompted by an implausible number, materially cut every figure above.
+
+### 5a. Phantom trades: the liquidity cheat
+
+The 2020 backtest showed **+441%** for a 3-name basket. Auditing rather than
+accepting it: the basket held ARTO at 418 -> 1078 -> 2239. The prices are real
+(Bank Jago genuinely ran ~35x). But ARTO's median turnover at the March 2020
+signal was **Rp26 juta/day, with zero-volume sessions**. A Rp10jt position would
+have been ~40% of a day's volume. **Unfillable.** The tradeability filter existed
+but ran only in the live screener, never in the backtest.
+
+Applying a point-in-time liquidity floor (trailing 20-day median turnover >=
+Rp5bn, known at each date):
+
+| | Before | After |
+|---|---|---|
+| median per 60d | 9.14% | **7.22%** |
+| mean | 14.86% | **9.41%** |
+| P(>+5%) | 65.8% | **55.3%** |
+| 2020 annual | +441% | **+130%** |
+
+### 5b. Survivorship: the universe itself is the problem
+
+The universe is built from **today's** index constituents. Names are present
+*because* they later became large enough to be included. Control for it by
+restricting to names that were already liquid at the *start* of the holdout —
+established in early 2017, before any measured return happened:
+
+| Universe | Names | Median 60d | P(>+5%) | CAGR | maxDD |
+|---|---|---|---|---|---|
+| all 66 (today's members) | 66 | 7.22% | 55.3% | **35.5%** | −45.9% |
+| already >=Rp5bn/day in 2017 | 41 | 2.84% | 44.7% | **8.9%** | −46.1% |
+| already >=Rp20bn/day in 2017 | 26 | 0.64% | 39.5% | **1.6%** | −50.8% |
+
+**CAGR collapses from 35.5% to 8.9%.** The mechanism is explicit: 49% of all
+picks were names *not* established in 2017, and those returned **+15.7% mean per
+60 days versus +4.1%** for the established ones. INKP, BRIS, ENRG, SRTG, ESSA and
+similar names are in the ticker list because they were later promoted into an
+index. A screener running in 2017 would not have had most of them.
+
+**Honest bottom line: roughly high-single-digit CAGR on a survivorship-controlled
+universe, against IHSG's 4.1% over the same period.** A real but modest edge -
+not the 35-40% reported earlier in this document, and not enough to support any
+claim of ">50% a year".
+
+Part of the drop comes from having fewer names to rank across (41 and 26 are
+small pools), so 8.9% is a floor rather than a point estimate. Properly fixing
+this needs a point-in-time constituent list including delisted names, which no
+free source provides.
+
+## Result 6 — the regime gate is the most robust thing here
+
+Entering with IHSG above its 200-day average: median **+11.7%** per 60 days,
+66.7% of periods cleared +5% (n=24). Below it: **+0.2%** and 35.7% (n=14).
+Strategy correlation with the index's own next-60-day return is **0.60** - this is
+substantially a levered directional bet, which is how momentum behaves everywhere.
+
+Robustness across the parameter, which is what separates a finding from a fit:
+
+| Gate | CAGR | maxDD | % in market |
+|---|---|---|---|
+| none | 35.5% | −45.9% | 100% |
+| IHSG > 50d MA | 27.0% | −43.8% | 66% |
+| IHSG > 100d MA | 34.2% | **−10.3%** | 53% |
+| IHSG > 150d MA | 36.7% | **−10.3%** | 61% |
+| IHSG > 200d MA | 40.4% | **−10.3%** | 63% |
+| IHSG > 250d MA | 33.1% | −31.5% | 71% |
+| IHSG 60d return > 0 | 38.0% | −17.1% | 53% |
+
+**The drawdown benefit is robust across 100-200 days** (all −10.3%, a ~4x
+reduction) and several independent formulations agree. The CAGR peak at exactly
+200d is noise - do not read it as optimal. Use ~150d as a middle choice.
+
+## Result 7 — per-name technicals do not discriminate
+
+Comparing winners (>+5% at 60 days) against losers on every score component,
+liquid picks only:
+
+| Feature | Winners | Losers | Gap |
+|---|---|---|---|
+| momentum | 0.526 | 0.530 | −0.004 |
+| trend_persistence | 0.481 | 0.478 | +0.002 |
+| near_high | 0.352 | 0.365 | −0.013 |
+| obv_divergence | 0.500 | 0.482 | +0.018 |
+| volume_dryup | 0.423 | 0.440 | −0.017 |
+
+Every gap is under 0.02. At the individual-stock level these indicators carry
+**no** discriminating power. Whatever edge exists is cross-sectional ranking plus
+regime - not "this chart looks good".
+
 ## What this does and does not establish
 
 **Does:**
