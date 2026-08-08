@@ -80,8 +80,10 @@ class Engine:
         broker_provider: Optional[ChainedBrokerSummary] = None,
         provider_names: Optional[List[str]] = None,
         verbose: bool = True,
+        profile: Optional[str] = None,
     ):
         self.cfg = cfg or load_config()
+        self.profile = profile
         self.ohlcv = YahooOHLCV(self.cfg)
         self.verbose = verbose
         self._provider_names = provider_names
@@ -164,6 +166,7 @@ class Engine:
         signal = accumulation.score(
             enriched, self.cfg, flow=flow if not flow.empty else None,
             ticker=key, data_source=source, data_is_real=is_real,
+            profile=self.profile,
         )
 
         analysis = TickerAnalysis(

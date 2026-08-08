@@ -63,17 +63,63 @@ accumulation:
   short_lookback: 20
   atr_period: 14
   volume_ma: 20
-  # Composite score weights. Must be positive; they are normalised internally.
+  # Which weight profile the engine uses by default. Override with --profile.
+  #
+  # IMPORTANT: cross-sectional testing on 56,745 real observations (2001-2026)
+  # found the `accumulation` profile has a NEGATIVE information coefficient on
+  # IDX - every contrarian component individually hurt, and only relative
+  # strength helped. The `momentum` profile was built from that diagnosis using
+  # the training half only, and evaluated on an untouched holdout. See
+  # docs/FINDINGS.md before choosing.
+  default_profile: "momentum"
+
+  profiles:
+    # The original contrarian hypothesis: find quiet bases where a large
+    # operator is absorbing supply. REFUTED on price-only data; retained because
+    # the broker-flow components remain untested and are the real thesis.
+    accumulation:
+      inventory_zscore: 0.22           # bulge-desk inventory build vs history
+      stealth: 0.18                    # buying without moving price
+      concentration: 0.12              # few brokers taking most of the supply
+      smart_dumb_divergence: 0.14      # institutions buy while retail sells
+      volume_dryup: 0.08               # supply exhaustion in the base
+      range_compression: 0.08          # coiling / narrowing range
+      obv_divergence: 0.10             # accumulation visible in volume flow
+      relative_strength: 0.08          # outperforming IHSG during the base
+      wyckoff: 0.15                    # phase structure (spring / sign of strength)
+
+    # Trend-following. Component selection was made on the 2001-2017 training
+    # half only; weights are deliberately coarse and equal-ish rather than
+    # fitted, because fitting five weights on one market is how you manufacture
+    # a backtest that does not survive contact with the future.
+    momentum:
+      momentum: 0.30                   # 12-1 month return, the classic factor
+      relative_strength: 0.25          # vs IHSG - the only component that
+                                       # tested positive in the original score
+      trend_persistence: 0.25          # share of days held above the 50d MA
+      near_high: 0.20                  # proximity to the 52-week high
+
+    # Momentum confirmed by institutional flow. Only meaningful with REAL broker
+    # summary connected; untested, and listed as the experiment worth running.
+    momentum_plus_flow:
+      momentum: 0.22
+      relative_strength: 0.18
+      trend_persistence: 0.15
+      near_high: 0.10
+      inventory_zscore: 0.20
+      smart_dumb_divergence: 0.15
+
+  # Legacy flat weights, kept so older configs keep working.
   weights:
-    inventory_zscore: 0.22             # bulge-desk inventory build vs history
-    stealth: 0.18                      # buying without moving price
-    concentration: 0.12                # few brokers taking most of the supply
-    smart_dumb_divergence: 0.14        # institutions buy while retail sells
-    volume_dryup: 0.08                 # supply exhaustion in the base
-    range_compression: 0.08            # coiling / narrowing range
-    obv_divergence: 0.10               # accumulation visible in volume flow
-    relative_strength: 0.08            # outperforming IHSG during the base
-    wyckoff: 0.15                      # phase structure (spring / sign of strength)
+    inventory_zscore: 0.22
+    stealth: 0.18
+    concentration: 0.12
+    smart_dumb_divergence: 0.14
+    volume_dryup: 0.08
+    range_compression: 0.08
+    obv_divergence: 0.10
+    relative_strength: 0.08
+    wyckoff: 0.15
   # Screener emits a signal at or above this score.
   signal_threshold: 65
   strong_threshold: 78

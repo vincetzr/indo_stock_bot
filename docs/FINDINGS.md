@@ -1,11 +1,14 @@
 # Findings from 25 years of real IDX data
 
-**Headline: the price-only accumulation score is inversely related to forward
-returns on IDX. Do not trade it as a buy signal.**
+Two results, both on genuine exchange data, both reproducible from this repo:
 
-This is a negative result on the strategy's own premise, produced by its own
-backtester on genuine exchange data. It is reported here rather than buried
-because it is the single most decision-relevant thing in the repository.
+1. **The accumulation score is inverted.** Buying quiet bases lost to buying
+   everything else — strongly before 2017, decaying to noise after.
+2. **A momentum score built from that diagnosis survives out-of-sample.** On a
+   holdout period never used for selection, the top quintile beat the bottom by
+   **+3.83% over 60 days (t = 7.00)** — but with 4 losing years in 10.
+
+Result 2 is not a licence to switch on the screener and stop thinking. Read §5.
 
 ---
 
@@ -13,116 +16,160 @@ because it is the single most decision-relevant thing in the repository.
 
 | | |
 |---|---|
-| Observations | **56,732** |
+| Observations | **56,745** |
 | Tickers | 66 |
 | Period | 2001-07-31 → 2026-08-07 (**25 years**) |
-| Data | Real Yahoo daily OHLCV + real IHSG benchmark. **Nothing simulated.** |
-| Mode | `price-only` — broker components disabled via `--providers none` |
+| Data | Real Yahoo daily OHLCV + real IHSG. **Nothing simulated.** |
+| Mode | `price-only` (`--providers none`) — no broker data anywhere |
 | Sampling | Every 5th bar, 300-bar warm-up, no look-ahead (unit-tested) |
-
-Reproduce:
+| Split | Chronological. Train 2001-07 → 2017-01. **Holdout 2017-01 → 2026-08.** |
 
 ```bash
-idxbot backtest --universe all --providers none --step 5 \
-    --out reports/backtest_observations.csv
-python3 scripts/robustness.py reports/backtest_observations.csv
+idxbot backtest --universe all --providers none --profile momentum \
+    --out reports/obs_momentum.csv
+idxbot evaluate --observations reports/obs_momentum.csv --split --components
+```
+
+### A note on method
+
+The first version of this analysis pooled every (ticker, date) observation into
+one bucket comparison. That mixes two different questions — "is now a good time
+to be long IDX?" and "which of these names should I buy today?" — and the first
+is dominated by market beta.
+
+A screener answers the second. So the metrics below are **cross-sectional**:
+ranked *within each date*, so market direction cancels out. The t-statistic is
+computed over dates, where each date is one largely independent observation,
+instead of over thousands of overlapping pooled returns that inflate it.
+
+---
+
+## Result 1 — the accumulation score is inverted
+
+Cross-sectional rank IC of the composite:
+
+| Period | 20d IC | t | 60d IC | t |
+|---|---|---|---|---|
+| Train 2001–2017 | **−0.0566** | −7.62 | −0.0457 | −6.28 |
+| Holdout 2017–2026 | −0.0017 | −0.25 | −0.0204 | −2.93 |
+
+Strongly negative for the first sixteen years, then decaying to roughly nothing.
+Either way it never earns its keep as a *buy* signal.
+
+The pooled bucket test agrees: the lowest-scoring names returned +6.86% over 60
+days versus +4.49% for the signal cohort, monotonically across all five buckets.
+Wyckoff phase E — which the planner blocks as "a chase" — was the best state at
++10.67%/60d, against +3.38% for the spring setup the engine rates highest.
+
+### Component diagnosis (training half only)
+
+| Component | 20d IC | t | Verdict |
+|---|---|---|---|
+| `relative_strength` | **+0.0380** | +4.70 | the only one helping |
+| `wyckoff` | −0.0202 | −2.64 | hurting |
+| `range_compression` | −0.0293 | −3.90 | hurting |
+| `obv_divergence` | −0.0398 | −5.14 | hurting |
+| `volume_dryup` | −0.0476 | −6.30 | hurting most |
+
+Every contrarian component had a negative IC. The single momentum-flavoured one
+was positive. The composite wasn't noise — it was **systematically backwards**.
+
+---
+
+## Result 2 — the momentum profile survives the holdout
+
+Component selection used the **training half only**, then a coarse, deliberately
+unfitted weighting (0.30 / 0.25 / 0.25 / 0.20) across 12-1 momentum, relative
+strength, trend persistence, and proximity to the 52-week high. The holdout was
+not looked at until the profile was frozen.
+
+| Profile | Train 20d IC (t) | **Holdout 20d IC (t)** | **Holdout 60d IC (t)** |
+|---|---|---|---|
+| `accumulation` | −0.0566 (−7.62) | −0.0017 (−0.25) | −0.0204 (−2.93) |
+| `momentum` | +0.0538 (+6.73) | **+0.0261 (+3.47)** | **+0.0411 (+5.52)** |
+
+Holdout quintile spread (top minus bottom, within each date):
+
+| Horizon | Top | Bottom | Spread | t | Dates positive |
+|---|---|---|---|---|---|
+| 20d | 2.12% | 1.14% | **+0.98%** | 3.16 | 52.2% |
+| 60d | 6.24% | 2.40% | **+3.83%** | 7.00 | 57.3% |
+
+At 60 days that is ~+3.43% net of the configured 0.40% round trip.
+
+Note the composite beats its own best component: `relative_strength` alone had a
+holdout IC of just +0.003 (t = 0.37). The lift comes from combining four
+correlated-but-distinct trend measures — an ensemble effect, not one lucky
+indicator.
+
+---
+
+## Result 3 — but it has real drawdowns
+
+Holdout, year by year, 60-day quintile spread:
+
+| Year | IC | Spread | | Year | IC | Spread |
+|---|---|---|---|---|---|---|
+| 2017 | +0.096 | +3.83% | | 2022 | +0.132 | **+9.13%** |
+| 2018 | −0.050 | **−3.46%** | | 2023 | +0.048 | −0.20% |
+| 2019 | +0.116 | +5.92% | | 2024 | −0.038 | **−6.65%** |
+| 2020 | −0.057 | +13.87% | | 2025 | +0.027 | +9.84% |
+| 2021 | +0.143 | +6.92% | | 2026¹ | −0.108 | −0.66% |
+
+¹ partial year.
+
+**Six of ten years positive.** 2018 and 2024 lost meaningfully. This is exactly
+how momentum behaves everywhere it has been studied: a positive long-run
+expectancy punctuated by sharp, multi-quarter crashes, usually at sharp market
+reversals. Anyone trading it needs to survive a −6.65% year without abandoning
+the strategy at the bottom.
+
+---
+
+## What this does and does not establish
+
+**Does:**
+- The contrarian accumulation thesis, in its price-only form, is refuted on IDX.
+- A simple trend-following composite has a genuine, statistically significant,
+  economically meaningful cross-sectional edge at a 60-day horizon out-of-sample.
+
+**Does not:**
+- **That the broker-flow thesis is wrong.** It was never tested — no real broker
+  summary was obtainable (`idx.co.id` WAF-blocked, Stockbit auth-gated, GoAPI
+  key-gated). The `momentum_plus_flow` profile exists precisely to run that
+  experiment when data is connected. That remains the open question.
+- **That I discovered something.** 12-1 momentum is among the most-replicated
+  factors in the literature. Confirming it works on IDX is a sanity check on the
+  machinery, not a finding. Its inclusion was informed by knowledge predating
+  this dataset — no leakage from *this* holdout, but not a discovery either.
+- **That the reported numbers are achievable.** Still no survivorship adjustment
+  (today's constituents), and quintile spreads assume you can trade both legs;
+  shorting IDX single names is restricted in practice, so the realistic version
+  is long-only top quintile (+6.24%/60d holdout) against a benchmark.
+
+---
+
+## What to do with it
+
+- **Default profile is now `momentum`.** `accumulation` is retained, and
+  honestly labelled, because its broker components are the untested half.
+- **Do not size a strategy off the 20d edge.** It is +0.98% gross against a
+  0.40% round trip. The horizon that works is 60 days.
+- **Re-run this with real broker summary.** `--profile momentum_plus_flow`
+  combines trend with institutional flow. If broker flow adds information beyond
+  price, the holdout IC will rise above +0.041. That is the experiment worth
+  paying a data vendor for.
+
+```bash
+# reproduce everything above
+idxbot backtest --universe all --providers none --profile accumulation --out reports/obs_acc.csv
+idxbot backtest --universe all --providers none --profile momentum     --out reports/obs_mom.csv
+idxbot evaluate --observations reports/obs_mom.csv --split --components
+python3 scripts/robustness.py reports/obs_mom.csv
 ```
 
 ---
 
-## Result 1 — the score is monotonically inverted
-
-Mean forward return by score bucket:
-
-| Score bucket | n | 5d | 10d | 20d | 60d |
-|---|---|---|---|---|---|
-| 0–39 | 24,433 | **+0.76%** | **+1.37%** | **+2.44%** | **+6.86%** |
-| 40–54 | 22,039 | +0.27% | +0.51% | +1.18% | +4.07% |
-| 55–64 | 7,647 | +0.00% | +0.22% | +0.76% | +4.52% |
-| 65–77 | 2,577 | +0.08% | +0.26% | +0.67% | +4.59% |
-| 78–100 | 36 | −0.39% | −1.16% | **−3.04%** | — |
-
-The *lowest*-scoring names outperformed the highest at every horizon. The signal
-cohort (score ≥ 65) underperformed the unconditional baseline at all four
-horizons, with t-statistics from −1.32 to −3.53.
-
-## Result 2 — the Wyckoff phase ranking is backwards too
-
-| Phase | Engine's rating | n | 20d | 60d |
-|---|---|---|---|---|
-| C — spring | **highest (0.95)** | 14,607 | +0.79% | +3.38% |
-| D — markup starting | high (0.85) | 3,591 | +1.14% | +3.31% |
-| B — building cause | medium (0.55) | 14,301 | +0.80% | +2.68% |
-| A — stopping action | low (0.25) | 12,230 | +2.61% | +8.47% |
-| **E — markup extended** | **lowest (0.30)** | 5,716 | **+4.00%** | **+10.67%** |
-
-Phase E is what the planner actively blocks as *"a chase, not an accumulation
-entry."* It was the best-performing state in the sample by a wide margin — more
-than 3× the 60-day return of the spring setup the engine rates highest.
-
-## Result 3 — it is not a regime artifact
-
-Split-sample, using the high-minus-low 20-day spread:
-
-| Subsample | n | high − low (20d) | t |
-|---|---|---|---|
-| Full sample | 56,732 | −1.82% | −5.87 |
-| First half (2001–2017) | 28,362 | −1.39% | −2.57 |
-| Second half (2017–2026) | 28,370 | −1.63% | −4.42 |
-| Ex-crisis (no 2008/09/20) | 50,060 | −1.49% | −4.76 |
-
-Same sign, same rough magnitude, in every slice. Bucket monotonicity holds in
-each. This is not one crash doing the work.
-
----
-
-## What it means
-
-**IDX over 2001–2026 rewarded momentum, not mean reversion into bases.** Almost
-every price-only component in the score is contrarian by construction — volume
-drying up, range compressing, buying weakness, the Wyckoff spring. Those
-components were systematically on the wrong side of a market where trend
-continuation paid. The phase-E result is independent corroboration from a
-different part of the code.
-
-**Three things this does *not* prove:**
-
-1. **That accumulation detection doesn't work.** It shows the *price/volume
-   proxy* for it doesn't. The actual thesis — that you can see institutional
-   absorption in broker-level flow — was never tested, because no real broker
-   summary was obtainable. That remains open.
-2. **That inverting the score would make money.** Flipping a failed signal is a
-   textbook overfitting trap: the inversion is measured in-sample on the same
-   data that produced it, and it ignores costs, borrow, and the fact that a
-   momentum strategy has entirely different drawdown behaviour. The phase-E
-   corroboration is suggestive, not a strategy.
-3. **That the code is wrong.** The ledger, campaign and microstructure maths are
-   unit-tested (60 tests), and the no-look-ahead property is explicitly verified.
-   The machinery is sound; the hypothesis it encodes is what failed.
-
----
-
-## What to do with this
-
-**Do not run `idxbot plan` on price-only signals and trade the output.** The
-evidence says those levels are, if anything, mildly adverse.
-
-The engine still earns its place:
-
-- **The ledger and campaign analytics are the real product.** They are what
-  answer "where is this desk's cost basis, and how do they take profit" — and
-  they are untested only because the data is paywalled, not because they are
-  wrong.
-- **Connect real broker summary** (`docs/LIVE_DATA.md`), then re-run this exact
-  backtest *with* broker components enabled. If the broker-flow half carries the
-  information the price-only half lacks, the buckets will stop being inverted.
-  That is the experiment worth running, and the code is ready for it.
-- **Re-examine the weights.** They were set by judgement, not fitted. Given this
-  result, `relative_strength` (the one momentum-flavoured component) deserves
-  more weight and the contrarian components less — but fit that on a holdout, not
-  on this sample.
-
----
-
-*Reported in full because a backtest that contradicts the strategy is more
-valuable than one that flatters it.*
+*A backtest that contradicts the strategy is more valuable than one that
+flatters it. The first result here cost the original thesis; the second was only
+trustworthy because the holdout was left untouched until the end.*

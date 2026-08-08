@@ -68,6 +68,7 @@ def run(
             analysis.bars, cfg,
             flow=analysis.flow if not analysis.flow.empty else None,
             ticker=ticker, start_index=start_index, step=step,
+            profile=engine.profile,
         )
         if scored.empty:
             if verbose:

@@ -71,6 +71,7 @@ class AccumulationSignal:
     bulge_net_60d: float = 0.0
     atr_pct: float = np.nan
     range_pos: float = np.nan
+    profile: str = "accumulation"
 
     @property
     def level(self) -> str:
@@ -90,6 +91,7 @@ class AccumulationSignal:
             "score": round(self.score, 1),
             "level": self.level,
             "data_mode": self.data_mode,
+            "profile": self.profile,
             "data_source": self.data_source,
             "data_is_real": self.data_is_real,
             "top_buyer": self.top_buyer,
@@ -123,31 +125,52 @@ def compute_components(
     lookback = int(cfg.get("accumulation.lookback", 60))
     row = bars.iloc[index]
     components: Dict[str, float] = {}
-    flags: List[str] = []
+    flags: List[tuple] = []
     extras: Dict[str, float] = {}
 
     # ---- price / volume components (always available) ---------------------
     vol_ratio = row.get("vol_ratio", np.nan)
     components["volume_dryup"] = _clamp01((1.15 - vol_ratio) / 0.5) if np.isfinite(vol_ratio) else 0.0
     if np.isfinite(vol_ratio) and vol_ratio < 0.75:
-        flags.append(f"volume dried up to {vol_ratio:.0%} of its norm")
+        flags.append(("volume_dryup", f"volume dried up to {vol_ratio:.0%} of its norm"))
 
     compression = row.get("range_compression", np.nan)
     components["range_compression"] = (
         _clamp01((1.10 - compression) / 0.5) if np.isfinite(compression) else 0.0
     )
     if np.isfinite(compression) and compression < 0.7:
-        flags.append(f"range compressed to {compression:.0%} of normal")
+        flags.append(("range_compression", f"range compressed to {compression:.0%} of normal"))
 
     obv_div = row.get("obv_divergence", np.nan)
     components["obv_divergence"] = sigmoid(obv_div, scale=0.004)
     if np.isfinite(obv_div) and obv_div > 0.004:
-        flags.append("volume flow rising faster than price (absorption)")
+        flags.append(("obv_divergence", "volume flow rising faster than price (absorption)"))
 
     rel = row.get("rel_strength", np.nan)
     components["relative_strength"] = sigmoid(rel, scale=0.08)
     if np.isfinite(rel) and rel > 0.05:
-        flags.append(f"outperforming IHSG by {rel:.0%} over {lookback}d")
+        flags.append(("relative_strength", f"outperforming IHSG by {rel:.0%} over {lookback}d"))
+
+    # ---- momentum family --------------------------------------------------
+    # These are trend-following by construction and pull in the opposite
+    # direction to the accumulation components above. Which family the score
+    # actually uses is decided by the weight profile, not by this function.
+    mom = row.get("mom_12_1", np.nan)
+    components["momentum"] = sigmoid(mom, scale=0.25)
+    if np.isfinite(mom) and mom > 0.20:
+        flags.append(("momentum", f"12-1 momentum {mom:+.0%}"))
+
+    persistence = row.get("trend_persistence", np.nan)
+    components["trend_persistence"] = _clamp01(persistence)
+    if np.isfinite(persistence) and persistence > 0.75:
+        flags.append(("trend_persistence", f"held above its 50d average {persistence:.0%} of the "
+                      f"last {lookback * 2} sessions"))
+
+    from_high = row.get("dist_from_high", np.nan)
+    # 0 at the 52-week high, falling away below it.
+    components["near_high"] = _clamp01(1.0 + from_high / 0.30) if np.isfinite(from_high) else 0.0
+    if np.isfinite(from_high) and from_high > -0.05:
+        flags.append(("near_high", "within 5% of its 52-week high"))
 
     extras["atr_pct"] = float(row.get("atr_pct", np.nan))
     extras["range_pos"] = float(row.get("range_pos_120", np.nan))
@@ -171,7 +194,7 @@ def compute_components(
                 z = 0.0
             components["inventory_zscore"] = sigmoid(z, scale=1.2)
             if z > 1.5:
-                flags.append(f"bulge-desk inventory build {z:+.1f} sigma vs its own history")
+                flags.append(("inventory_zscore", f"bulge-desk inventory build {z:+.1f} sigma vs its own history"))
 
             inst_share = (
                 float(window["inst_net_val"].sum()) / gross if gross > 0 else 0.0
@@ -182,15 +205,16 @@ def compute_components(
             stealth_penalty = 1.0 - _clamp01(price_change / 0.15)
             components["stealth"] = _clamp01(inst_share * 4.0) * stealth_penalty
             if inst_share > 0.05 and price_change < 0.08:
-                flags.append(
+                flags.append((
+                    "stealth",
                     f"institutions took {inst_share:.1%} of gross value while price moved "
-                    f"only {price_change:.1%}"
-                )
+                    f"only {price_change:.1%}",
+                ))
 
             top5 = float(window["top5_buyer_share"].mean())
             components["concentration"] = _clamp01((top5 - 0.40) / 0.40)
             if top5 > 0.65:
-                flags.append(f"top-5 buyers absorbed {top5:.0%} of net buying")
+                flags.append(("concentration", f"top-5 buyers absorbed {top5:.0%} of net buying"))
 
             recent = window.tail(max(5, lookback // 6))
             leader = recent["top_buyer"].mode()
@@ -200,9 +224,31 @@ def compute_components(
             smart_dumb = float(window["smart_dumb_pct"].mean())
             components["smart_dumb_divergence"] = sigmoid(smart_dumb, scale=0.05)
             if smart_dumb > 0.04:
-                flags.append("institutions absorbing while retail distributes")
+                flags.append(("smart_dumb_divergence", "institutions absorbing while retail distributes"))
 
     return components, flags, extras
+
+
+def resolve_weights(cfg: Config, profile: Optional[str] = None) -> Dict[str, float]:
+    """Return the weight set for ``profile``.
+
+    Profiles let the same engine express different hypotheses. ``accumulation``
+    is the original contrarian thesis; ``momentum`` is the trend-following one
+    that cross-sectional testing selected. Falling back to the flat
+    ``accumulation.weights`` block keeps older configs working.
+    """
+    profile = profile or str(cfg.get("accumulation.default_profile", "accumulation"))
+    profiles = cfg.get("accumulation.profiles", {}) or {}
+    if profile in profiles:
+        return dict(profiles[profile] or {})
+
+    flat = dict(cfg.get("accumulation.weights", {}) or {})
+    if flat:
+        flat.setdefault("wyckoff", 0.15)
+        return flat
+    raise KeyError(
+        f"Unknown weight profile {profile!r}. Available: {sorted(profiles)}"
+    )
 
 
 def score(
@@ -213,11 +259,14 @@ def score(
     ticker: str = "",
     data_source: str = "none",
     data_is_real: bool = False,
+    profile: Optional[str] = None,
 ) -> AccumulationSignal:
     """Score one ticker at one point in time.
 
     ``bars`` must already carry indicator columns (see ``indicators.enrich``).
     Only rows up to ``index`` are consulted, so this is backtest-safe.
+
+    ``profile`` selects a weight set from ``accumulation.profiles`` in config.
     """
     if bars is None or bars.empty:
         return AccumulationSignal(ticker=ticker, date=pd.NaT, close=np.nan, score=0.0)
@@ -231,12 +280,17 @@ def score(
     state = wyckoff.classify(bars.iloc[:i + 1], lookback=int(cfg.get("accumulation.lookback", 60)) + 30)
     components["wyckoff"] = wyckoff.phase_score(state)
     if state.phase in ("C", "D"):
-        flags.append(f"Wyckoff phase {state.phase}: {state.meaning.split(' - ')[0]}")
+        flags.append(("wyckoff", f"Wyckoff phase {state.phase}: {state.meaning.split(' - ')[0]}"))
 
-    configured = dict(cfg.get("accumulation.weights", {}) or {})
-    configured.setdefault("wyckoff", 0.15)
+    configured = resolve_weights(cfg, profile)
     available = set(components)
     weights = _normalise_weights(configured, available)
+
+    # Only surface evidence for components the active profile actually uses.
+    # A flag from a zero-weight component reads as support for the score while
+    # contributing nothing to it - actively misleading under a profile that
+    # deliberately excludes that family.
+    visible_flags = [text for component, text in flags if weights.get(component, 0.0) > 0]
 
     total = sum(weights.get(k, 0.0) * components.get(k, 0.0) for k in weights)
     broker_mode = bool(available & BROKER_COMPONENTS)
@@ -249,8 +303,9 @@ def score(
         components=components,
         weights_used=weights,
         wyckoff_state=state,
-        flags=flags,
+        flags=visible_flags,
         data_mode="broker+price" if broker_mode else "price-only",
+        profile=profile or str(cfg.get("accumulation.default_profile", "accumulation")),
         data_source=data_source,
         data_is_real=data_is_real,
         top_buyer=str(extras.get("top_buyer", "")),
@@ -268,28 +323,38 @@ def score_series(
     ticker: str = "",
     start_index: int = 250,
     step: int = 1,
+    include_components: bool = True,
+    profile: Optional[str] = None,
 ) -> pd.DataFrame:
     """Score every ``step``-th bar - the input to the backtester.
 
     Deliberately loops rather than vectorising: the Wyckoff classifier is
     path-dependent and must see a growing window, and correctness matters more
     here than speed.
+
+    ``include_components`` emits each raw component as a ``c_*`` column, which
+    is what lets the analysis tools measure whether an individual component
+    carries any predictive power on its own rather than only in aggregate.
     """
     if bars is None or len(bars) <= start_index:
         return pd.DataFrame()
 
     rows = []
     for i in range(start_index, len(bars), max(1, step)):
-        signal = score(bars, cfg, flow=flow, index=i, ticker=ticker)
-        rows.append({
+        signal = score(bars, cfg, flow=flow, index=i, ticker=ticker, profile=profile)
+        row = {
             "date": signal.date,
             "ticker": signal.ticker or ticker,
             "close": signal.close,
             "score": signal.score,
             "level": signal.level,
             "data_mode": signal.data_mode,
+            "profile": signal.profile,
             "wyckoff_phase": signal.wyckoff_state.phase if signal.wyckoff_state else "none",
-        })
+        }
+        if include_components:
+            row.update({f"c_{k}": v for k, v in signal.components.items()})
+        rows.append(row)
     return pd.DataFrame(rows)
 
 

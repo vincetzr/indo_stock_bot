@@ -138,6 +138,35 @@ def divergence(price: pd.Series, flow: pd.Series, window: int = 60) -> pd.Series
     return flow_slope - price_slope
 
 
+def momentum_12_1(close: pd.Series, long_window: int = 252,
+                  skip: int = 21) -> pd.Series:
+    """Classic 12-month-minus-1-month momentum.
+
+    The most-replicated cross-sectional equity factor there is. The recent month
+    is skipped because short-horizon returns tend to reverse, and including them
+    dilutes the signal.
+    """
+    return close.shift(skip) / close.shift(long_window) - 1.0
+
+
+def trend_persistence(close: pd.Series, ma_window: int = 50,
+                      window: int = 120) -> pd.Series:
+    """Fraction of the last ``window`` bars spent above a moving average.
+
+    A cheap, robust measure of trend *quality* as opposed to trend magnitude: a
+    stock that ground steadily higher scores near 1, while one that reached the
+    same price via a single spike scores far lower.
+    """
+    ma = close.rolling(ma_window, min_periods=ma_window // 2).mean()
+    above = (close > ma).astype(float)
+    return above.rolling(window, min_periods=window // 3).mean()
+
+
+def distance_from_high(close: pd.Series, window: int = 252) -> pd.Series:
+    """Proximity to the trailing high: 0 at the high, negative below it."""
+    return close / close.rolling(window, min_periods=window // 4).max() - 1.0
+
+
 def drawdown(close: pd.Series) -> pd.Series:
     return close / close.cummax() - 1.0
 
@@ -173,6 +202,13 @@ def enrich(df: pd.DataFrame, cfg=None, benchmark: pd.Series | None = None) -> pd
     out["drawdown"] = drawdown(out["close"])
     out["ret_20"] = out["close"].pct_change(short)
     out["ret_60"] = out["close"].pct_change(lookback)
+
+    # Momentum family. Added after cross-sectional testing showed every
+    # contrarian component had a negative information coefficient on IDX while
+    # relative strength was the only positive one - see docs/FINDINGS.md.
+    out["mom_12_1"] = momentum_12_1(out["close"])
+    out["trend_persistence"] = trend_persistence(out["close"], window=lookback * 2)
+    out["dist_from_high"] = distance_from_high(out["close"])
 
     if benchmark is not None and not benchmark.empty:
         aligned = benchmark.reindex(out.index).ffill()

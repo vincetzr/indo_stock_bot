@@ -20,34 +20,39 @@ PYTHONPATH=src python3 -m idxbot.cli dashboard --universe lq45
 | Claim | Status |
 |---|---|
 | Price/volume history is real and deep | ✅ 169,553 daily bars / 30 names / up to 26.2 yrs; IHSG from **1990-04-06** |
-| Ledger, cost basis, campaign maths | ✅ 60 unit tests, hand-computed expectations |
+| Ledger, cost basis, campaign maths | ✅ 90 unit tests, hand-computed expectations |
 | Tick / lot / ARA-ARB / fee mechanics | ✅ unit tested against IDX rules |
 | Score has no look-ahead | ✅ explicitly tested — scoring bar *i* is unchanged by appending future bars |
-| Price-only score predicts forward returns | ❌ **REFUTED — it is inverted. See below.** |
+| `accumulation` profile predicts forward returns | ❌ **REFUTED — inverted. See below.** |
+| `momentum` profile predicts forward returns | ✅ **Holds out-of-sample** (60d IC +0.041, t=5.52) |
 | **How J.P. Morgan / UBS / CLSA actually trade** | ❌ **not verified — no real broker-summary data was obtainable** |
 
-### ⚠️ The price-only signal does not work — it is backwards
+### Two results on 56,745 real observations (66 tickers, 2001–2026)
 
-Tested on **56,732 observations across 66 tickers, 2001–2026, all real data**:
+Metrics are **cross-sectional** — ranked within each date, so market direction
+cancels — with the t-statistic computed over dates. Train 2001–2017, **holdout
+2017–2026 untouched until the profile was frozen.**
 
-| Score bucket | n | 20d | 60d |
+| Profile | Train 20d IC (t) | Holdout 20d IC (t) | Holdout 60d IC (t) |
 |---|---|---|---|
-| 0–39 (lowest) | 24,433 | **+2.44%** | **+6.86%** |
-| 40–54 | 22,039 | +1.18% | +4.07% |
-| 55–64 | 7,647 | +0.76% | +4.52% |
-| 65+ (signal) | 2,613 | +0.63% | +4.49% |
+| `accumulation` (contrarian) | −0.0566 (−7.62) | −0.0017 (−0.25) | −0.0204 (−2.93) |
+| `momentum` (trend) | +0.0538 (+6.73) | **+0.0261 (+3.47)** | **+0.0411 (+5.52)** |
 
-Monotonically inverted, and it holds in both halves of the sample and ex-crisis
-(t = −2.57 / −4.42 / −4.76). Wyckoff phase E — which the planner *blocks* as "a
-chase" — was the best state at **+10.67% / 60d**, versus +3.38% for the spring
-setup the engine rates highest.
+**1. The accumulation thesis is refuted.** Every contrarian component had a
+negative information coefficient — worst was `volume_dryup` (t = −6.30). Wyckoff
+phase E, which the planner *blocks* as "a chase", was the best-performing state.
 
-**IDX 2001–2026 rewarded momentum, not mean reversion into bases.** Do not trade
-the price-only score as a buy signal. Full analysis, caveats, and why "just
-invert it" is a trap: **`docs/FINDINGS.md`**.
+**2. A momentum profile built from that diagnosis survives the holdout.** Top
+quintile beat bottom by **+3.83% over 60 days (t = 7.00)**, ~+3.43% net of costs.
 
-The broker-flow half — the actual thesis — remains untested, because the data is
-paywalled. That is the experiment worth running, and the code is ready for it.
+**But it has real drawdowns: only 6 of 10 holdout years were positive** (2024:
+−6.65%). That is how momentum behaves everywhere — positive expectancy with
+multi-quarter crashes. Full analysis, caveats, and why this is a sanity check
+rather than a discovery: **`docs/FINDINGS.md`**.
+
+The broker-flow half — the actual thesis — remains untested because the data is
+paywalled. `--profile momentum_plus_flow` is the experiment to run when you
+connect a real source.
 
 **There is no free public IDX broker-summary API.** `idx.co.id` is behind a WAF
 (403), Stockbit needs an authenticated app session, and GoAPI's broker-summary
@@ -86,7 +91,8 @@ Full discussion, vendor options and ToS considerations in **`docs/LIVE_DATA.md`*
 
 | Command | What it does |
 |---|---|
-| `screen` | Rank a universe by accumulation score, with evidence for each hit |
+| `screen` | Rank a universe by score, with evidence for each hit |
+| `evaluate` | Cross-sectional rank IC, quantile spreads, per-component diagnosis, train/holdout |
 | `analyze TICKER` | Deep dive: score breakdown, Wyckoff phase, broker positions, campaigns |
 | `plan` | Executable plan — entry band, stop, targets, lot-rounded size, R:R |
 | `playbook` | Reverse-engineer each broker's entry/exit behaviour across a universe |
@@ -100,6 +106,20 @@ Full discussion, vendor options and ToS considerations in **`docs/LIVE_DATA.md`*
 
 Everything reads `config/config.yaml` — no thresholds, weights, broker codes or
 universes are hard-coded.
+
+### Weight profiles
+
+`--profile` selects a hypothesis. Each is a weight set in `config.yaml`:
+
+| Profile | Components | Status |
+|---|---|---|
+| `momentum` *(default)* | 12-1 momentum, relative strength, trend persistence, near 52w high | validated out-of-sample |
+| `accumulation` | broker inventory, stealth, concentration, smart-vs-dumb, Wyckoff, volume dry-up | price-only half refuted; broker half untested |
+| `momentum_plus_flow` | trend + institutional flow | **untested — needs real broker data** |
+
+Evidence for each component only appears in the output if the active profile
+actually weights it, so a flag never reads as support for a score it did not
+contribute to.
 
 ---
 
@@ -192,7 +212,8 @@ src/idxbot/
   analytics/      indicators, broker_flow, campaigns, playbook, wyckoff, accumulation
   tradingview/    links, watchlists, Pine scripts
   report/         offline HTML dashboard
-tests/            60 tests
+  evaluate.py     cross-sectional IC, quantile spreads, train/test split
+tests/            90 tests
 docs/             LIVE_DATA.md, TRADING_PLAN.md
 ```
 

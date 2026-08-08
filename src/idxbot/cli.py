@@ -5,6 +5,7 @@
     idxbot plan        BBCA                     executable trading plan
     idxbot playbook    --universe lq45          reverse-engineer broker behaviour
     idxbot backtest    --universe lq45          does the score predict returns?
+    idxbot evaluate    --split --components     cross-sectional IC, train/holdout
     idxbot dashboard   --universe lq45          offline HTML report
     idxbot live        --file ticks.jsonl       live broker summary from running trade
     idxbot pine        [BBCA]                   Pine Script / plan inputs
@@ -47,12 +48,31 @@ def _resolve_tickers(cfg, args) -> List[str]:
 
 
 def _provenance_notice(engine: Engine, results: Optional[pd.DataFrame] = None) -> None:
-    """Print a loud banner whenever broker flow is simulated."""
-    simulated = True
-    if results is not None and not results.empty and "data_is_real" in results:
-        simulated = not bool(results["data_is_real"].any())
+    """Report where the broker data came from.
+
+    Three distinct states, and conflating them is misleading:
+      * real broker summary      -> no warning
+      * simulated broker flow    -> loud warning, the numbers are fabricated
+      * no broker data at all    -> price-only, an honest absence, not a lie
+    """
+    provenance = engine.data_provenance()
     print()
-    print("  data provenance : " + engine.data_provenance())
+    print("  data provenance : " + provenance)
+
+    price_only = False
+    if results is not None and not results.empty and "data_mode" in results:
+        price_only = bool((results["data_mode"] == "price-only").all())
+
+    simulated = "synthetic" in provenance.lower() and not price_only
+    if results is not None and not results.empty and "data_source" in results:
+        simulated = bool(results["data_source"].astype(str).str.startswith("synthetic").any())
+
+    if price_only and not simulated:
+        print("  note: price-only mode - no broker data, so no institutional")
+        print("        confirmation. Nothing here is simulated.")
+        print()
+        return
+
     if simulated:
         print("  " + "!" * 68)
         print("  ! BROKER FLOW IS SIMULATED. Prices and volumes are real exchange data,")
@@ -77,7 +97,9 @@ def _engine(args) -> Engine:
     providers = None
     if getattr(args, "providers", None):
         providers = [p.strip() for p in args.providers.split(",") if p.strip()]
-    return Engine(cfg, provider_names=providers, verbose=not getattr(args, "quiet", False))
+    return Engine(cfg, provider_names=providers,
+                  verbose=not getattr(args, "quiet", False),
+                  profile=getattr(args, "profile", None))
 
 
 # ---------------------------------------------------------------------------
@@ -301,6 +323,63 @@ def cmd_backtest(args) -> int:
     return 0
 
 
+def cmd_evaluate(args) -> int:
+    """Cross-sectional evaluation of saved backtest observations."""
+    from . import evaluate as ev
+
+    if not os.path.exists(args.observations):
+        print(f"No observations file at {args.observations}.")
+        print("Produce one first:  idxbot backtest --universe all --providers none "
+              "--out reports/obs.csv")
+        return 2
+
+    df = pd.read_csv(args.observations, parse_dates=["date"])
+    horizons = tuple(args.horizons) if args.horizons else (5, 10, 20, 60)
+
+    print("=" * 78)
+    print(" CROSS-SECTIONAL EVALUATION")
+    print("=" * 78)
+    print(f" observations : {len(df):,}")
+    print(f" dates        : {df['date'].nunique():,}")
+    print(f" tickers      : {df['ticker'].nunique()}")
+    print(f" period       : {df['date'].min():%Y-%m-%d} -> {df['date'].max():%Y-%m-%d}")
+    print()
+    print(" A screener is used cross-sectionally: 'of the names in front of me today,")
+    print(" which do I buy?' These metrics rank within each date, so market direction")
+    print(" cancels. The t-statistic is computed over dates - each date is one")
+    print(" largely independent observation, unlike the pooled test in `backtest`.")
+    print()
+
+    print(ev.render_ic(ev.rank_ic(df, args.signal, horizons),
+                       f"RANK IC - {args.signal} (full sample)"))
+    print()
+    print(ev.render_spread(ev.quantile_spread(df, args.signal, horizons, args.quantiles),
+                           f"TOP-MINUS-BOTTOM QUINTILE - {args.signal}"))
+
+    if args.split:
+        train, test = ev.split_sample(df, args.split_fraction)
+        print()
+        print(ev.render_ic(ev.rank_ic(train, args.signal, horizons),
+                           f"RANK IC - TRAIN ({train['date'].min():%Y-%m} to "
+                           f"{train['date'].max():%Y-%m})"))
+        print()
+        print(ev.render_ic(ev.rank_ic(test, args.signal, horizons),
+                           f"RANK IC - HOLDOUT ({test['date'].min():%Y-%m} to "
+                           f"{test['date'].max():%Y-%m})"))
+
+    if args.components:
+        print()
+        scan = ev.component_scan(df, horizons=(args.component_horizon,))
+        print(ev.render_ic(scan, f"COMPONENT RANK IC at {args.component_horizon}d "
+                                 f"(each component judged on its own)"))
+        print()
+        print(" A component with a positive IC helps; a negative one is actively")
+        print(" hurting the composite it is weighted into.")
+        _write_csv(scan, args.out, "component scan")
+
+    return 0
+
+
 def cmd_dashboard(args) -> int:
     engine = _engine(args)
     tickers = _resolve_tickers(engine.cfg, args)
@@ -515,6 +594,8 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("--providers", help="comma-separated broker summary providers "
                                            "(csv, goapi, synthetic)")
         p.add_argument("--quiet", action="store_true")
+        p.add_argument("--profile", help="score weight profile (accumulation, "
+                                         "momentum, momentum_plus_flow)")
         p.add_argument("--out", help="write results to this CSV path")
 
     # screen
@@ -531,6 +612,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("analyze", help="deep dive on one ticker")
     p.add_argument("ticker")
     p.add_argument("--providers")
+    p.add_argument("--profile")
     p.add_argument("--quiet", action="store_true")
     p.add_argument("--out")
     p.add_argument("--campaign-limit", type=int, default=12)
@@ -562,6 +644,21 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--start-index", type=int, default=300,
                    help="skip this many warm-up bars")
     p.set_defaults(func=cmd_backtest)
+
+    # evaluate
+    p = sub.add_parser("evaluate", help="cross-sectional IC / quantile evaluation")
+    p.add_argument("--observations", default="reports/obs_components.csv",
+                   help="CSV produced by `idxbot backtest --out ...`")
+    p.add_argument("--signal", default="score", help="column to evaluate")
+    p.add_argument("--horizons", type=int, nargs="+")
+    p.add_argument("--quantiles", type=int, default=5)
+    p.add_argument("--split", action="store_true", help="also show train/holdout")
+    p.add_argument("--split-fraction", type=float, default=0.5)
+    p.add_argument("--components", action="store_true",
+                   help="rank IC for each component individually")
+    p.add_argument("--component-horizon", type=int, default=20)
+    p.add_argument("--out", help="write the component scan to this CSV")
+    p.set_defaults(func=cmd_evaluate)
 
     # dashboard
     p = sub.add_parser("dashboard", help="render the offline HTML dashboard")
