@@ -3,7 +3,9 @@
     idxbot screen      --universe lq45          rank a universe by accumulation
     idxbot analyze     BBCA                     deep dive on one ticker
     idxbot plan        BBCA                     executable trading plan
-    idxbot playbook    --universe lq45          reverse-engineer broker behaviour
+    idxbot playbook    --universe lq45          per-desk behavioural profile
+    idxbot reverse     --universe lq45          full institutional plan: who leads,
+                                                do they coordinate, when to join
     idxbot backtest    --universe lq45          does the score predict returns?
     idxbot evaluate    --split --components     cross-sectional IC, train/holdout
     idxbot portfolio   --split                  long-only top-N equity curve
@@ -311,6 +313,57 @@ def cmd_playbook(args) -> int:
 
     _write_csv(campaigns, args.out, "campaigns")
     _write_csv(book, args.playbook_out, "playbook")
+    return 0
+
+
+def cmd_plan_reverse(args) -> int:
+    """Reverse-engineer the institutional operating plan from broker flow."""
+    from .analytics import coordination as coord
+
+    engine = _engine(args)
+    tickers = _resolve_tickers(engine.cfg, args)
+    print(f"Reverse-engineering institutional behaviour across {len(tickers)} names...")
+    print("(pooling campaigns - per-ticker samples are far too small)\n")
+
+    summaries, prices, campaign_frames = [], {}, []
+    for ticker in tickers:
+        analysis = engine.analyze(ticker, with_campaigns=True)
+        if analysis is None:
+            continue
+        prices[ticker.upper()] = analysis.bars
+        if not analysis.summary.empty:
+            summaries.append(analysis.summary)
+        if not analysis.campaigns.empty:
+            campaign_frames.append(analysis.campaigns)
+
+    if not summaries:
+        print("No broker summary available - this command needs it.")
+        print("See docs/LIVE_DATA.md, or run: idxbot paste <TICKER>")
+        return 1
+
+    summary = pd.concat(summaries, ignore_index=True)
+    data_is_real = not str(summary["source"].iloc[0]).startswith("synthetic")
+
+    pooled = pd.concat(campaign_frames, ignore_index=True) if campaign_frames \
+        else pd.DataFrame()
+    book = playbook_mod.build_playbook(pooled, engine.cfg.brokers,
+                                       min_campaigns=args.min_campaigns) \
+        if not pooled.empty else pd.DataFrame()
+
+    tiers = tuple(t.strip() for t in args.tiers.split(",") if t.strip())
+    matrix = coord.coordination_matrix(summary, engine.cfg.brokers, tiers=tiers)
+    leaders = coord.lead_lag(summary, engine.cfg.brokers, tiers=tiers,
+                             max_lag=args.max_lag)
+    stages = coord.campaign_stage_returns(pooled, prices) if not pooled.empty \
+        else pd.DataFrame()
+    stage_summary = coord.summarise_stage_returns(stages)
+
+    print(coord.render_plan(book, matrix, leaders, stage_summary,
+                            data_is_real=data_is_real,
+                            provenance=engine.data_provenance()))
+
+    if args.out:
+        _write_csv(stages, args.out, "stage returns")
     return 0
 
 
@@ -841,6 +894,15 @@ def build_parser() -> argparse.ArgumentParser:
                    help="also run the forward-return edge test")
     p.add_argument("--playbook-out", help="write the playbook table to this CSV")
     p.set_defaults(func=cmd_playbook)
+
+    # reverse
+    p = sub.add_parser("reverse", help="reverse-engineer the institutional plan")
+    common(p)
+    p.add_argument("--min-campaigns", type=int, default=5)
+    p.add_argument("--tiers", default="bulge",
+                   help="comma-separated tiers to analyse (bulge, foreign, ...)")
+    p.add_argument("--max-lag", type=int, default=5)
+    p.set_defaults(func=cmd_plan_reverse)
 
     # backtest
     p = sub.add_parser("backtest", help="walk-forward evaluation of the score")
