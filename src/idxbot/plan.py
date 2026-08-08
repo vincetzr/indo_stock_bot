@@ -110,7 +110,15 @@ class TradingPlan:
                    f"Wyckoff phase {self.wyckoff_phase}")
         out.append(line)
 
-        if not self.data_is_real:
+        # "No broker data" and "fabricated broker data" are different claims and
+        # must not share a warning. Price-only mode feeds the engine genuine
+        # exchange OHLCV and simply omits the flow components; calling that
+        # SIMULATED tells the user their real levels are invented.
+        if self.data_mode == "price-only":
+            out.append(" ii PRICE-ONLY: no broker summary connected, so there is no")
+            out.append(" ii institutional confirmation. Prices and levels are real.")
+            out.append(thin)
+        elif not self.data_is_real:
             out.append(" !! BROKER FLOW IS SIMULATED (source: %s)." % self.data_source)
             out.append(" !! Levels below are a demonstration of the format, not a trade.")
             out.append(thin)
@@ -389,7 +397,12 @@ def _decide(plan: TradingPlan, signal, cfg: Config, min_rr: float,
     ]
 
     if signal.score >= signal_threshold and not any(blocking):
-        plan.verdict = "TAKE" if plan.data_is_real else "TAKE (SIMULATED DATA)"
+        if plan.data_is_real:
+            plan.verdict = "TAKE"
+        elif plan.data_mode == "price-only":
+            plan.verdict = "TAKE (PRICE-ONLY)"
+        else:
+            plan.verdict = "TAKE (SIMULATED DATA)"
     elif signal.score >= 50 or (signal.score >= signal_threshold and any(blocking)):
         plan.verdict = "WATCH"
     else:
