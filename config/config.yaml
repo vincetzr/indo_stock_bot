@@ -7,6 +7,17 @@ data:
   ohlcv_provider: "yahoo"
   broker_summary_providers: ["csv", "synthetic"]
   csv_dir: "data/broker_summary"       # drop your exported broker summary here
+  # Generic adapter for a commercial broker-summary vendor. Fill this in after
+  # signing up and reading their docs, then use --providers rest.
+  # Vendors that advertise per-stock broker/bandarmology data: invezgo.com,
+  # ohlc.dev, goapi.io. See docs/LIVE_DATA.md before paying for one.
+  rest_broker_summary: {}
+  #   name: "invezgo"
+  #   url: "https://api.invezgo.com/v1/<their-broker-endpoint>/{ticker}"
+  #   api_key_env: "IDXBOT_BROKER_API_KEY"
+  #   auth: "bearer"                   # bearer | header | query
+  #   date_params: {from: "start", to: "end"}
+  #   date_format: "%Y-%m-%d"
   max_history: true                    # pull from first trade date, not N years
   request_timeout: 30
   request_retries: 4

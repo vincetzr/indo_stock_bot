@@ -87,9 +87,36 @@ ordinary connection*. It does not pass from a locked-down build sandbox, which
 is why this is a script you run rather than something the engine calls. Use
 `--headed` to watch it and fix selectors if IDX redesigns the page.
 
-**Route C — a paid vendor.** GoAPI's `/stock/idx/{SYMBOL}/broker_summary` route
-is live and key-gated (it answers 401, not 404). Set `IDXBOT_GOAPI_KEY` and use
-`--providers goapi`.
+**Route C — a paid vendor API.** These exist and sell exactly this data:
+
+| Vendor | What it advertises | Notes |
+|---|---|---|
+| [Invezgo](https://invezgo.com/data-api-saham-indonesia) | *"Full bandarmology suite: foreign flow, broker distribution, accumulation zones"* + 15 years history | Markets itself explicitly against the 15-minute delay. `api.invezgo.com` is a live API server. Closest fit to this engine. |
+| [OHLC.dev](https://ohlc.dev/indonesia-stock-exchange-idx-api) | *"Equities, index constituents, broker summaries, bonds"* | IDX-focused |
+| [GoAPI.io](https://goapi.io/api-data-saham-indonesia/) | `/stock/idx/{SYMBOL}/broker_summary` | Route confirmed live and key-gated — answers 401, not 404 |
+| [Sectors.app](https://sectors.app/) | IDX market data, v2 API | Broker-level coverage varies by plan |
+
+Pricing sits behind signup, so confirm two things before paying:
+
+1. **Is broker summary real-time or end-of-day?** For this engine's 60-day
+   horizon EOD is fine; for day trading it is not.
+2. **How much history?** Campaign profiling needs months, ideally years. A
+   real-time-only feed cannot backtest the thesis.
+
+Because each vendor uses its own paths, auth style and field names — and their
+docs are behind signup — the engine ships a **generic REST adapter** rather than
+a guessed endpoint. Fill in `data.rest_broker_summary` in `config.yaml`, set your
+key in the environment, and run `--providers rest`. Field naming is handled by
+the same normaliser as every other route, so a new vendor is usually zero code.
+
+**Open-source caution.** [NeaByteLab/IDX-API](https://github.com/NeaByteLab/IDX-API)
+(MIT, no auth) looks like a free answer and is not: its `syncBrokerSummary()`
+hits `ExchangeMember/GetBrokerSearch`, which is the **exchange-member directory**,
+not per-stock rekap broker. It is still useful — it documents IDX's real public
+API surface (`/primary/DigitalStatistic/GetApiData?urlName=...`), including
+`LINK_TABLE_DAILY_TRADING_INVESTOR_FOREIGN` for aggregate foreign-vs-domestic
+flow. Aggregate foreign flow is a weaker signal than per-broker data, but it is
+free and unauthenticated.
 
 All three land in `data/broker_summary/<TICKER>.csv`, which the CSV provider
 reads automatically.

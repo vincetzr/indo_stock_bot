@@ -5,6 +5,7 @@ from .broker_summary import (  # noqa: F401
     ChainedBrokerSummary,
     CsvBrokerSummary,
     GoApiBrokerSummary,
+    RestBrokerSummary,
     add_derived,
     build_provider,
     empty_frame,

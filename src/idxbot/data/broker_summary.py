@@ -438,6 +438,94 @@ def _slice_dates(df: pd.DataFrame, start, end) -> pd.DataFrame:
     return out.reset_index(drop=True)
 
 
+class RestBrokerSummary(BrokerSummaryProvider):
+    """Generic REST adapter for any commercial broker-summary vendor.
+
+    Several vendors sell exactly this data (see ``docs/LIVE_DATA.md``), but each
+    uses its own paths, auth style and field names, and their docs sit behind
+    signup. Rather than hardcode a guessed endpoint that breaks on contact with
+    reality, this is driven entirely from config::
+
+        data:
+          rest_broker_summary:
+            url: "https://api.vendor.com/v1/broker-summary/{ticker}"
+            api_key_env: "IDXBOT_VENDOR_KEY"
+            auth: "bearer"            # bearer | header | query
+            auth_param: "api_key"     # for header/query styles
+            date_params: {from: "start", to: "end"}
+            date_format: "%Y-%m-%d"
+
+    ``{ticker}`` and ``{date}`` are substituted into the URL. The response is
+    handed to :func:`_find_records` and :func:`normalise`, which already cope
+    with arbitrary envelopes and both English and Indonesian field names, so a
+    new vendor is usually zero code.
+    """
+
+    name = "rest"
+    is_real = True
+
+    def __init__(self, cfg: Config):
+        self.cfg = cfg
+        self.settings = dict(cfg.get("data.rest_broker_summary", {}) or {})
+        env = self.settings.get("api_key_env", "IDXBOT_BROKER_API_KEY")
+        self.api_key = os.environ.get(env, "")
+        self.timeout = int(cfg.get("data.request_timeout", 30))
+
+    def available(self) -> bool:
+        return bool(self.settings.get("url"))
+
+    def fetch(self, ticker: str, start=None, end=None) -> pd.DataFrame:
+        if not self.available():
+            return empty_frame()
+        import requests
+
+        url_template = str(self.settings["url"])
+        date_format = self.settings.get("date_format", "%Y-%m-%d")
+        url = url_template.replace("{ticker}", str(ticker).upper())
+        if "{date}" in url:
+            stamp = pd.Timestamp(end or pd.Timestamp.now()).strftime(date_format)
+            url = url.replace("{date}", stamp)
+
+        headers, params = {}, {}
+        auth = str(self.settings.get("auth", "bearer")).lower()
+        if self.api_key:
+            if auth == "bearer":
+                headers["Authorization"] = f"Bearer {self.api_key}"
+            elif auth == "header":
+                headers[self.settings.get("auth_param", "X-API-Key")] = self.api_key
+            else:
+                params[self.settings.get("auth_param", "api_key")] = self.api_key
+
+        date_params = self.settings.get("date_params") or {}
+        if start is not None and date_params.get("from"):
+            params[date_params["from"]] = pd.Timestamp(start).strftime(date_format)
+        if end is not None and date_params.get("to"):
+            params[date_params["to"]] = pd.Timestamp(end).strftime(date_format)
+
+        try:
+            resp = requests.get(url, headers=headers, params=params, timeout=self.timeout)
+            if resp.status_code != 200:
+                print(f"  ! rest {ticker}: HTTP {resp.status_code} {resp.text[:140]}")
+                return empty_frame()
+            payload = resp.json()
+        except Exception as exc:
+            print(f"  ! rest {ticker}: {exc}")
+            return empty_frame()
+
+        records = _find_records(payload)
+        if not records:
+            print(f"  ! rest {ticker}: no records found in response envelope")
+            return empty_frame()
+        return normalise(pd.DataFrame(records), ticker=ticker,
+                         source=f"rest:{self.settings.get('name', 'vendor')}")
+
+    def describe(self) -> str:
+        if not self.available():
+            return "rest (no data.rest_broker_summary.url configured)"
+        label = self.settings.get("name", self.settings.get("url", "vendor"))
+        return f"rest:{label}" + ("" if self.api_key else " (no API key in env)")
+
+
 class NullBrokerSummary(BrokerSummaryProvider):
     """Returns nothing, forcing the engine into price-only mode.
 
@@ -493,6 +581,8 @@ def build_provider(cfg: Config, names: Optional[Sequence[str]] = None,
             providers.append(CsvBrokerSummary(cfg.path("data.csv_dir", "data/broker_summary")))
         elif name == "goapi":
             providers.append(GoApiBrokerSummary())
+        elif name == "rest":
+            providers.append(RestBrokerSummary(cfg))
         elif name == "synthetic":
             providers.append(SyntheticBrokerSummary(cfg, ohlcv=ohlcv))
         elif name == "none":
