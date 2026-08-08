@@ -230,8 +230,22 @@ def build(
         plan.warnings.append("nothing passed the filters")
         return plan
 
-    # Equal weight, capped, rounded down to whole lots.
-    target_weight = min(max_weight, 1.0 / max(len(selected), 1))
+    # Equal weight, rounded down to whole lots.
+    #
+    # The max-weight cap exists to stop one name dominating a diversified book.
+    # It must not silently strand cash when the caller deliberately asked for a
+    # concentrated one: requesting 3 names IS a request for ~33% each, and
+    # capping at 20% would leave 40% uninvested with no explanation.
+    equal_weight = 1.0 / max(len(selected), 1)
+    if equal_weight > max_weight:
+        target_weight = equal_weight
+        plan.warnings.append(
+            f"{len(selected)} positions means {equal_weight:.0%} in each, above the "
+            f"{max_weight:.0%} cap - concentration is deliberate here, so the cap "
+            f"was not applied. One bad name moves the whole account."
+        )
+    else:
+        target_weight = max_weight
     for _, row in selected.iterrows():
         close = float(row["close"])
         if close <= 0:
