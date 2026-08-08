@@ -20,7 +20,7 @@ PYTHONPATH=src python3 -m idxbot.cli dashboard --universe lq45
 | Claim | Status |
 |---|---|
 | Price/volume history is real and deep | ✅ 169,553 daily bars / 30 names / up to 26.2 yrs; IHSG from **1990-04-06** |
-| Ledger, cost basis, campaign maths | ✅ 90 unit tests, hand-computed expectations |
+| Ledger, cost basis, campaign maths | ✅ 128 unit tests, hand-computed expectations |
 | Tick / lot / ARA-ARB / fee mechanics | ✅ unit tested against IDX rules |
 | Score has no look-ahead | ✅ explicitly tested — scoring bar *i* is unchanged by appending future bars |
 | `accumulation` profile predicts forward returns | ❌ **REFUTED — inverted. See below.** |
@@ -89,8 +89,27 @@ Full discussion, vendor options and ToS considerations in **`docs/LIVE_DATA.md`*
 
 ## Commands
 
+### Three horizons, very different evidence
+
+| Horizon | Command | Hold | Measured edge | Verdict |
+|---|---|---|---|---|
+| **Day** | `idxbot daytrade` | hours | straddles zero | ⚠️ not established |
+| **Swing** | `idxbot screen` | 20 days | IC +0.031 (t=3.08) | real but thin after costs |
+| **Long** | `idxbot invest` | 60 days | IC +0.046 (t=4.92) | ✅ validated on holdout |
+
+The slowest horizon has the best evidence. `idxbot invest --horizons` prints this
+comparison. Day-trading detail: **`docs/DAYTRADE.md`**.
+
+**Day trading, briefly:** a random IDX stock-day touches +5% only **6.9%** of the
+time. The burst setup (volume >8× normal, up >7%, at a 20-day high) lifts that to
+**38.7%** — but fires ~17×/year on 66 names. Buying at the open loses (−0.62%/trade,
+measured on 5-minute bars); the opening-range-breakout filter refused 9 of 12
+signals and turned it slightly positive — on n=3, which is not evidence.
+
 | Command | What it does |
 |---|---|
+| `daytrade` | Intraday momentum scan + timed entry/exit execution plan |
+| `invest` | Long-horizon basket from the validated 60-day momentum score |
 | `screen` | Rank a universe by score, with evidence for each hit |
 | `evaluate` | Cross-sectional rank IC, quantile spreads, per-component diagnosis, train/holdout |
 | `analyze TICKER` | Deep dive: score breakdown, Wyckoff phase, broker positions, campaigns |
@@ -213,7 +232,10 @@ src/idxbot/
   tradingview/    links, watchlists, Pine scripts
   report/         offline HTML dashboard
   evaluate.py     cross-sectional IC, quantile spreads, train/test split
-tests/            90 tests
+  daytrade.py     intraday burst scanner, ORB entry rule, day plans
+  invest.py       long-horizon portfolio construction
+  portfolio.py    long-only simulation vs universe and IHSG
+tests/            128 tests
 docs/             LIVE_DATA.md, TRADING_PLAN.md
 ```
 

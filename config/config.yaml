@@ -137,8 +137,48 @@ plan:
   max_time_stop_days: 120              # hard cap regardless of the broker's median
   min_reward_risk: 1.8                 # reject plans below this R:R
 
+# ---------------------------------------------------------------------------
+# Intraday day trading (horizon: hours). See docs/DAYTRADE.md for the measured
+# base rates - the headline is that the strong setup fires ~17 times a year on a
+# 66-name universe and its expectancy straddles zero on daily bars.
+# ---------------------------------------------------------------------------
+daytrade:
+  # "burst" - the strong setup. Measured P(touch +5% next day) = 38.7%.
+  rvol_burst: 8.0                      # volume vs 20-day median
+  return_burst: 0.07                   # close-to-close on the signal day
+  # "surge" - weaker; negative expectancy even optimistically. Kept for study.
+  rvol_surge: 5.0
+  return_surge: 0.05
+  near_high_tolerance: 0.005           # how far below the 20d high still counts
+  targets: [0.03, 0.05]                # partial at +3%, rest at the +5% goal
+  target_shares: [0.5, 0.5]            # sell half at T1, half at T2
+  stop_pct: 0.03                       # median adverse excursion was -2.9%
+  risk_per_trade_pct: 0.005            # half the swing risk: worse odds, faster
+  opening_range_minutes: 30
+  min_volume_pace: 1.5                 # abort if the burst is not sustained
+  min_value_traded_idr: 5000000000     # Rp5bn/day liquidity gate
+  exit_before_minute: 945              # 15:45 WIB - flat before the close
+
+# ---------------------------------------------------------------------------
+# Horizons. Each names a profile and a holding period; the CLI's --horizon
+# switch selects one so the same engine serves day, swing and long-term work.
+# ---------------------------------------------------------------------------
+horizons:
+  day:
+    profile: momentum
+    hold_days: 1
+    description: "Intraday burst. Flat by the close. Expectancy straddles zero."
+  swing:
+    profile: momentum
+    hold_days: 20
+    description: "Multi-week momentum. Holdout IC +0.031 (t=3.08)."
+  long:
+    profile: momentum
+    hold_days: 60
+    description: "The validated horizon. Holdout IC +0.046 (t=4.92)."
+
 backtest:
-  horizons: [5, 10, 20, 60]
+  horizons: [1, 5, 10, 20, 60]
   score_buckets: [0, 40, 55, 65, 78, 101]
   min_samples: 30
 

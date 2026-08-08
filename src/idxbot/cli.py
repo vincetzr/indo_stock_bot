@@ -7,6 +7,8 @@
     idxbot backtest    --universe lq45          does the score predict returns?
     idxbot evaluate    --split --components     cross-sectional IC, train/holdout
     idxbot portfolio   --split                  long-only top-N equity curve
+    idxbot daytrade    --universe all           intraday momentum scan + plans
+    idxbot invest      --universe lq45          long-horizon basket (60d momentum)
     idxbot dashboard   --universe lq45          offline HTML report
     idxbot live        --file ticks.jsonl       live broker summary from running trade
     idxbot pine        [BBCA]                   Pine Script / plan inputs
@@ -381,6 +383,112 @@ def cmd_evaluate(args) -> int:
     return 0
 
 
+def cmd_daytrade(args) -> int:
+    """Intraday momentum: end-of-day scan, live monitor, or path study."""
+    from . import daytrade as dt
+    from .data.intraday import YahooIntraday
+
+    engine = _engine(args)
+    cfg = engine.cfg
+    tickers = _resolve_tickers(cfg, args)
+
+    print("=" * 74)
+    print(" INTRADAY MOMENTUM DAY TRADING")
+    print("=" * 74)
+    print(" Measured on 296,344 real IDX stock-days (2001-2026):")
+    print("   a random stock-day touches +5% from the open  6.9% of the time")
+    print("   the 'burst' setup below raises that to       38.7%  (5.6x)")
+    print("   but it fired only 416 times in 25 years across 66 names")
+    print(" Net expectancy on daily bars spans -0.56% to +0.52% per trade: 13.5%")
+    print(" of trades touch BOTH target and stop, and daily bars cannot say which")
+    print(" came first. Use --study with intraday data to resolve it.")
+    print()
+
+    print(f"Scanning {len(tickers)} tickers...")
+    bars = {}
+    for ticker in tickers:
+        df = engine.prices(ticker)
+        if df is not None and not df.empty:
+            bars[ticker] = df
+
+    candidates = dt.scan(bars, cfg, as_of=args.as_of,
+                         min_value_traded=float(cfg.get(
+                             "daytrade.min_value_traded_idr", 5e9)))
+    if args.setup:
+        candidates = [c for c in candidates if c.setup == args.setup]
+
+    if not candidates:
+        print("\n  No qualifying setups. That is the normal outcome - this setup")
+        print("  fires roughly 17 times a year across a universe this size.")
+        print("  Widening the universe is the lever; loosening the filter is not.")
+        return 0
+
+    print(f"\n{len(candidates)} candidate(s):\n")
+    rows = pd.DataFrame([c.to_row() for c in candidates])
+    cols = ["ticker", "date", "setup", "score", "close", "rvol", "day_return",
+            "atr_pct", "p_touch_5"]
+    print(rows[[c for c in cols if c in rows.columns]].to_string(index=False))
+
+    if args.study:
+        print("\n" + "=" * 74)
+        print(" PATH RESOLUTION on intraday bars (which came first: target or stop?)")
+        print("=" * 74)
+        intraday_loader = YahooIntraday(cfg)
+        intraday = {}
+        for c in candidates[: args.limit_study]:
+            df = intraday_loader.get(c.ticker, interval="5m")
+            if df is not None and not df.empty:
+                intraday[c.ticker] = df
+        paths = dt.study_paths(candidates, intraday, cfg,
+                               target_pct=args.target, stop_pct=args.stop)
+        if paths.empty:
+            print(" No overlap between candidates and available intraday history.")
+            print(" Yahoo serves only ~60 days of 5-minute bars, so only very recent")
+            print(" signals can be resolved this way.")
+        else:
+            print(paths.to_string(index=False))
+            counts = paths["outcome"].value_counts()
+            print("\n outcomes:", dict(counts))
+        _write_csv(paths, args.out, "path study")
+        return 0
+
+    for candidate in candidates[: args.plans]:
+        plan = dt.build_day_plan(candidate, cfg, equity=args.equity)
+        print()
+        print(plan.render())
+
+    _write_csv(rows, args.out, "day-trade candidates")
+    return 0
+
+
+def cmd_invest(args) -> int:
+    """Long-horizon portfolio: the validated 60-day momentum basket."""
+    from . import invest as inv
+
+    engine = _engine(args)
+    tickers = _resolve_tickers(engine.cfg, args)
+
+    if args.horizons:
+        print("HORIZON COMPARISON - what the evidence actually supports\n")
+        print(inv.compare_horizons(engine.cfg).to_string(index=False))
+        print("\n The slowest horizon has the best evidence. That is the opposite")
+        print(" of most people's instinct, and it is what the data says.")
+        return 0
+
+    print(f"Screening {len(tickers)} names for the long-horizon basket...\n")
+    plan = inv.build(
+        engine, tickers, equity=args.equity, top_n=args.top_n,
+        horizon_days=args.hold_days, max_weight=args.max_weight,
+        min_score=args.min_score, max_atr_pct=args.max_atr,
+    )
+    print()
+    print(plan.render())
+    if args.out and plan.holdings:
+        _write_csv(pd.DataFrame([h.to_row() for h in plan.holdings]), args.out,
+                   "holdings")
+    return 0
+
+
 def cmd_portfolio(args) -> int:
     """Long-only portfolio simulation from saved observations."""
     from . import portfolio as pf
@@ -700,6 +808,34 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--component-horizon", type=int, default=20)
     p.add_argument("--out", help="write the component scan to this CSV")
     p.set_defaults(func=cmd_evaluate)
+
+    # daytrade
+    p = sub.add_parser("daytrade", help="intraday momentum scan and plans")
+    common(p, universe_default="all")
+    p.add_argument("--as-of", help="scan as of this date instead of the latest")
+    p.add_argument("--setup", choices=["burst", "surge"], help="filter by setup")
+    p.add_argument("--plans", type=int, default=3, help="print plans for the top N")
+    p.add_argument("--equity", type=float)
+    p.add_argument("--study", action="store_true",
+                   help="resolve target-vs-stop ordering on intraday bars")
+    p.add_argument("--limit-study", type=int, default=20)
+    p.add_argument("--target", type=float, default=0.05)
+    p.add_argument("--stop", type=float, default=0.03)
+    p.set_defaults(func=cmd_daytrade)
+
+    # invest
+    p = sub.add_parser("invest", help="long-horizon portfolio (validated 60d momentum)")
+    common(p, universe_default="lq45")
+    p.add_argument("--equity", type=float)
+    p.add_argument("--top-n", type=int, default=10)
+    p.add_argument("--hold-days", type=int, default=60)
+    p.add_argument("--max-weight", type=float, default=0.20)
+    p.add_argument("--min-score", type=float, default=0.0)
+    p.add_argument("--max-atr", type=float, default=0.10,
+                   help="exclude names whose average daily range exceeds this")
+    p.add_argument("--horizons", action="store_true",
+                   help="show what evidence each horizon actually has")
+    p.set_defaults(func=cmd_invest)
 
     # portfolio
     p = sub.add_parser("portfolio", help="long-only top-N portfolio simulation")
