@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import time
+import uuid
 from typing import Optional
 
 import pandas as pd
@@ -55,9 +56,22 @@ class Cache:
         if df is None or df.empty:
             return
         path = self._path(namespace, key)
-        tmp = path + ".tmp"
-        df.to_csv(tmp, index=False, compression="gzip")
-        os.replace(tmp, path)  # atomic; a killed process cannot leave a partial file
+        # Unique temp name per writer. A fixed "<path>.tmp" collides when two
+        # processes cache the same ticker at once: the first one's rename
+        # consumes the file the second is about to rename, and that one dies
+        # with FileNotFoundError. Surfaced when scaling to the full 838-name
+        # universe with a background fetch already running.
+        tmp = f"{path}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
+        try:
+            df.to_csv(tmp, index=False, compression="gzip")
+            os.replace(tmp, path)  # atomic; a kill cannot leave a partial file
+        except Exception:
+            if os.path.exists(tmp):
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
+            raise
 
     def clear(self, namespace: Optional[str] = None) -> int:
         target = self.root if namespace is None else os.path.join(self.root, namespace)

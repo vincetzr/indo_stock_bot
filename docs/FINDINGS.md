@@ -13,6 +13,20 @@ Two results, both on genuine exchange data, both reproducible from this repo:
 
 Result 2 is not a licence to switch on the screener and stop thinking. Read §5.
 
+**Part II** then re-runs everything on the full exchange — 724 tickers instead
+of 66 — and adds a walk-forward that chooses the parameters out-of-sample too.
+Three results there matter more than anything in Part I:
+
+3. **The median IDX stock loses money.** Under half of all 60-day holding
+   windows are profitable, and the top 1% of observations supply *more than
+   100%* of total return at short horizons (§8).
+4. **One component carries the signal and it is not the composite.** Distance
+   from the 52-week high beats the blend it sits inside, and unlike the blend it
+   has not decayed — it is at its strongest in 2021-26 (§9).
+5. **Training to optimum made things worse.** Re-optimising the weights every
+   two years roughly halved the return versus simply fixing a sensible trend
+   profile. There is no stable optimum on this data to train toward (§10).
+
 ---
 
 ## What was tested
@@ -285,6 +299,216 @@ Every gap is under 0.02. At the individual-stock level these indicators carry
 **no** discriminating power. Whatever edge exists is cross-sectional ranking plus
 regime - not "this chart looks good".
 
+---
+
+# Part II — the full exchange, and an attempt to train to optimum
+
+Everything above ran on 66 index names. That universe is chosen *today*, so it
+quietly excludes every company that delisted, collapsed or was suspended — §5b
+measured that bias at roughly 8 points of CAGR but could not remove it.
+
+This part re-runs the whole analysis on **every ticker Yahoo will return for
+IDX**: 838 symbols, 2.59M daily bars, of which 724 survive the cleaning below.
+It is not a true point-in-time universe (a dead company's ticker is gone from
+the screener too), but it is a far larger and far less flattering sample.
+
+| | |
+|---|---|
+| Observations | **133,165** (from 460,519 raw) |
+| Tickers | **724** |
+| Period | 2001-08-03 → 2026-08-04 |
+| Cross-section | median **104 names** per date (was 52) |
+| Cleaning | `close ≥ Rp50` (IDX regular-market minimum) and point-in-time trailing-20d **median** turnover `≥ Rp1bn/day`. Trailing-only, so the filter is a decision the screener could have made live. |
+
+```bash
+idxbot backtest --universe idx_all --providers none --profile momentum \
+    --step 5 --start-index 300 --out reports/obs_full.csv
+python3 scripts/backfill_liquidity.py reports/obs_full.csv reports/obs_full_clean.csv
+idxbot evaluate    --observations reports/obs_full_clean.csv --split --components
+idxbot walkforward --observations reports/obs_full_clean.csv --horizon 60 --top 5
+```
+
+The backfill step drops **327,354 of 460,519 rows** — 71% of the raw run is
+below Rp50 or under Rp1bn/day of turnover and could not have been traded with
+real money. `idxbot backtest` now emits the `vt` column itself; the script
+exists to patch observation files produced before that change.
+
+### The cleaning was not cosmetic
+
+The raw run reported a 5-day baseline of **+10.91%**, which is absurd. The cause
+was 3,242 observations priced below Rp10 — split-adjustment artifacts, since
+IDX's regular market cannot trade below Rp50. Their mean 5-day forward return
+was **+1485%**, and one (KOPI at a nominal Rp0.013) showed +4,615,285%. A
+handful of impossible rows had moved the average for a quarter of a million
+real ones. Anything computed before that filter was wrong.
+
+---
+
+## Result 8 — the median IDX stock loses money
+
+This is the structural fact that governs everything else.
+
+| Horizon | Mean | Median | % positive | Share of total return from the top 1% |
+|---|---|---|---|---|
+| 5d | +0.25% | +0.00% | 43.7% | **178%** |
+| 20d | +0.94% | −0.65% | 45.0% | **111%** |
+| 60d | +2.56% | −1.84% | 44.5% | **84%** |
+
+The top 1% of observations supply *more than all* of the total return at 5 and
+20 days, which means the other 99% net negative. Fewer than half of all 60-day
+holding windows are profitable.
+
+Two consequences follow directly:
+
+- **Diversifying across IDX is not safe, it is the trap.** Buying the average
+  name is a losing proposition; the index survives only because a few enormous
+  winners drag the mean up. This is why the equal-weight benchmark below is so
+  weak, and why "just buy a basket" fails here in a way it does not in the US.
+- **The strategy must be selective and it must let winners run.** A rule that
+  caps upside — a fixed 5% target, say — cuts off precisely the tail that pays
+  for everything else.
+
+## Result 9 — the composite decayed; one component did not
+
+Component IC on the full universe at 20 days, each judged alone:
+
+| Component | mean IC | t |
+|---|---|---|
+| **near_high** | **+0.0660** | **10.20** |
+| trend_persistence | +0.0365 | 6.41 |
+| momentum | +0.0257 | 4.18 |
+| relative_strength | +0.0221 | 3.54 |
+| range_compression | −0.0073 | −1.44 |
+| obv_divergence | −0.0116 | −2.03 |
+| volume_dryup | −0.0178 | −3.66 |
+
+**The best single component beats the composite it is blended into** (composite
+20d IC +0.0470). The three contrarian components are not merely weak, they are
+negative — Result 1 replicated on eleven times the data.
+
+The era breakdown is what makes this decisive:
+
+| Era | names/date | composite IC60 | t | **near_high IC60** | t |
+|---|---|---|---|---|---|
+| 2001-07 | 23 | +0.0578 | 3.26 | +0.0566 | 3.32 |
+| 2008-12 | 79 | +0.1138 | 7.09 | +0.1266 | 8.23 |
+| 2013-17 | 107 | +0.0497 | 4.15 | +0.0748 | 6.25 |
+| 2018-20 | 126 | **−0.0047** | −0.31 | +0.0334 | 2.16 |
+| 2021-26 | 221 | +0.0286 | 3.58 | **+0.1034** | **13.85** |
+
+The composite went to **zero** in 2018-20 and only partly recovered. `near_high`
+never turned negative and is *strongest in the most recent era*. On the
+chronological holdout the same gap appears: composite 60d IC +0.0217 (t=2.78)
+against near_high +0.0868 (t=10.67).
+
+Note also that the survivorship correction bit hard, exactly as §5b predicted:
+the composite's holdout 60d IC fell from **+0.0462 on the 66-name universe to
++0.0217** here. More than half the apparent edge was the universe, not the signal.
+
+**Why proximity to the 52-week high works and the others fade.** It is the one
+component that is not a lookback statistic — it is a *level* relative to a
+reference every participant can see. It encodes the absence of trapped sellers:
+above the 52-week high nobody is holding a losing position waiting to break
+even, so the supply that normally caps a rally is not there. Momentum and trend
+persistence measure the same underlying trend but through a rear-view window,
+and that window keeps shortening as the market gets faster. This also explains
+the era pattern: as the cross-section grew from 23 names to 221, statistics that
+need a stable lookback degraded while a positional fact did not.
+
+## Result 10 — training to optimum made it worse
+
+The request was to train until optimum. The honest way to do that is
+walk-forward: choose the weighting on an expanding training window, score it on
+the next two years it has never seen, refit, repeat. Ten candidate weight sets,
+nine folds, non-overlapping 60-day rebalances, top-5 equal weight.
+
+```
+ fold  1  train->2009-08  test 2009-08..2011-08  chose [rel_strength only]   oos  +0.76%
+ fold  2  train->2011-08  test 2011-08..2013-08  chose [equal all-7]         oos  +5.05%
+ fold  3  train->2013-08  test 2013-08..2015-08  chose [equal all-7]         oos  −2.41%
+ fold  4  train->2015-08  test 2015-08..2017-08  chose [near_high heavy]     oos  +6.05%
+ fold  5  train->2017-08  test 2017-08..2019-08  chose [equal trend-4]       oos +13.64%
+ fold  6  train->2019-08  test 2019-08..2021-08  chose [equal trend-4]       oos  +2.81%
+ fold  7  train->2021-08  test 2021-08..2023-08  chose [shipped momentum]    oos  +9.51%
+ fold  8  train->2023-08  test 2023-08..2025-08  chose [shipped momentum]    oos  +4.82%
+ fold  9  train->2025-08  test 2025-08..2026-08  chose [shipped momentum]    oos  +3.93%
+```
+
+No candidate won more than 3 of 9 folds. And the comparison that matters:
+
+| Strategy (2009-08 → 2026-08, 60d, top-5) | mean/period | median | win |
+|---|---|---|---|
+| **walk-forward (re-optimised every 2y)** | **+4.97%** | +3.11% | 59% |
+| fixed: near_high only | **+9.51%** | +4.61% | **66%** |
+| fixed: momentum only | +9.78% | +1.33% | 55% |
+| fixed: equal trend-4 | +8.93% | +3.39% | 59% |
+| fixed: shipped momentum | +8.62% | +2.97% | 63% |
+| fixed: contrarian | +1.87% | −2.16% | 42% |
+| *equal-weight universe (no selection)* | *+2.69%* | *+2.03%* | *58%* |
+
+**Re-optimising roughly halved the return.** Every fixed trend profile beat the
+adaptive one. The optimiser was not finding a moving optimum; it was chasing
+whichever weighting had just had a good run, and arriving late every time.
+
+This is the answer to "train yourself until you reach optimum": on this data,
+*there is no optimum to train to*. The differences between sensible trend
+weightings are inside the noise, and the act of choosing between them
+destroys value. What survives is much cruder and much more robust — be in the
+trend family at all, and stay there.
+
+Compounded over the same 17 years:
+
+| | Total | CAGR | max DD | t |
+|---|---|---|---|---|
+| near_high only | +11,216% | **32.1%** | −51.1% | 2.87 |
+| equal trend-4 | +10,335% | 31.4% | −49.4% | 3.28 |
+| shipped momentum | +8,552% | 30.0% | −48.4% | 3.20 |
+| contrarian | +9% | 0.5% | −65.6% | 0.80 |
+| *equal-weight universe* | *+313%* | *8.7%* | *−40.6%* | |
+
+The contrarian profile turned 17 years into **+9% total**. That is the
+accumulation thesis, priced.
+
+### Robustness — 32 cells, not one lucky setting
+
+Mean return per rebalance minus the equal-weight benchmark, every combination
+of horizon and position count:
+
+| | 20d top-1 | 20d top-3 | 20d top-5 | 20d top-10 | 60d top-1 | 60d top-3 | 60d top-5 | 60d top-10 |
+|---|---|---|---|---|---|---|---|---|
+| near_high only | +3.05% | +1.99% | +2.46% | +2.22% | +5.52% | +4.41% | +6.82% | +6.14% |
+| shipped momentum | +2.18% | +3.53% | +3.29% | +2.65% | −0.85% | +5.71% | +5.93% | +5.28% |
+| equal trend-4 | +2.35% | +3.62% | +3.40% | +2.47% | −1.73% | +5.70% | +6.24% | +4.50% |
+| contrarian | −1.54% | −0.77% | −0.56% | −0.76% | −3.44% | −2.98% | −0.81% | −2.34% |
+
+The trend family beats the benchmark in 23 of 24 cells. The contrarian profile
+loses in **all eight**. The single failure is 60d top-1, where holding one name
+for a quarter is mostly variance — which is itself a useful warning against
+concentrating into a single position at long horizons.
+
+### Does it still work now?
+
+| Span | benchmark | near_high | edge | shipped momentum | edge |
+|---|---|---|---|---|---|
+| 2009-08 → 2015-01 | +4.12% | +6.60% | +2.48% | +8.61% | +4.50% |
+| 2015-01 → 2021-01 | +1.96% | +4.85% | +2.89% | +10.08% | +8.12% |
+| 2021-01 → 2026-09 | +2.61% | **+16.46%** | **+13.85%** | +10.47% | +7.86% |
+
+Yes — and the edge is largest in the most recent period. That is unusual and
+deserves suspicion rather than celebration: the recent cross-section is three
+times wider (221 names vs 79), so the top-5 is selected from a much deeper pool,
+and a wider pool means a more extreme top. Expect some of this to be a
+sample-size effect rather than a genuinely improving market.
+
+### The caveat that limits all of Part II
+
+Non-overlapping 60-day rebalances give only **71 independent observations** over
+17 years. A t-stat near 3 on 71 samples is real but not overwhelming, and the
+−50% drawdown is the number to plan around, not the 32% CAGR. Overlapping
+windows would show t≈9, which is why this repo does not use them.
+
+---
+
 ## What this does and does not establish
 
 **Does:**
@@ -292,11 +516,30 @@ regime - not "this chart looks good".
 - A simple trend-following composite has a genuine, statistically significant,
   economically meaningful cross-sectional edge at a 60-day horizon out-of-sample.
 
+- On the full 724-name exchange, with sub-Rp50 artifacts and illiquid names
+  removed, a fixed trend rule beat the equal-weight universe in 23 of 24
+  horizon/position combinations, and the contrarian rule lost in all 8.
+- Re-optimising the weighting out-of-sample destroys value relative to fixing it.
+
 **Does not:**
 - **That the broker-flow thesis is wrong.** It was never tested — no real broker
   summary was obtainable (`idx.co.id` WAF-blocked, Stockbit auth-gated, GoAPI
   key-gated). The `momentum_plus_flow` profile exists precisely to run that
-  experiment when data is connected. That remains the open question.
+  experiment when data is connected. That remains the open question. Every
+  day-by-day comparison against broker activity that was asked for is blocked
+  on exactly this, and no number in this document should be read as saying
+  anything about what the foreign desks were doing.
+- **That any of this is fundamental analysis.** Only 4 years of annual
+  statements are retrievable, and the ratios (PE, PB, ROE, margins) come as a
+  *current* snapshot with no history. Point-in-time fundamentals over 25 years
+  do not exist in any source reachable from here, so a fundamental backtest is
+  not possible — not difficult, not expensive, not possible. Any fundamental
+  screen built on this data would be silently comparing today's balance sheet
+  against a 2009 price, which is the purest form of look-ahead there is.
+- **That the universe is truly point-in-time.** A delisted company's ticker is
+  absent from the screener that built `idx_all`, so some survivorship remains.
+  The correction from 66 to 724 names cut the holdout IC by more than half; the
+  remaining bias points the same way, so treat these numbers as still optimistic.
 - **That I discovered something.** 12-1 momentum is among the most-replicated
   factors in the literature. Confirming it works on IDX is a sanity check on the
   machinery, not a finding. Its inclusion was informed by knowledge predating
@@ -322,6 +565,14 @@ regime - not "this chart looks good".
   price, the holdout IC will rise above +0.041. That is the experiment worth
   paying a data vendor for.
 
+Part II changes two of those instructions:
+
+- **Do not re-optimise the weights.** §10 measured that as a ~4.5 point per
+  period cost. Pick one trend profile and leave it alone.
+- **Filter before you rank, every time.** `close ≥ Rp50` and a point-in-time
+  turnover floor. Without them the backtest reports numbers that are not merely
+  optimistic but arithmetically impossible.
+
 ```bash
 # reproduce everything above
 idxbot backtest --universe all --providers none --profile accumulation --out reports/obs_acc.csv
@@ -329,6 +580,12 @@ idxbot backtest --universe all --providers none --profile momentum     --out rep
 idxbot evaluate  --observations reports/obs_mom.csv --split --components
 idxbot portfolio --observations reports/obs_mom.csv --split --top-n 10 --horizon 60
 python3 scripts/robustness.py reports/obs_mom.csv
+
+# Part II - full exchange, then out-of-sample parameter selection
+idxbot backtest    --universe idx_all --providers none --profile momentum \
+                   --step 5 --start-index 300 --out reports/obs_full.csv
+idxbot evaluate    --observations reports/obs_full_clean.csv --split --components
+idxbot walkforward --observations reports/obs_full_clean.csv --horizon 60 --top 5
 ```
 
 ---

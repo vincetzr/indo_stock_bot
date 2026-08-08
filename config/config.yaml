@@ -110,6 +110,20 @@ accumulation:
       trend_persistence: 0.25          # share of days held above the 50d MA
       near_high: 0.20                  # proximity to the 52-week high
 
+    # Proximity to the 52-week high, alone. On the full 724-name universe this
+    # was the strongest single component (20d IC +0.066, t=10.2) and the only
+    # one whose IC did not decay: 2018-20 the composite went NEGATIVE (-0.005)
+    # while this stayed positive, and in 2021-26 it was the best it has ever
+    # been (60d IC +0.103, t=13.9). It is also the best 60-day holding rule
+    # tested (+9.5% per 60d vs +2.7% equal-weight, 66% win rate).
+    #
+    # Not the default, deliberately. It won the 60-day test but lost the 20-day
+    # one, and picking the per-horizon winner after seeing both results is the
+    # exact selection bias this repo keeps trying to avoid. Use it when the
+    # holding period is a quarter or longer; use `momentum` otherwise.
+    near_high:
+      near_high: 1.0                   # 1.0 at the 52w high, 0.0 at -30%
+
     # Momentum confirmed by institutional flow. Only meaningful with REAL broker
     # summary connected; untested, and listed as the experiment worth running.
     momentum_plus_flow:

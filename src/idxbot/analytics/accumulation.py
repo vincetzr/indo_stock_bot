@@ -277,12 +277,22 @@ def score(
 
     components, flags, extras = compute_components(bars, i, flow, cfg)
 
-    state = wyckoff.classify(bars.iloc[:i + 1], lookback=int(cfg.get("accumulation.lookback", 60)) + 30)
-    components["wyckoff"] = wyckoff.phase_score(state)
+    # Wyckoff classification is path-dependent and by far the most expensive
+    # part of scoring. Skip it when the active profile gives it no weight -
+    # across the 838-name universe that is the difference between minutes and
+    # hours, and it changes no output the profile actually uses.
+    configured_weights = resolve_weights(cfg, profile)
+    if float(configured_weights.get("wyckoff", 0.0)) > 0:
+        state = wyckoff.classify(
+            bars.iloc[:i + 1], lookback=int(cfg.get("accumulation.lookback", 60)) + 30
+        )
+        components["wyckoff"] = wyckoff.phase_score(state)
+    else:
+        state = wyckoff.WyckoffState()
     if state.phase in ("C", "D"):
         flags.append(("wyckoff", f"Wyckoff phase {state.phase}: {state.meaning.split(' - ')[0]}"))
 
-    configured = resolve_weights(cfg, profile)
+    configured = configured_weights
     available = set(components)
     weights = _normalise_weights(configured, available)
 

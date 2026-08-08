@@ -91,6 +91,17 @@ def run(
         bars = analysis.bars[["date", "close"]].copy()
         for h in horizons:
             bars[f"fwd_{h}"] = bars["close"].shift(-h) / bars["close"] - 1.0
+
+        # Point-in-time liquidity, carried alongside every observation so the
+        # evaluation can drop names that could not actually have been bought.
+        # Trailing window only - it ends on the observation date, never past it,
+        # so filtering on it later is a decision the screener could have made
+        # live. Median rather than mean: one block crossing should not make an
+        # otherwise dead stock look tradeable.
+        if "volume" in analysis.bars.columns:
+            turnover = analysis.bars["close"] * analysis.bars["volume"]
+            bars["vt"] = turnover.rolling(20, min_periods=5).median()
+
         merged = scored.merge(bars.drop(columns=["close"]), on="date", how="left")
         merged["ticker"] = ticker
         frames.append(merged)

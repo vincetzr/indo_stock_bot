@@ -411,6 +411,52 @@ def cmd_backtest(args) -> int:
     return 0
 
 
+def cmd_walkforward(args) -> int:
+    """Choose the weighting out-of-sample, then score it on unseen years."""
+    from . import walkforward as wf
+
+    if not os.path.exists(args.observations):
+        print(f"No observations file at {args.observations}.")
+        print("Produce one first:  idxbot backtest --universe idx_all "
+              "--providers none --out reports/obs_full.csv")
+        return 2
+
+    df = pd.read_csv(args.observations, parse_dates=["date"])
+    if args.min_close:
+        df = df[df["close"] >= args.min_close]
+    if args.min_value and "vt" in df.columns:
+        df = df[df["vt"] >= args.min_value]
+
+    candidates = dict(wf.WEIGHT_CANDIDATES)
+    # The label rides along under "profile" so fold reports name the winner
+    # rather than printing a wall of weights; blend() ignores non-numeric keys.
+    grid = [dict(weights, profile=label) for label, weights in candidates.items()]
+
+    evaluate = wf.portfolio_evaluator(horizon=args.horizon, top_n=args.top,
+                                      min_names=args.min_names,
+                                      overlap=args.overlap)
+
+    print("=" * 78)
+    print(" WALK-FORWARD: the parameters are chosen without seeing the test years")
+    print("=" * 78)
+    print(f" observations : {len(df):,}   tickers {df['ticker'].nunique()}   "
+          f"{df['date'].min():%Y-%m} -> {df['date'].max():%Y-%m}")
+    print(f" horizon      : {args.horizon}d   top-{args.top} equal weight   "
+          f"{'overlapping' if args.overlap else 'non-overlapping rebalances'}")
+    print(f" candidates   : {len(grid)} weight sets, refit every {args.test_years}y")
+    print()
+
+    result = wf.run(df, grid, evaluate,
+                    train_years=args.train_years, test_years=args.test_years,
+                    objective=args.objective,
+                    fixed_params={k: v for k, v in candidates.items()},
+                    verbose=not args.quiet)
+    wf.attach_benchmark(result, df, args.horizon, args.min_names, args.overlap)
+    print()
+    print(wf.render(result))
+    return 0
+
+
 def cmd_evaluate(args) -> int:
     """Cross-sectional evaluation of saved backtest observations."""
     from . import evaluate as ev
@@ -424,10 +470,25 @@ def cmd_evaluate(args) -> int:
     df = pd.read_csv(args.observations, parse_dates=["date"])
     horizons = tuple(args.horizons) if args.horizons else (5, 10, 20, 60)
 
+    # Untradeable rows do not merely add noise, they invert the answer. IDX's
+    # regular market cannot print below Rp50, so anything cheaper is a
+    # split-adjustment artifact - and those artifacts carry absurd forward
+    # returns (one sub-Rp0.02 name showed +4,615,285% over 5 days) that swamp
+    # a quarter of a million real observations.
+    before = len(df)
+    if args.min_close and "close" in df.columns:
+        df = df[df["close"] >= args.min_close]
+    if args.min_value and "vt" in df.columns:
+        df = df[df["vt"] >= args.min_value]
+    dropped = before - len(df)
+
     print("=" * 78)
     print(" CROSS-SECTIONAL EVALUATION")
     print("=" * 78)
     print(f" observations : {len(df):,}")
+    if dropped:
+        print(f" filtered out : {dropped:,} rows below Rp{args.min_close:.0f} "
+              f"or under Rp{args.min_value / 1e9:.1f}bn/day turnover")
     print(f" dates        : {df['date'].nunique():,}")
     print(f" tickers      : {df['ticker'].nunique()}")
     print(f" period       : {df['date'].min():%Y-%m-%d} -> {df['date'].max():%Y-%m-%d}")
@@ -947,6 +1008,26 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_backtest)
 
     # evaluate
+    p = sub.add_parser("walkforward",
+                       help="pick the weighting out-of-sample and score it on unseen years")
+    p.add_argument("--observations", default="reports/obs_full_clean.csv",
+                   help="CSV produced by `idxbot backtest --out ...`")
+    p.add_argument("--horizon", type=int, default=60, help="holding period in bars")
+    p.add_argument("--top", type=int, default=5, help="positions held per rebalance")
+    p.add_argument("--min-names", type=int, default=20,
+                   help="skip cross-sections thinner than this")
+    p.add_argument("--train-years", type=float, default=8.0)
+    p.add_argument("--test-years", type=float, default=2.0)
+    p.add_argument("--objective", default="mean", choices=["mean", "median", "sharpe"])
+    p.add_argument("--overlap", action="store_true",
+                   help="keep overlapping windows (inflates t-stats; off by default)")
+    p.add_argument("--min-close", type=float, default=50.0,
+                   help="IDX regular-market minimum price; filters split artefacts")
+    p.add_argument("--min-value", type=float, default=1e9,
+                   help="point-in-time turnover floor in IDR/day")
+    p.add_argument("--quiet", action="store_true", help="suppress the per-fold log")
+    p.set_defaults(func=cmd_walkforward)
+
     p = sub.add_parser("evaluate", help="cross-sectional IC / quantile evaluation")
     p.add_argument("--observations", default="reports/obs_components.csv",
                    help="CSV produced by `idxbot backtest --out ...`")
@@ -958,6 +1039,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--components", action="store_true",
                    help="rank IC for each component individually")
     p.add_argument("--component-horizon", type=int, default=20)
+    p.add_argument("--min-close", type=float, default=50.0,
+                   help="IDX regular-market minimum price; filters split artefacts")
+    p.add_argument("--min-value", type=float, default=1e9,
+                   help="point-in-time turnover floor in IDR/day")
     p.add_argument("--out", help="write the component scan to this CSV")
     p.set_defaults(func=cmd_evaluate)
 

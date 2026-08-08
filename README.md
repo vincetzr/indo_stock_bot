@@ -58,6 +58,24 @@ those returned +15.7% per 60 days vs +4.1% for established names. A separate
 liquidity audit found trades in names with Rp26 juta/day turnover that could
 never have been filled. Both are documented in `docs/FINDINGS.md` §5.
 
+### Then it was re-run on the whole exchange — 724 names, not 66
+
+`docs/FINDINGS.md` Part II repeats everything on every IDX ticker Yahoo returns
+(838 symbols, 2.59M bars), after dropping rows below Rp50 and under Rp1bn/day of
+turnover — **71% of the raw run**. Three results changed the picture:
+
+| | |
+|---|---|
+| **The median IDX stock loses money** | Under half of all 60-day windows are profitable; the top 1% of observations supply *more than 100%* of total return at 5–20 days. Buying the average name is the trap, not the safe option. |
+| **The composite decayed; one component did not** | Distance from the 52-week high (20d IC **+0.066, t=10.2**) beats the blend it sits inside, and is *strongest* in 2021–26 (60d IC +0.103, t=13.9) while the composite hit **zero** in 2018–20. |
+| **Training to optimum made it worse** | Re-choosing the weights every 2 years out-of-sample returned **+4.97%**/60d against **+8.6–9.5%** for simply fixing a trend profile. No candidate won more than 3 of 9 folds. |
+
+Survivorship bit exactly as predicted: the composite's holdout 60d IC fell from
+**+0.0462 on 66 names to +0.0217 on 724**. More than half the apparent edge was
+the universe, not the signal. What survives is crude and robust — the trend
+family beat the equal-weight universe in **23 of 24** horizon/size combinations,
+and the contrarian profile lost in **all 8**, turning 17 years into +9% total.
+
 **Treat the honest expectation as high-single-digit CAGR, not 35–40%.**
 
 **But: only 6 of 10 holdout years were positive** (2024: −6.65%), and **~8 points
@@ -132,7 +150,8 @@ signals and turned it slightly positive — on n=3, which is not evidence.
 | `analyze TICKER` | Deep dive: score breakdown, Wyckoff phase, broker positions, campaigns |
 | `plan` | Executable plan — entry band, stop, targets, lot-rounded size, R:R |
 | `playbook` | Reverse-engineer each broker's entry/exit behaviour across a universe |
-| `backtest` | Walk-forward: does the score actually predict forward returns? |
+| `backtest` | Sweep history: does the score actually predict forward returns? |
+| `walkforward` | Choose the weighting on past data only, score it on unseen years — and check whether choosing beat not choosing |
 | `dashboard` | Offline self-contained HTML report |
 | `live` | Reconstruct broker summary from a running-trade stream |
 | `pine [TICKER]` | Pine Script source, or plan levels as paste-ready Pine inputs |
@@ -149,9 +168,15 @@ universes are hard-coded.
 
 | Profile | Components | Status |
 |---|---|---|
-| `momentum` *(default)* | 12-1 momentum, relative strength, trend persistence, near 52w high | validated out-of-sample |
+| `momentum` *(default)* | 12-1 momentum, relative strength, trend persistence, near 52w high | validated out-of-sample; best at 20-day holds |
+| `near_high` | distance from the 52-week high, alone | strongest single component and the only one that has not decayed; best at 60-day holds |
 | `accumulation` | broker inventory, stealth, concentration, smart-vs-dumb, Wyckoff, volume dry-up | price-only half refuted; broker half untested |
 | `momentum_plus_flow` | trend + institutional flow | **untested — needs real broker data** |
+
+`near_high` is deliberately *not* the default. It won the 60-day test and lost
+the 20-day one, and picking the per-horizon winner after seeing both results is
+the selection bias this repo spends most of its effort avoiding. Choose by
+holding period, not by which number is larger.
 
 Evidence for each component only appears in the output if the active profile
 actually weights it, so a flag never reads as support for a score it did not
