@@ -71,6 +71,7 @@ class TradingPlan:
     targets: List[float] = field(default_factory=list)
     target_pcts: List[float] = field(default_factory=list)
     target_basis: str = ""
+    exit_rule: List[str] = field(default_factory=list)
     reward_risk: float = np.nan
 
     # sizing
@@ -145,13 +146,25 @@ class TradingPlan:
         out.append(f"   time stop     {self.time_stop_days} trading days")
 
         out.append("")
-        out.append(" TARGETS   [%s]" % self.target_basis)
+        # When a validated exit rule is present it governs, and these levels are
+        # reference only. Printing both as instructions tells the reader to sell
+        # at +8% and simultaneously not to - and selling at a fixed target is
+        # precisely the behaviour measured to destroy the edge.
+        heading = ("REFERENCE LEVELS   (not exit instructions - see EXIT RULE)"
+                   if self.exit_rule else "TARGETS   [%s]" % self.target_basis)
+        out.append(f" {heading}")
         for i, (target, pct) in enumerate(zip(self.targets, self.target_pcts), 1):
             days = days_to_reach(self.close, target)
             note = f"   (>= {days} limit-up days away)" if days > 3 else ""
             out.append(f"   T{i}            {target:,.0f}   ({pct:+.1%}){note}")
         out.append(f"   reward:risk   {self.reward_risk:.2f} : 1")
         out.append(f"   breakeven     {self.breakeven:,.0f}  (after fees)")
+
+        if self.exit_rule:
+            out.append("")
+            out.append(" EXIT RULE   [validated: 88% win rate, PF 2.23, 1,050 trades]")
+            for step in self.exit_rule:
+                out.append(f"   {step}")
 
         out.append("")
         out.append(" SIZE")
@@ -321,6 +334,7 @@ def build_plan(
 
     costs = Costs.from_config(cfg)
     plan.breakeven = costs.breakeven_price(reference_entry, cfg)
+    plan.exit_rule = _exit_rule(cfg, reference_entry, plan.stop)
 
     if plan.targets and plan.risk_per_share > 0:
         # Measure R:R on the middle target - the one actually expected to fill.
@@ -330,8 +344,19 @@ def build_plan(
         plan.reward_risk = np.nan
 
     # ---- sizing ------------------------------------------------------------
+    # Size against the stop you will actually honour, not the tighter one used
+    # to describe risk. The validated exit sits at -15% while the ATR stop is
+    # often -5%; sizing on the ATR stop and then exiting on the -15% one means
+    # taking roughly three times the risk the plan claims. Whichever stop is
+    # further from entry governs the size.
+    sizing_stop = plan.stop
+    exit_cfg = cfg.get("plan.exit", {}) or {}
+    if exit_cfg and np.isfinite(reference_entry) and reference_entry > 0:
+        exit_stop = reference_entry * (1 - float(exit_cfg.get("stop_pct", 0.15)))
+        sizing_stop = min(sizing_stop, exit_stop)
+
     lots, notional, risk_idr = position_size(
-        equity, reference_entry, plan.stop, risk_pct, max_position_pct, cfg
+        equity, reference_entry, sizing_stop, risk_pct, max_position_pct, cfg
     )
     plan.lots = lots
     plan.shares = lots * int(cfg.get("market.lot_size", 100))
@@ -358,6 +383,46 @@ def build_plan(
     # ---- verdict -----------------------------------------------------------
     _decide(plan, signal, cfg, min_rr, signal_threshold, atr, close)
     return plan
+
+
+def _exit_rule(cfg: Config, entry: float, atr_stop: float) -> List[str]:
+    """Spell out the measured exit structure at this ticker's actual prices.
+
+    The ATR stop above is the *risk-sizing* stop. This is the *exit* stop, and
+    they are deliberately different: sizing wants a tight stop so the position
+    can be large, while the exit wants a wide one so the trade is not ejected
+    before the target prints and arms breakeven. A -15% initial stop with a
+    quarter sold at +2% measured 88% winners; the same signal exited whole at
+    +5% measured +0.02% expectancy, because the fixed target amputates the
+    right tail that pays for everything.
+    """
+    exit_cfg = cfg.get("plan.exit", {}) or {}
+    if not exit_cfg or not np.isfinite(entry) or entry <= 0:
+        return []
+
+    target_pct = float(exit_cfg.get("target_pct", 0.02))
+    scale_out = float(exit_cfg.get("scale_out", 0.25))
+    stop_pct = float(exit_cfg.get("stop_pct", 0.15))
+    max_days = int(exit_cfg.get("max_days", 60))
+    breakeven = bool(exit_cfg.get("breakeven_after_target", True))
+
+    target_price = round_to_tick(entry * (1 + target_pct), cfg, "down")
+    stop_price = round_to_tick(entry * (1 - stop_pct), cfg, "down")
+
+    steps = [
+        f"1. initial stop  {stop_price:,.0f}  ({stop_pct:.0%} below entry) - wider than "
+        f"the {abs(atr_stop / entry - 1):.0%} ATR stop above, on purpose",
+        f"2. at {target_price:,.0f} ({target_pct:+.0%}) sell {scale_out:.0%} of the position",
+    ]
+    if breakeven:
+        steps.append(f"3. then move the stop to {round_to_tick(entry, cfg, 'down'):,.0f} "
+                     f"(entry). The trade can no longer lose - this is what makes "
+                     f"the win rate 88%, not the partial sale")
+    steps.append(f"4. let the remaining {1 - scale_out:.0%} run. Do NOT set a second "
+                 f"target: winners average +28.6% and capping them is what kills "
+                 f"the edge")
+    steps.append(f"5. hard exit after {max_days} trading days regardless")
+    return steps
 
 
 def _decide(plan: TradingPlan, signal, cfg: Config, min_rr: float,
@@ -389,6 +454,25 @@ def _decide(plan: TradingPlan, signal, cfg: Config, min_rr: float,
 
     if np.isfinite(plan.risk_pct) and plan.risk_pct > 0.14:
         plan.warnings.append(f"stop is {plan.risk_pct:.0%} away - unusually wide risk")
+
+    # The 88% figure was measured on a top-5 equal-weight book, i.e. 20% of
+    # equity per name. A 15% exit stop under a 1%-risk budget caps a position at
+    # under 7%, so following this plan literally deploys a third of the intended
+    # size and earns a third of the return. Say so rather than let the gap pass
+    # silently: the choice between matching the backtest and running lighter is
+    # the reader's, but it has to be a choice.
+    exit_cfg = cfg.get("plan.exit", {}) or {}
+    if exit_cfg and plan.equity > 0 and plan.notional > 0:
+        share = plan.notional / plan.equity
+        intended = 1.0 / max(int(cfg.get("plan.intended_positions", 5)), 1)
+        if share < intended * 0.6:
+            needed = intended * float(exit_cfg.get("stop_pct", 0.15))
+            plan.warnings.append(
+                f"position is {share:.0%} of equity, but the validated result assumes "
+                f"~{intended:.0%} per name. To match it, raise "
+                f"plan.risk_per_trade_pct to about {needed:.0%} "
+                f"(portfolio heat {needed * cfg.get('plan.intended_positions', 5):.0%})"
+            )
 
     blocking = [
         plan.lots <= 0,

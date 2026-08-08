@@ -442,6 +442,88 @@ def cmd_fundamentals(args) -> int:
     return 0
 
 
+def cmd_barrier(args) -> int:
+    """What a target-and-stop trade actually returns, path by path."""
+    from . import barrier as barrier_mod
+    from . import walkforward as wf
+
+    if not os.path.exists(args.observations):
+        print(f"No observations file at {args.observations}.")
+        return 2
+
+    engine = _engine(args)
+    df = pd.read_csv(args.observations, parse_dates=["date"])
+    if args.min_close:
+        df = df[df["close"] >= args.min_close]
+    if args.min_value and "vt" in df.columns:
+        df = df[df["vt"] >= args.min_value]
+    if args.start:
+        df = df[df["date"] >= pd.Timestamp(args.start)]
+
+    weights = wf.WEIGHT_CANDIDATES.get(args.rule)
+    if weights is None:
+        print(f"Unknown rule '{args.rule}'. Available: "
+              f"{', '.join(wf.WEIGHT_CANDIDATES)}")
+        return 2
+
+    # Rebuild the ranking, then keep only what the rule would actually have
+    # bought: the top N on each rebalance date, spaced so positions do not
+    # overlap in time.
+    df["_s"] = wf.blend(df, weights)
+    df = df.dropna(subset=["_s"])
+    dates = wf.nonoverlapping(df["date"].unique(), args.spacing)
+    df = df[df["date"].isin(pd.to_datetime(list(dates)))]
+    picks = pd.concat([g.nlargest(args.top, "_s") for _, g in df.groupby("date")
+                       if len(g) >= args.min_names])
+
+    print(f"rule '{args.rule}': {len(picks):,} signals across "
+          f"{picks['ticker'].nunique()} tickers, "
+          f"{picks['date'].min():%Y-%m} -> {picks['date'].max():%Y-%m}")
+    print(f"entry at the next bar's open; same-bar target+stop scored as a stop\n")
+
+    targets = [float(x) for x in args.targets]
+    stops = [float(x) for x in args.stops]
+    holds = [int(x) for x in args.holds]
+    scales = [float(x) for x in args.scale_out]
+    trails = [float(x) for x in args.trails]
+    breakevens = [bool(int(x)) for x in args.breakeven]
+    configs = [barrier_mod.BarrierConfig(t, s, h, sc, tr, be)
+               for t in targets for s in stops for h in holds
+               for sc in scales for tr in trails for be in breakevens
+               # A trailing stop only exists once something has been sold, so a
+               # full exit with a trail is the same run repeated.
+               if not (sc >= 1.0 and tr > 0)]
+
+    by_ticker = {t: g["date"].tolist() for t, g in picks.groupby("ticker")}
+    collected: Dict[str, List[pd.DataFrame]] = {c.label: [] for c in configs}
+
+    for n, (ticker, signal_dates) in enumerate(sorted(by_ticker.items()), 1):
+        analysis = engine.analyze(ticker, with_campaigns=False)
+        if analysis is None or analysis.bars.empty:
+            continue
+        for cfg in configs:
+            out = barrier_mod.simulate_ticker(analysis.bars, signal_dates, cfg)
+            if not out.empty:
+                collected[cfg.label].append(out)
+        if not args.quiet and n % 50 == 0:
+            print(f"  {n}/{len(by_ticker)} tickers")
+
+    rows = []
+    for cfg in configs:
+        frames = collected[cfg.label]
+        if not frames:
+            continue
+        summary = barrier_mod.summarise(pd.concat(frames, ignore_index=True),
+                                        cost_pct=args.cost)
+        if summary:
+            rows.append({"setup": cfg.label, **summary})
+
+    print()
+    print(barrier_mod.render_grid(rows, target_hit_rate=args.want))
+    _write_csv(pd.DataFrame(rows), args.out, "barrier grid")
+    return 0
+
+
 def cmd_walkforward(args) -> int:
     """Choose the weighting out-of-sample, then score it on unseen years."""
     from . import walkforward as wf
@@ -1043,6 +1125,40 @@ def build_parser() -> argparse.ArgumentParser:
                        help="current-snapshot fundamental screen (NOT backtestable)")
     common(p)  # supplies --universe/--tickers/--limit/--out
     p.set_defaults(func=cmd_fundamentals)
+
+    p = sub.add_parser("barrier",
+                       help="target/stop exits: real hit rate and expectancy")
+    p.add_argument("--observations", default="reports/obs_full_clean.csv")
+    p.add_argument("--rule", default="near_high only",
+                   help="weight set from walkforward.WEIGHT_CANDIDATES")
+    p.add_argument("--targets", nargs="+", default=[0.03, 0.05, 0.08],
+                   help="take-profit levels to test")
+    p.add_argument("--stops", nargs="+", default=[0.05, 0.08, 0.12],
+                   help="stop-loss levels to test")
+    p.add_argument("--holds", nargs="+", default=[20, 60],
+                   help="maximum bars held before exiting at the close")
+    p.add_argument("--scale-out", nargs="+", default=[1.0],
+                   help="share sold at the target; <1 lets the rest run")
+    p.add_argument("--trails", nargs="+", default=[0.0],
+                   help="trailing stop on the remainder after scaling out")
+    p.add_argument("--breakeven", nargs="+", default=[0],
+                   help="1 to lift the stop to entry once the target prints")
+    p.add_argument("--top", type=int, default=5, help="positions per rebalance")
+    p.add_argument("--spacing", type=int, default=60,
+                   help="bars between rebalances, so positions do not overlap")
+    p.add_argument("--min-names", type=int, default=20)
+    p.add_argument("--cost", type=float, default=0.004,
+                   help="round-trip cost; IDX is ~0.15%% buy + 0.25%% sell")
+    p.add_argument("--want", type=float, default=0.80,
+                   help="hit rate to flag as qualifying")
+    p.add_argument("--start", help="ignore signals before this date")
+    p.add_argument("--min-close", type=float, default=50.0)
+    p.add_argument("--min-value", type=float, default=1e9)
+    p.add_argument("--providers", default="none")
+    p.add_argument("--profile")
+    p.add_argument("--quiet", action="store_true")
+    p.add_argument("--out", help="write the grid to this CSV")
+    p.set_defaults(func=cmd_barrier)
 
     p = sub.add_parser("walkforward",
                        help="pick the weighting out-of-sample and score it on unseen years")

@@ -509,6 +509,122 @@ windows would show t≈9, which is why this repo does not use them.
 
 ---
 
+# Part III — the exit rule, and how to actually reach an 80% win rate
+
+Everything above measures returns close-to-close at a fixed horizon: buy today,
+look 60 bars later. That is the right way to test whether a *signal* carries
+information and the wrong way to test a *trade*, because nobody holds blind for
+three months. `idxbot barrier` walks each position forward bar by bar until it
+touches a target or a stop.
+
+Three rules keep it honest, all unit-tested:
+
+- **Entry is the next bar's open**, never the signal bar's close — that close is
+  not a price you could have traded on.
+- **A bar that spans both barriers scores as a stop.** Daily data cannot say
+  which came first, and assuming the good one is the single easiest way to
+  manufacture a win rate that does not exist.
+- **Costs charged every trade** (0.4% round trip). At a 3% target that is an
+  eighth of the gross win, which is exactly why small targets flatter the hit
+  rate and starve the return.
+
+## Result 11 — the take-profit is what destroys the edge, not the stop
+
+Reconciling the barrier engine against the fixed-horizon baseline, same signals:
+
+| exit rule | expectancy | avg win | days held |
+|---|---|---|---|
+| hold 60 days flat | **+9.27%** | +28.62% | 59 |
+| stop −8%, no target | +5.60% | +28.78% | 34 |
+| target +5%, no stop | **+0.02%** | +4.88% | 24 |
+| target +5% and stop −8% | +0.11% | +4.88% | 12 |
+
+The flat hold reproduces §10's +9.51%, so the engine is not lying. Everything
+follows from the second column: **unconstrained winners average +28.6%**, and a
++5% target amputates them. Selling the whole position at +5% converts a +9.27%
+expectancy into +0.02% — the entire edge, gone, while the *stop* costs barely a
+third of it.
+
+This is Result 8 restated as a trading instruction. The top 1% of observations
+supply more than 100% of total return; a fixed target is a machine for
+guaranteeing you are never holding them.
+
+## Result 12 — 88% win rate, and what it costs
+
+A high win rate is trivially purchasable by widening the stop, and that road
+ends in ruin, so every figure below is paired with expectancy. The structure
+that actually works has three parts:
+
+1. **Sell only a quarter at the target.** The rest still runs.
+2. **Lift the stop to entry once the target prints.** This — not the scale-out —
+   is what lifts the win rate. A 25% slice banked at +2% cannot rescue the other
+   75% falling to the stop; a breakeven floor can.
+3. **A wide −15% initial stop**, because a tight one ejects you before the
+   target ever prints and arms the floor.
+
+Scaling out alone already transforms the result: `+3%/−8%` goes from **−0.48% to
++3.78%** expectancy by selling 25% at the target instead of 100%, hit rate
+unchanged.
+
+**Validated on a chronological holdout.** The config was chosen on 2009–17 and
+then run on 2018–26, untouched:
+
+| rule | exit | train win | holdout win | holdout expectancy | PF |
+|---|---|---|---|---|---|
+| shipped momentum | +2%/−15% x25% BE | 87% | **86%** | +3.38% | 2.61 |
+| shipped momentum | +3%/−15% x25% BE | 84% | 83% | +4.11% | 2.57 |
+| near_high only | +2%/−15% x25% BE | 82% | 82% | +2.67% | 2.03 |
+| shipped momentum | +5%/−10% x25% (no BE) | 44% | 38% | +5.86% | 2.13 |
+| shipped momentum | hold 60d flat | 61% | 50% | +8.02% | 1.73 |
+
+Picking purely on the train half selects `+2%/−15% x25% BE`, and it delivers 86%
+out-of-sample. It holds across **9 of 9** rule × position-count combinations
+(82–87%), so it is not a single lucky cell.
+
+### The cadence correction, and an artifact caught
+
+Barrier trades exit after ~17 days. Rebalancing every 60 leaves capital idle for
+43 of them, which is why the naive portfolio CAGR looked like 8.8%. Matching the
+cadence to the holding period is what the rule is actually worth — but that is
+only legitimate if a tranche closes before the next opens, so:
+
+| exit rule | still open at 20d | implied leverage | verdict |
+|---|---|---|---|
+| +2%/−15% x25% BE | 27% | **0.86x** | valid (capital idle 14% of the time) |
+| +3%/−15% x25% BE | 36% | 1.10x | marginal |
+| hold 60d flat | 100% | **2.98x** | **invalid** |
+
+Holding flat at a 20-day cadence appeared to return 122% CAGR. It was three
+positions deep at all times — 3x leverage, not a strategy. Discarded. The
+honest comparison, each at a cadence it can actually support:
+
+| | win rate | CAGR | max DD | leverage |
+|---|---|---|---|---|
+| **+2%/−15% x25% BE, 20d cadence** | **88%** | **33.2%** | **−30.5%** | 0.86x |
+| hold 60 days flat, 60d cadence | 56% | 27.7% | −50.2% | 1.00x |
+
+Better on all three: higher win rate, higher return, materially smaller
+drawdown. The gain is not from better selection — the signal is identical — it
+is from recycling capital three times as often at a slightly lower per-trade
+return.
+
+### What the 88% is not
+
+- **Not 88% of trades making +5%.** The target is +2%, and the average win is
+  +5.05% only because the untouched 75% sometimes runs a long way. Roughly a
+  sixth of wins are near-scratch exits at breakeven after costs.
+- **Not low-risk.** The 12% of trades that lose average **−12.8%**, and the
+  portfolio still draws down 30%. Profit factor 2.23 is the honest summary; the
+  win rate on its own is the most misleading number in this document.
+- **Not free of selection.** Six exit configs were compared, and while the
+  holdout confirms the winner, six is still six. The effect is large and
+  monotonic across the grid rather than a single spike, which is the reassuring
+  part.
+- **Not a day-trade rule.** Average hold is 17 days. Nothing here rehabilitates
+  the intraday results in `docs/DAYTRADE.md`.
+
+---
+
 ## What this does and does not establish
 
 **Does:**

@@ -77,6 +77,37 @@ the universe, not the signal. What survives is crude and robust — the trend
 family beat the equal-weight universe in **23 of 24** horizon/size combinations,
 and the contrarian profile lost in **all 8**, turning 17 years into +9% total.
 
+### The exit rule matters more than the signal
+
+Fixed-horizon returns test a *signal*; they do not test a *trade*. Simulating
+each position bar by bar to a target or stop (`idxbot barrier`) produced the
+most actionable result in the project:
+
+| exit rule | expectancy | avg win |
+|---|---|---|
+| hold 60 days flat | **+9.27%** | +28.62% |
+| stop −8%, no target | +5.60% | +28.78% |
+| **take profit at +5%** | **+0.02%** | +4.88% |
+
+**Selling at a fixed +5% destroys the entire edge.** Unconstrained winners
+average +28.6%; a +5% target amputates exactly the tail that pays for
+everything. The stop costs a third as much as the target does.
+
+The structure that reaches a high win rate *without* surrendering the tail sells
+only a quarter at a +2% target, then moves the stop to entry so the trade cannot
+turn into a loser. Chosen on 2009–17 and confirmed on an untouched 2018–26
+holdout (87% → **86%**), robust across 9 of 9 rule × position-count cells:
+
+| | win rate | CAGR | max DD |
+|---|---|---|---|
+| **+2%/−15%, sell 25%, breakeven stop** | **88%** | **33.2%** | **−30.5%** |
+| hold 60 days flat | 56% | 27.7% | −50.2% |
+
+Read the win rate with its expectancy, never alone: the 12% of trades that lose
+average **−12.8%**, and profit factor 2.23 is the honest summary. Full detail,
+including a 2.98x-leverage artifact caught and discarded, in `docs/FINDINGS.md`
+Part III.
+
 **Treat the honest expectation as high-single-digit CAGR, not 35–40%.**
 
 **But: only 6 of 10 holdout years were positive** (2024: −6.65%), and **~8 points
@@ -148,6 +179,7 @@ signals and turned it slightly positive — on n=3, which is not evidence.
 | `invest` | Long-horizon basket from the validated 60-day momentum score |
 | `screen` | Rank a universe by score, with evidence for each hit |
 | `evaluate` | Cross-sectional rank IC, quantile spreads, per-component diagnosis, train/holdout |
+| `barrier` | Path-dependent exits: what a target/stop trade really returns, hit rate **and** expectancy |
 | `fundamentals` | Current-snapshot quality screen — excludes wreckage. **Not backtestable, by construction** |
 | `analyze TICKER` | Deep dive: score breakdown, Wyckoff phase, broker positions, campaigns |
 | `plan` | Executable plan — entry band, stop, targets, lot-rounded size, R:R |
