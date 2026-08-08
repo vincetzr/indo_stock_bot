@@ -19,7 +19,7 @@ because a price-only 70 and a broker-confirmed 70 are not the same claim.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Sequence
 
 import numpy as np
 import pandas as pd
@@ -325,6 +325,7 @@ def score_series(
     step: int = 1,
     include_components: bool = True,
     profile: Optional[str] = None,
+    on_dates: Optional[Sequence] = None,
 ) -> pd.DataFrame:
     """Score every ``step``-th bar - the input to the backtester.
 
@@ -339,8 +340,19 @@ def score_series(
     if bars is None or len(bars) <= start_index:
         return pd.DataFrame()
 
+    if on_dates is not None:
+        # Score on a shared calendar so every ticker is evaluated on the same
+        # days. Sampling each ticker every Nth bar from its own start index
+        # instead leaves tickers on disjoint date grids, which starves every
+        # cross-sectional comparison downstream.
+        wanted = pd.DatetimeIndex(pd.to_datetime(list(on_dates))).normalize()
+        positions = np.flatnonzero(bars["date"].isin(wanted).to_numpy())
+        indices = [int(i) for i in positions if i >= start_index]
+    else:
+        indices = list(range(start_index, len(bars), max(1, step)))
+
     rows = []
-    for i in range(start_index, len(bars), max(1, step)):
+    for i in indices:
         signal = score(bars, cfg, flow=flow, index=i, ticker=ticker, profile=profile)
         row = {
             "date": signal.date,

@@ -49,6 +49,18 @@ def run(
     cfg: Config = engine.cfg
     horizons = list(horizons or cfg.get("backtest.horizons", [5, 10, 20, 60]))
 
+    # Build one shared sampling calendar from the exchange index, so every
+    # ticker is scored on the same dates. Without this each ticker lands on its
+    # own date grid and cross-sectional analysis sees only a handful of names
+    # per date.
+    grid = None
+    benchmark = engine.benchmark()
+    if benchmark is not None and not benchmark.empty:
+        grid = pd.DatetimeIndex(benchmark.index)[::max(1, step)]
+        if verbose:
+            print(f"  sampling calendar: {len(grid):,} dates "
+                  f"({grid[0]:%Y-%m-%d} -> {grid[-1]:%Y-%m-%d})\n")
+
     frames: List[pd.DataFrame] = []
     for i, ticker in enumerate(tickers, 1):
         if verbose:
@@ -68,7 +80,7 @@ def run(
             analysis.bars, cfg,
             flow=analysis.flow if not analysis.flow.empty else None,
             ticker=ticker, start_index=start_index, step=step,
-            profile=engine.profile,
+            profile=engine.profile, on_dates=grid,
         )
         if scored.empty:
             if verbose:

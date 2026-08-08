@@ -6,6 +6,7 @@
     idxbot playbook    --universe lq45          reverse-engineer broker behaviour
     idxbot backtest    --universe lq45          does the score predict returns?
     idxbot evaluate    --split --components     cross-sectional IC, train/holdout
+    idxbot portfolio   --split                  long-only top-N equity curve
     idxbot dashboard   --universe lq45          offline HTML report
     idxbot live        --file ticks.jsonl       live broker summary from running trade
     idxbot pine        [BBCA]                   Pine Script / plan inputs
@@ -380,6 +381,46 @@ def cmd_evaluate(args) -> int:
     return 0
 
 
+def cmd_portfolio(args) -> int:
+    """Long-only portfolio simulation from saved observations."""
+    from . import portfolio as pf
+    from . import evaluate as ev
+
+    if not os.path.exists(args.observations):
+        print(f"No observations file at {args.observations}.")
+        print("Produce one first:  idxbot backtest --universe all --providers none "
+              "--out reports/obs.csv")
+        return 2
+
+    df = pd.read_csv(args.observations, parse_dates=["date"])
+
+    # Survivorship-free benchmark leg.
+    index_prices = None
+    try:
+        index_prices = _engine(args).benchmark()
+    except Exception as exc:
+        print(f"  (IHSG benchmark unavailable: {exc})")
+
+    def run(frame: pd.DataFrame, label: str) -> None:
+        result = pf.simulate(
+            frame, top_n=args.top_n, horizon=args.horizon,
+            cost_per_side=args.cost, min_score=args.min_score,
+            index_prices=index_prices,
+        )
+        print(pf.render(result, label))
+        print()
+        if args.out and not result.empty:
+            _write_csv(pf.equity_curve(result), args.out, f"equity curve ({label})")
+
+    if args.split:
+        train, test = ev.split_sample(df, args.split_fraction)
+        run(train, f"TRAIN {train['date'].min():%Y-%m} to {train['date'].max():%Y-%m}")
+        run(test, f"HOLDOUT {test['date'].min():%Y-%m} to {test['date'].max():%Y-%m}")
+    else:
+        run(df, f"{df['date'].min():%Y-%m} to {df['date'].max():%Y-%m}")
+    return 0
+
+
 def cmd_dashboard(args) -> int:
     engine = _engine(args)
     tickers = _resolve_tickers(engine.cfg, args)
@@ -659,6 +700,21 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--component-horizon", type=int, default=20)
     p.add_argument("--out", help="write the component scan to this CSV")
     p.set_defaults(func=cmd_evaluate)
+
+    # portfolio
+    p = sub.add_parser("portfolio", help="long-only top-N portfolio simulation")
+    p.add_argument("--observations", default="reports/obs_momentum.csv")
+    p.add_argument("--top-n", type=int, default=10, help="names held")
+    p.add_argument("--horizon", type=int, default=60, help="holding period in bars")
+    p.add_argument("--cost", type=float, default=0.002, help="cost per side")
+    p.add_argument("--min-score", type=float, help="only hold names above this score")
+    p.add_argument("--providers")
+    p.add_argument("--profile")
+    p.add_argument("--quiet", action="store_true")
+    p.add_argument("--split", action="store_true", help="show train and holdout")
+    p.add_argument("--split-fraction", type=float, default=0.5)
+    p.add_argument("--out", help="write the equity curve to this CSV")
+    p.set_defaults(func=cmd_portfolio)
 
     # dashboard
     p = sub.add_parser("dashboard", help="render the offline HTML dashboard")

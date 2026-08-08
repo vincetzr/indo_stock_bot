@@ -6,7 +6,10 @@ Two results, both on genuine exchange data, both reproducible from this repo:
    everything else — strongly before 2017, decaying to noise after.
 2. **A momentum score built from that diagnosis survives out-of-sample.** On a
    holdout period never used for selection, the top quintile beat the bottom by
-   **+3.83% over 60 days (t = 7.00)** — but with 4 losing years in 10.
+   **+5.16% over 60 days (t = 5.90)**, and a long-only top-10 portfolio beat the
+   equal-weight universe by **+4.67% per 60-day period (t = 2.32)** with a
+   materially smaller drawdown — but with 4 losing years in 10, and roughly
+   8 points of the headline CAGR being survivorship bias (§4).
 
 Result 2 is not a licence to switch on the screener and stop thinking. Read §5.
 
@@ -16,13 +19,13 @@ Result 2 is not a licence to switch on the screener and stop thinking. Read §5.
 
 | | |
 |---|---|
-| Observations | **56,745** |
+| Observations | **55,699** |
 | Tickers | 66 |
-| Period | 2001-07-31 → 2026-08-07 (**25 years**) |
+| Period | 2001-08-03 → 2026-08-04 (**25 years**) |
 | Data | Real Yahoo daily OHLCV + real IHSG. **Nothing simulated.** |
 | Mode | `price-only` (`--providers none`) — no broker data anywhere |
-| Sampling | Every 5th bar, 300-bar warm-up, no look-ahead (unit-tested) |
-| Split | Chronological. Train 2001-07 → 2017-01. **Holdout 2017-01 → 2026-08.** |
+| Sampling | Shared exchange calendar, every 5th trading day, 300-bar warm-up, no look-ahead (unit-tested). Median **52 names per cross-section**. |
+| Split | Chronological. Train 2001-08 → 2016-12. **Holdout 2016-12 → 2026-08.** |
 
 ```bash
 idxbot backtest --universe all --providers none --profile momentum \
@@ -50,8 +53,11 @@ Cross-sectional rank IC of the composite:
 
 | Period | 20d IC | t | 60d IC | t |
 |---|---|---|---|---|
-| Train 2001–2017 | **−0.0566** | −7.62 | −0.0457 | −6.28 |
-| Holdout 2017–2026 | −0.0017 | −0.25 | −0.0204 | −2.93 |
+| Train 2001–2016 | **−0.0379** | −5.30 | −0.0379 | −5.07 |
+| Holdout 2016–2026 | +0.0001 | +0.02 | −0.0103 | −1.33 |
+
+Holdout quintile spread: **−1.04% at 20d (t = −2.85)** and −2.63% at 60d
+(t = −3.38). Still adverse, just weaker than in training.
 
 Strongly negative for the first sixteen years, then decaying to roughly nothing.
 Either way it never earns its keep as a *buy* signal.
@@ -63,16 +69,22 @@ Wyckoff phase E — which the planner blocks as "a chase" — was the best state
 
 ### Component diagnosis (training half only)
 
-| Component | 20d IC | t | Verdict |
-|---|---|---|---|
-| `relative_strength` | **+0.0380** | +4.70 | the only one helping |
-| `wyckoff` | −0.0202 | −2.64 | hurting |
-| `range_compression` | −0.0293 | −3.90 | hurting |
-| `obv_divergence` | −0.0398 | −5.14 | hurting |
-| `volume_dryup` | −0.0476 | −6.30 | hurting most |
+| Component | Family | 20d IC | t | Verdict |
+|---|---|---|---|---|
+| `trend_persistence` | momentum | **+0.0476** | +5.30 | helps |
+| `momentum` (12-1) | momentum | **+0.0436** | +4.26 | helps |
+| `relative_strength` | momentum | **+0.0433** | +4.53 | helps |
+| `near_high` | momentum | **+0.0313** | +3.18 | helps |
+| `wyckoff` | contrarian | −0.0037 | −0.52 | no signal |
+| `obv_divergence` | contrarian | −0.0251 | −2.84 | hurts |
+| `range_compression` | contrarian | −0.0276 | −3.44 | hurts |
+| `volume_dryup` | contrarian | **−0.0478** | −6.35 | hurts most |
 
-Every contrarian component had a negative IC. The single momentum-flavoured one
-was positive. The composite wasn't noise — it was **systematically backwards**.
+The split is perfectly clean along family lines: **every momentum component is
+positive, every contrarian component is zero or negative.** The composite wasn't
+noise — it was **systematically backwards**, and `volume_dryup` (the single most
+Wyckoff-ish component, "supply is drying up") was the most reliably wrong signal
+in the whole set.
 
 ---
 
@@ -85,17 +97,22 @@ not looked at until the profile was frozen.
 
 | Profile | Train 20d IC (t) | **Holdout 20d IC (t)** | **Holdout 60d IC (t)** |
 |---|---|---|---|
-| `accumulation` | −0.0566 (−7.62) | −0.0017 (−0.25) | −0.0204 (−2.93) |
-| `momentum` | +0.0538 (+6.73) | **+0.0261 (+3.47)** | **+0.0411 (+5.52)** |
+| `accumulation` | −0.0379 (−5.30) | +0.0001 (+0.02) | −0.0103 (−1.33) |
+| `momentum` | +0.0612 (+6.56) | **+0.0313 (+3.08)** | **+0.0462 (+4.92)** |
 
 Holdout quintile spread (top minus bottom, within each date):
 
 | Horizon | Top | Bottom | Spread | t | Dates positive |
 |---|---|---|---|---|---|
-| 20d | 2.12% | 1.14% | **+0.98%** | 3.16 | 52.2% |
-| 60d | 6.24% | 2.40% | **+3.83%** | 7.00 | 57.3% |
+| 20d | 2.61% | 1.04% | **+1.56%** | 3.69 | 58.3% |
+| 60d | 7.49% | 2.33% | **+5.16%** | 5.90 | 62.3% |
 
-At 60 days that is ~+3.43% net of the configured 0.40% round trip.
+At 60 days that is ~+4.76% net of the configured 0.40% round trip.
+
+*(An earlier version of these numbers sampled each ticker every 5 bars from its
+own start index, which left tickers on disjoint date grids and only ~8 names per
+cross-section. Scoring now runs on a shared exchange calendar — median 52 names
+per date — which is both correct and, as it turns out, more favourable.)*
 
 Note the composite beats its own best component: `relative_strength` alone had a
 holdout IC of just +0.003 (t = 0.37). The lift comes from combining four
@@ -126,6 +143,56 @@ the strategy at the bottom.
 
 ---
 
+## Result 4 — the tradeable version, and how much of it is an illusion
+
+An IC is not money. This simulates what a retail account can actually do: hold
+the **top 10 names, equal weight, rebalanced every 60 trading days**, net of a
+0.2%-per-side cost on turnover (~51% per rebalance). 42 non-overlapping periods
+in the holdout.
+
+| Metric | Strategy | Universe EW | **IHSG** |
+|---|---|---|---|
+| CAGR | 31.61% | 12.09% | **4.14%** |
+| Annual volatility | 38.93% | 24.83% | 15.70% |
+| Sharpe | 0.87 | 0.58 | 0.34 |
+| Max drawdown | **−16.89%** | −28.19% | −32.23% |
+| Hit rate | 64.3% | 61.9% | 52.4% |
+
+Excess vs equal-weight universe: **+4.67% per period, t = 2.32**, positive in
+64% of periods. Versus IHSG: +6.83% per period, t = 2.85.
+
+### The survivorship correction — read this before believing the CAGR
+
+**The equal-weight universe beat IHSG by +7.96% CAGR (12.09% vs 4.14%).** That
+gap is not skill and not strategy. It is the universe being built from *today's*
+LQ45 / deep-history / speculative constituent lists: names that collapsed or were
+delisted are simply absent, and names that 10×'d are present for the whole run
+*because* they 10×'d.
+
+So of the strategy's headline +27.5% CAGR over IHSG:
+
+- **~8 points are pure survivorship** in the universe construction
+- the remaining ~19.5 points are measured against a universe carrying the same
+  bias — which is the *fair* comparison, and the one to quote
+
+And even that is generous: a **momentum** strategy benefits from survivorship
+more than equal weight does, because the survivors are precisely the names with
+persistent momentum. The honest reading of the strategy-vs-IHSG column is
+**upper bound, not expectation.**
+
+The one result that is *not* obviously inflated is the drawdown: −16.89% against
+−32.23% for IHSG. A momentum screen rotating out of falling names ahead of an
+index that must hold them is a mechanism that does not depend on survivorship.
+
+### Sample-size caveat
+
+42 non-overlapping periods is a small sample for a strategy claim. t = 2.32
+against the fair benchmark is real but not decisive, and §3's year-by-year table
+shows 4 of 10 years losing. This is evidence worth acting on carefully, not a
+settled result.
+
+---
+
 ## What this does and does not establish
 
 **Does:**
@@ -153,8 +220,11 @@ the strategy at the bottom.
 
 - **Default profile is now `momentum`.** `accumulation` is retained, and
   honestly labelled, because its broker components are the untested half.
-- **Do not size a strategy off the 20d edge.** It is +0.98% gross against a
-  0.40% round trip. The horizon that works is 60 days.
+- **Do not size a strategy off the 20d edge.** It is +1.56% gross against a
+  0.40% round trip, and turnover triples versus the 60-day version. The horizon
+  that works is 60 days.
+- **Quote the strategy-vs-universe number, not the CAGR.** +4.67% per period
+  over an equally-biased universe is defensible; 31.6% CAGR is not.
 - **Re-run this with real broker summary.** `--profile momentum_plus_flow`
   combines trend with institutional flow. If broker flow adds information beyond
   price, the holdout IC will rise above +0.041. That is the experiment worth
@@ -164,7 +234,8 @@ the strategy at the bottom.
 # reproduce everything above
 idxbot backtest --universe all --providers none --profile accumulation --out reports/obs_acc.csv
 idxbot backtest --universe all --providers none --profile momentum     --out reports/obs_mom.csv
-idxbot evaluate --observations reports/obs_mom.csv --split --components
+idxbot evaluate  --observations reports/obs_mom.csv --split --components
+idxbot portfolio --observations reports/obs_mom.csv --split --top-n 10 --horizon 60
 python3 scripts/robustness.py reports/obs_mom.csv
 ```
 
