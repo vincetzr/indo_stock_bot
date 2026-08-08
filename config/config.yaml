@@ -192,10 +192,32 @@ plan:
     scale_out: 0.25                    # share sold there
     stop_pct: 0.15                     # initial stop, before the target prints
     breakeven_after_target: true       # the single biggest lever on win rate
-    max_days: 60
-    rebalance_days: 20                 # cadence matched to the ~17-day average
-                                       # hold; at 60 days capital sits idle and
-                                       # the CAGR collapses to 8.8%
+    # 20 rather than 60. The frontier from docs/DAYTRADE.md §6, running this
+    # same rule at shorter caps, is monotonic and crosses 80% exactly here:
+    #
+    #    2d  56% win  -0.06%/trade      10d  77% win  +0.53%/trade
+    #    3d  61% win  +0.05%/trade      20d  85% win  +1.27%/trade  <-
+    #    5d  69% win  +0.27%/trade      60d  86% win  +2.39%/trade
+    #
+    # The 20-day cap annualises at 32.7% against the 60-day cap's 33.5% while
+    # holding for half as long - the average trade closes in 9.8 days, not 20.
+    # Same money, sooner. Below ~2 weeks the 0.4% round trip exceeds the gross
+    # drift and every configuration loses, which is why 2d is the one negative
+    # row and why no intraday variant of this exists.
+    max_days: 20
+    rebalance_days: 20                 # cadence matched to the holding period;
+                                       # at 60 days capital sits idle and the
+                                       # CAGR collapses to 8.8%
+    # Measured result for THIS setting, quoted by the plan renderer. Change
+    # max_days above and these stop being true - the 60-day cap measured 86% /
+    # 2.23 / +2.39%, and the plan must not advertise one variant's numbers while
+    # instructing you to trade another.
+    measured:
+      win_rate: 0.85
+      profit_factor: 1.82
+      expectancy: 0.0127
+      trades: 1050
+      avg_days: 9.8
 
 # ---------------------------------------------------------------------------
 # Intraday day trading (horizon: hours). See docs/DAYTRADE.md for the measured

@@ -131,3 +131,108 @@ much firmer ground than `idxbot daytrade`.
 
 Trade the day setup small, in a wide universe, with the ORB filter, and treat it
 as an experiment you are funding — not as a salary.
+
+---
+
+## 6. Can a 1–2 day trade make +5% with an 80% win rate?
+
+No. This section exists because it is the most natural thing to want, and
+because "no" is worth much more when it comes with the measurement.
+
+Scanned every liquid (ticker, day) on IDX — **761,137 observations, 792 tickers,
+2000–2026** — entering at the next bar's open (`scripts/short_horizon_scan.py`).
+
+### The base rate
+
+How often does a stock touch the target *at all*?
+
+| hold | +3% | +5% | +8% |
+|---|---|---|---|
+| 1 day | 22.3% | **10.6%** | 4.5% |
+| 2 day | 34.7% | **19.3%** | 9.4% |
+| 3 day | 42.6% | 25.9% | 13.8% |
+
+Reaching an 80% hit rate from 19.3% needs a **4.1× lift**. Nothing lifts an
+equity base rate fourfold. The strongest conditioning found comes close on the
+touch rate and collapses on the tradeable one:
+
+| cut | n | touches +5% | lift | **actually wins** |
+|---|---|---|---|---|
+| ATR>15% & yesterday >+15% | 224 | 73.7% | 3.8× | **33%** |
+| ATR>10% & yesterday >+20% | 591 | 70.7% | 3.7× | **27%** |
+| ATR top decile | 75,664 | 47.2% | 2.4× | 41% |
+
+The gap between columns 3 and 5 is the whole trap. These names touch +5% often
+*because* they are violent, and violence is symmetric: they break the stop first
+at least as often. A 74% "hit rate" that pays 33% of the time is not a 74%
+strategy.
+
+### Why no rule can fix it
+
+Before any strategy, the arithmetic:
+
+| hold | gross drift | round-trip cost | net | cost vs edge |
+|---|---|---|---|---|
+| 1 day | **−0.085%** | 0.40% | −0.485% | 5× |
+| 2 day | **−0.041%** | 0.40% | −0.441% | 10× |
+| 3 day | −0.004% | 0.40% | −0.404% | 109× |
+
+At these horizons the average IDX stock **drifts down**, and you pay 0.40% for
+the privilege of holding it. There is no edge to harvest, only a cost to pay.
+Compare the 60-day horizon, where the gross edge is +8–9% and the same 0.40%
+is a rounding error.
+
+And the two requirements pull against each other. Raising the win rate means
+widening the stop, which deepens the losses:
+
+| target | stop | win rate | expectancy |
+|---|---|---|---|
+| +5% | −10% | 53.7% | −1.65% |
+| +5% | −20% | 67.1% | −0.42% |
+| +2% | −20% | 77.6% | −1.24% |
+| +1% | −20% | **82.1%** | **−1.54%** |
+
+An 80% win rate *is* reachable in 2 days — at a +1% target with a −20% stop,
+losing 1.54% per trade. That is the picking-up-pennies structure in its purest
+form, and it is the only way the two constraints meet.
+
+### The one short setup that is genuinely positive
+
+Of 35 conditions searched, four had positive 2-day net expectancy, and only one
+survives scrutiny: **5-day return > +30%**, held two days *flat*.
+
+| era | n | net expectancy |
+|---|---|---|
+| 2000–12 | 1,120 | +0.56% |
+| 2013–19 | 1,054 | +1.51% |
+| 2020–26 | 6,099 | +0.39% |
+
+Positive in all three eras. But note what it is not: **+0.4% to +1.5%, not +5%**,
+and it only works with *no target and no stop* — every barrier version of it is
+negative, for the same reason as Part III. 11% of entries gap more than +5%
+above the prior close, so you are chasing.
+
+(A cut on "gap down >2%" showed +0.73%, but it conditions on the fill price
+itself — you cannot know the open before it opens. Discarded, not reported.)
+
+### What to do instead: the horizon frontier
+
+The 88% rule from FINDINGS Part III, run at progressively shorter maximum holds:
+
+| max hold | win rate | expectancy | PF | **avg days held** | annualised |
+|---|---|---|---|---|---|
+| 2 days | 56% | −0.06% | 0.95 | 2.0 | −8.2% |
+| 3 days | 61% | +0.05% | 1.03 | 2.8 | +4.1% |
+| 5 days | 69% | +0.27% | 1.17 | 4.1 | +16.6% |
+| 10 days | 77% | +0.53% | 1.31 | 6.6 | +20.4% |
+| **20 days** | **85%** | **+1.27%** | 1.82 | **9.8** | **+32.7%** |
+| 40 days | 88% | +1.75% | 2.11 | 13.9 | +31.8% |
+| 60 days | 86% | +2.39% | 2.23 | 17.9 | +33.5% |
+
+Monotonic, and it crosses 80% at a **20-day cap** — where the average trade
+actually closes in **9.8 days**, not 20. Annualised it matches the 60-day
+version (32.7% vs 33.5%) in **half the holding time**, which makes it the right
+choice for anyone who wants speed. Two days is the one row that loses money.
+
+**So: ~2 weeks is the floor for an 80% win rate on IDX.** Below it, costs exceed
+the gross drift and no amount of selection closes the gap.

@@ -72,6 +72,7 @@ class TradingPlan:
     target_pcts: List[float] = field(default_factory=list)
     target_basis: str = ""
     exit_rule: List[str] = field(default_factory=list)
+    exit_basis: str = ""
     reward_risk: float = np.nan
 
     # sizing
@@ -162,7 +163,7 @@ class TradingPlan:
 
         if self.exit_rule:
             out.append("")
-            out.append(" EXIT RULE   [validated: 88% win rate, PF 2.23, 1,050 trades]")
+            out.append(f" EXIT RULE   [{self.exit_basis}]")
             for step in self.exit_rule:
                 out.append(f"   {step}")
 
@@ -335,6 +336,7 @@ def build_plan(
     costs = Costs.from_config(cfg)
     plan.breakeven = costs.breakeven_price(reference_entry, cfg)
     plan.exit_rule = _exit_rule(cfg, reference_entry, plan.stop)
+    plan.exit_basis = _exit_basis(cfg)
 
     if plan.targets and plan.risk_per_share > 0:
         # Measure R:R on the middle target - the one actually expected to fill.
@@ -385,6 +387,23 @@ def build_plan(
     return plan
 
 
+def _exit_basis(cfg: Config) -> str:
+    """Quote the measurement for the *configured* cap, not a remembered one.
+
+    The 20-day and 60-day caps are different strategies with different numbers
+    (85% / PF 1.82 against 86% / PF 2.23). Hard-coding either means the plan
+    eventually advertises one variant while instructing you to trade the other.
+    """
+    measured = cfg.get("plan.exit.measured", {}) or {}
+    if not measured:
+        return "exit structure - not yet measured for this configuration"
+    days = cfg.get("plan.exit.max_days", 20)
+    return (f"validated at a {days}-day cap: {float(measured.get('win_rate', 0)):.0%} "
+            f"win rate, PF {float(measured.get('profit_factor', 0)):.2f}, "
+            f"{int(measured.get('trades', 0)):,} trades, "
+            f"avg {float(measured.get('avg_days', 0)):.1f} days held")
+
+
 def _exit_rule(cfg: Config, entry: float, atr_stop: float) -> List[str]:
     """Spell out the measured exit structure at this ticker's actual prices.
 
@@ -416,8 +435,8 @@ def _exit_rule(cfg: Config, entry: float, atr_stop: float) -> List[str]:
     ]
     if breakeven:
         steps.append(f"3. then move the stop to {round_to_tick(entry, cfg, 'down'):,.0f} "
-                     f"(entry). The trade can no longer lose - this is what makes "
-                     f"the win rate 88%, not the partial sale")
+                     f"(entry). The trade can no longer lose - this, not the "
+                     f"partial sale, is what carries the win rate")
     steps.append(f"4. let the remaining {1 - scale_out:.0%} run. Do NOT set a second "
                  f"target: winners average +28.6% and capping them is what kills "
                  f"the edge")

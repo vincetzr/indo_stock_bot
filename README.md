@@ -108,6 +108,28 @@ average **−12.8%**, and profit factor 2.23 is the honest summary. Full detail,
 including a 2.98x-leverage artifact caught and discarded, in `docs/FINDINGS.md`
 Part III.
 
+### How fast can that 80% go? Two weeks, not two days
+
+The same rule at progressively shorter maximum holds (`docs/DAYTRADE.md` §6):
+
+| max hold | win rate | expectancy | avg days held | annualised |
+|---|---|---|---|---|
+| 2 days | 56% | **−0.06%** | 2.0 | −8.2% |
+| 5 days | 69% | +0.27% | 4.1 | +16.6% |
+| 10 days | 77% | +0.53% | 6.6 | +20.4% |
+| **20 days** | **85%** | **+1.27%** | **9.8** | **+32.7%** |
+| 60 days | 86% | +2.39% | 17.9 | +33.5% |
+
+Monotonic, crossing 80% at a **20-day cap** — where the average trade closes in
+under 10 days and annualises the same as the 60-day version in half the holding
+time. That is the shipped default.
+
+**A 1–2 day +5% trade at an 80% win rate does not exist**, and this was measured
+rather than assumed on 761,137 liquid observations. Only 19.3% of stock-days
+touch +5% within two days, so an 80% hit rate needs a 4.1× lift. More decisively,
+the 2-day gross drift on IDX is **−0.041%** against a 0.40% round trip — costs
+are 10× the edge, so there is nothing to harvest before selection even starts.
+
 **Treat the honest expectation as high-single-digit CAGR, not 35–40%.**
 
 **But: only 6 of 10 holdout years were positive** (2024: −6.65%), and **~8 points
