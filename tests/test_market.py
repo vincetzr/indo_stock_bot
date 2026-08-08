@@ -171,3 +171,45 @@ def test_tradeability_needs_history():
     from idxbot.market import tradeability
     assert tradeability(_bars(n=3))["tradeable"] is False
     assert tradeability(None)["tradeable"] is False
+
+
+# --------------------------------------------------------- pasted ingestion --
+def test_parse_pasted_side_by_side():
+    """The layout every Indonesian platform uses: buyers | sellers."""
+    from idxbot.ingest import parse_pasted
+    text = (
+        "#\tBroker\tB.Lot\tB.Val\tB.Avg\t|\tBroker\tS.Lot\tS.Val\tS.Avg\n"
+        "1\tBK\t152.340\t124.518.000.000\t8.174\t|\tYP\t152.340\t124.500.000.000\t8.172\n"
+    )
+    frame, report = parse_pasted(text, "BBCA", "2026-08-06")
+    assert not frame.empty
+    assert report["layout"].startswith("side-by-side")
+    assert frame["buy_lot"].sum() == pytest.approx(frame["sell_lot"].sum())
+    bk = frame[frame["broker"] == "BK"].iloc[0]
+    assert bk["buy_lot"] == pytest.approx(152340)
+    assert bk["buy_avg"] == pytest.approx(8174, rel=0.01)
+
+
+def test_parse_pasted_rejects_garbage():
+    from idxbot.ingest import parse_pasted
+    frame, _ = parse_pasted("no broker codes here at all", "BBCA", "2026-08-06")
+    assert frame.empty
+
+
+def test_parse_pasted_empty():
+    from idxbot.ingest import parse_pasted
+    frame, _ = parse_pasted("", "BBCA", "2026-08-06")
+    assert frame.empty
+
+
+def test_ingest_number_formats():
+    """Indonesian thousands, suffixes, and negatives in parentheses."""
+    from idxbot.ingest import _to_number
+    assert _to_number("1.234.567") == pytest.approx(1234567)
+    assert _to_number("1.234.567,89") == pytest.approx(1234567.89)
+    assert _to_number("1,234,567.89") == pytest.approx(1234567.89)
+    assert _to_number("450 rb") == pytest.approx(450e3)
+    assert _to_number("1,2 M") == pytest.approx(1.2e6)
+    assert _to_number("2.5B") == pytest.approx(2.5e9)
+    assert _to_number("(1.000)") == pytest.approx(-1000)
+    assert _to_number("-") == 0.0

@@ -9,6 +9,7 @@
     idxbot portfolio   --split                  long-only top-N equity curve
     idxbot daytrade    --universe all           intraday momentum scan + plans
     idxbot invest      --universe lq45          long-horizon basket (60d momentum)
+    idxbot paste       BBCA                    ingest broker summary you copied
     idxbot dashboard   --universe lq45          offline HTML report
     idxbot live        --file ticks.jsonl       live broker summary from running trade
     idxbot pine        [BBCA]                   Pine Script / plan inputs
@@ -463,6 +464,57 @@ def cmd_daytrade(args) -> int:
     return 0
 
 
+def cmd_paste(args) -> int:
+    """Ingest a broker-summary table copied from your trading platform."""
+    from . import ingest
+
+    cfg = load_config()
+    print("=" * 74)
+    print(" PASTE BROKER SUMMARY")
+    print("=" * 74)
+    print(" This is the one input the engine cannot fetch for itself. Select the")
+    print(" broker-summary table in your platform, copy it, and paste it here.")
+    print(" Tabs, pipes, multi-space or comma separated all work, as does the")
+    print(" usual side-by-side buyers|sellers layout and Indonesian numbers.")
+    print()
+
+    if args.file:
+        with open(args.file, "r", encoding="utf-8", errors="replace") as fh:
+            text = fh.read()
+    else:
+        print(f" Paste the table for {args.ticker.upper()}, then press Ctrl-D:")
+        print()
+        text = sys.stdin.read()
+
+    date = args.date or pd.Timestamp.now().normalize()
+    frame, report = ingest.parse_pasted(text, args.ticker, date,
+                                        volume_unit=args.volume_unit)
+    print()
+    print(f" layout detected : {report['layout']}")
+    print(f" lines read      : {report['rows_seen']}")
+    if frame.empty:
+        print("\n No broker rows found. The parser anchors on 2-3 letter broker")
+        print(" codes (BK, AK, YP...). Check that the codes are in the pasted text.")
+        if report["skipped"]:
+            print(" First few unparsed lines:")
+            for line in report["skipped"][:5]:
+                print(f"   {line}")
+        return 1
+
+    print(ingest.describe(frame, cfg))
+    if args.dry_run:
+        print("\n --dry-run: nothing written.")
+        print(frame.to_string(index=False))
+        return 0
+
+    path = ingest.save(frame, cfg, args.ticker)
+    print(f"\n wrote -> {path}")
+    print(" The CSV provider picks this up automatically. Now run:")
+    print(f"   idxbot analyze {args.ticker.upper()}")
+    print(f"   idxbot screen --providers csv")
+    return 0
+
+
 def cmd_invest(args) -> int:
     """Long-horizon portfolio: the validated 60-day momentum basket."""
     from . import invest as inv
@@ -825,6 +877,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--target", type=float, default=0.05)
     p.add_argument("--stop", type=float, default=0.03)
     p.set_defaults(func=cmd_daytrade)
+
+    # paste
+    p = sub.add_parser("paste", help="ingest broker summary copied from your platform")
+    p.add_argument("ticker")
+    p.add_argument("--file", help="read from a file instead of stdin")
+    p.add_argument("--date", help="trading date (default: today)")
+    p.add_argument("--volume-unit", default="auto", choices=["auto", "lot", "share"])
+    p.add_argument("--dry-run", action="store_true", help="parse but do not save")
+    p.set_defaults(func=cmd_paste)
 
     # invest
     p = sub.add_parser("invest", help="long-horizon portfolio (validated 60d momentum)")

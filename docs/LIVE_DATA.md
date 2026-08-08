@@ -57,6 +57,43 @@ JSONL or CSV:
 
 ---
 
+## 1b. Getting the DAILY broker summary (three routes, easiest first)
+
+Everything above is about intraday. If you just want the end-of-day table:
+
+**Route A — paste it (works today, zero setup).** Select the broker-summary
+table in your platform, copy, and run:
+
+```bash
+idxbot paste BBCA --date 2026-08-06
+```
+
+The parser handles tab/pipe/multi-space/comma separation, Indonesian numbers
+(`1.234.567,89`), abbreviated values (`1,2 M`, `450 rb`), and the side-by-side
+buyers|sellers layout. It then checks that total buy lots equal total sell lots
+— every lot bought is a lot sold, so a mismatch means the columns were misread,
+and it says so rather than saving nonsense.
+
+**Route B — fetch it with a real browser (run on your machine).**
+
+```bash
+npm install playwright && npx playwright install chromium
+node scripts/fetch_broker_summary.mjs BBCA 2026-08-06
+```
+
+idx.co.id blocks plain HTTP clients (403) but lets real browsers through after a
+Cloudflare JS challenge. Headless Chromium passes that challenge *from an
+ordinary connection*. It does not pass from a locked-down build sandbox, which
+is why this is a script you run rather than something the engine calls. Use
+`--headed` to watch it and fix selectors if IDX redesigns the page.
+
+**Route C — a paid vendor.** GoAPI's `/stock/idx/{SYMBOL}/broker_summary` route
+is live and key-gated (it answers 401, not 404). Set `IDXBOT_GOAPI_KEY` and use
+`--providers goapi`.
+
+All three land in `data/broker_summary/<TICKER>.csv`, which the CSV provider
+reads automatically.
+
 ## 2. Where to actually get the stream
 
 Ordered by how much friction each involves.
