@@ -36,7 +36,7 @@ import pandas as pd
 
 from .config import Config
 from .engine import Engine
-from .market import format_idr, round_to_tick, shares_to_lots
+from .market import format_idr, round_to_tick, shares_to_lots, tradeability
 
 # Measured on the untouched holdout; see docs/FINDINGS.md.
 HOLDOUT_STATS = {
@@ -195,6 +195,24 @@ def build(
         )
 
     ranked = results[results["score"] >= min_score].copy()
+
+    # Drop anything that cannot actually be traded. Suspended names score
+    # *highly* on momentum measures - a frozen price sits above its moving
+    # average forever - so this filter has to run before selection, not after.
+    untradeable = []
+    for ticker in list(ranked["ticker"]):
+        bars = engine.prices(ticker)
+        check = tradeability(
+            bars, min_value_traded=float(cfg.get("daytrade.min_value_traded_idr", 5e9)) / 5
+        )
+        if not check["tradeable"]:
+            untradeable.append((ticker, check["reasons"][0]))
+    if untradeable:
+        ranked = ranked[~ranked["ticker"].isin([t for t, _ in untradeable])]
+        for ticker, reason in untradeable[:5]:
+            plan.warnings.append(f"excluded {ticker}: {reason}")
+        if len(untradeable) > 5:
+            plan.warnings.append(f"...and {len(untradeable) - 5} more untradeable names")
 
     # Exclude names whose daily range makes a 60-day hold a different animal.
     if "atr_pct" in ranked.columns:

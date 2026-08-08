@@ -81,9 +81,15 @@ class Engine:
         provider_names: Optional[List[str]] = None,
         verbose: bool = True,
         profile: Optional[str] = None,
+        as_of: Optional[pd.Timestamp] = None,
     ):
         self.cfg = cfg or load_config()
         self.profile = profile
+        # Point-in-time cutoff. Every price series is truncated here on load, so
+        # no downstream code can accidentally see a bar that had not printed yet.
+        # Enforcing it at the data boundary rather than in each caller is what
+        # makes "what would I have decided at time T" trustworthy.
+        self.as_of = pd.Timestamp(as_of).normalize() if as_of is not None else None
         self.ohlcv = YahooOHLCV(self.cfg)
         self.verbose = verbose
         self._provider_names = provider_names
@@ -108,7 +114,10 @@ class Engine:
     def prices(self, ticker: str, force_refresh: bool = False) -> pd.DataFrame:
         key = ticker.upper()
         if key not in self._price_cache or force_refresh:
-            self._price_cache[key] = self.ohlcv.get(key, force_refresh=force_refresh)
+            df = self.ohlcv.get(key, force_refresh=force_refresh)
+            if self.as_of is not None and df is not None and not df.empty:
+                df = df[df["date"] <= self.as_of].reset_index(drop=True)
+            self._price_cache[key] = df
         return self._price_cache[key]
 
     def benchmark(self) -> pd.Series:
@@ -116,6 +125,8 @@ class Engine:
         if self._benchmark is None:
             symbol = self.cfg.indices.get("composite", "^JKSE")
             df = self.ohlcv.get(symbol)
+            if self.as_of is not None and df is not None and not df.empty:
+                df = df[df["date"] <= self.as_of]
             self._benchmark = (
                 df.set_index("date")["close"] if not df.empty else pd.Series(dtype=float)
             )

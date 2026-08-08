@@ -125,3 +125,49 @@ def test_format_idr_scales():
     assert "jt" in format_idr(4.2e6)
     assert format_idr(float("nan")) == "-"
     assert format_idr(-1e9).startswith("-")
+
+
+# ------------------------------------------------------------- tradeability --
+def _bars(n=30, volume=1_000_000.0, price=1000.0, flat=False):
+    import pandas as pd
+    df = pd.DataFrame({
+        "date": pd.bdate_range("2026-01-01", periods=n),
+        "open": price, "close": price,
+        "high": price if flat else price * 1.01,
+        "low": price if flat else price * 0.99,
+        "volume": volume,
+    })
+    return df
+
+
+def test_tradeability_accepts_a_normal_name():
+    from idxbot.market import tradeability
+    assert tradeability(_bars())["tradeable"] is True
+
+
+def test_tradeability_rejects_suspended_names():
+    """The WIKA case: 20 zero-volume days at a frozen price."""
+    from idxbot.market import tradeability
+    result = tradeability(_bars(volume=0.0, flat=True))
+    assert result["tradeable"] is False
+    assert any("suspended" in r for r in result["reasons"])
+
+
+def test_tradeability_rejects_zero_range_bars():
+    from idxbot.market import tradeability
+    result = tradeability(_bars(flat=True))
+    assert result["tradeable"] is False
+    assert any("zero range" in r for r in result["reasons"])
+
+
+def test_tradeability_rejects_thin_turnover():
+    from idxbot.market import tradeability
+    result = tradeability(_bars(volume=10.0), min_value_traded=1e9)
+    assert result["tradeable"] is False
+    assert any("turnover" in r for r in result["reasons"])
+
+
+def test_tradeability_needs_history():
+    from idxbot.market import tradeability
+    assert tradeability(_bars(n=3))["tradeable"] is False
+    assert tradeability(None)["tradeable"] is False

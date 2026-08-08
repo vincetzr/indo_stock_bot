@@ -46,6 +46,7 @@ from .market import (
     format_idr,
     position_size,
     round_to_tick,
+    tradeability,
 )
 
 # Measured on 2001-2026 IDX data; see the module docstring and docs/DAYTRADE.md.
@@ -249,6 +250,12 @@ def scan(
         close_position = float((row["close"] - row["low"]) / bar_range) if bar_range > 0 else 0.5
         atr_pct = float(((df["high"] - df["low"]) / df["close"]).tail(14).mean())
         value_traded = float(row["close"] * row["volume"])
+
+        # A suspended or barely-traded name can post a huge rvol on the one day
+        # it reopens; that is not a burst worth trading.
+        check = tradeability(df, min_value_traded=min_value_traded / 5)
+        if not check["tradeable"]:
+            continue
 
         # Setup classification, strongest first.
         if rvol >= rvol_burst and day_return >= ret_burst and near_high >= -near_high_tol:

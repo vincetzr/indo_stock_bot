@@ -75,12 +75,24 @@ def test_scan_ignores_quiet_days():
     assert dt.scan(bars, cfg, min_value_traded=0) == []
 
 
-def test_scan_flags_illiquid_names():
-    """A burst in a name nobody trades is not actionable."""
+def test_scan_rejects_illiquid_names():
+    """A burst in a name nobody trades is not actionable - drop it entirely."""
     bars = {"TEST": _daily(last_rvol=10, last_return=0.10)}
-    found = dt.scan(bars, cfg, min_value_traded=1e15)
-    assert found
-    assert any("too thin" in w for w in found[0].warnings)
+    assert dt.scan(bars, cfg, min_value_traded=1e15) == []
+
+
+def test_scan_rejects_suspended_names():
+    """A suspended stock reopening posts a huge rvol; that is not a burst.
+
+    Momentum measures rate a frozen price highly - it sits above its moving
+    average and its close equals its high - so this must be filtered before
+    ranking, not after.
+    """
+    bars = _daily(last_rvol=10, last_return=0.10)
+    bars.loc[bars.index[-25:-1], "volume"] = 0.0
+    for col in ("open", "high", "low", "close"):
+        bars.loc[bars.index[-25:-1], col] = 500.0
+    assert dt.scan({"TEST": bars}, cfg, min_value_traded=0) == []
 
 
 def test_scan_requires_enough_history():

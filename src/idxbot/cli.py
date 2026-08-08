@@ -100,9 +100,11 @@ def _engine(args) -> Engine:
     providers = None
     if getattr(args, "providers", None):
         providers = [p.strip() for p in args.providers.split(",") if p.strip()]
+    as_of = getattr(args, "as_of", None)
     return Engine(cfg, provider_names=providers,
                   verbose=not getattr(args, "quiet", False),
-                  profile=getattr(args, "profile", None))
+                  profile=getattr(args, "profile", None),
+                  as_of=pd.Timestamp(as_of) if as_of else None)
 
 
 # ---------------------------------------------------------------------------
@@ -745,6 +747,8 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("--quiet", action="store_true")
         p.add_argument("--profile", help="score weight profile (accumulation, "
                                          "momentum, momentum_plus_flow)")
+        p.add_argument("--as-of", help="decide as of this date; all later bars "
+                                       "are hidden from the engine")
         p.add_argument("--out", help="write results to this CSV path")
 
     # screen
@@ -812,7 +816,6 @@ def build_parser() -> argparse.ArgumentParser:
     # daytrade
     p = sub.add_parser("daytrade", help="intraday momentum scan and plans")
     common(p, universe_default="all")
-    p.add_argument("--as-of", help="scan as of this date instead of the latest")
     p.add_argument("--setup", choices=["burst", "surge"], help="filter by setup")
     p.add_argument("--plans", type=int, default=3, help="print plans for the top N")
     p.add_argument("--equity", type=float)

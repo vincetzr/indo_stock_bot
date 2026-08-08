@@ -162,6 +162,48 @@ class Costs:
         return received / paid - 1.0
 
 
+def tradeability(bars, window: int = 20, min_value_traded: float = 1e9,
+                 max_flat_share: float = 0.3, max_zero_volume: int = 2) -> dict:
+    """Can this name actually be traded right now?
+
+    A suspended stock is the trap this exists to catch. Its price is frozen and
+    its volume is zero, which makes momentum indicators score it *highly*: a
+    flat line sits above a declining moving average, its close equals its high
+    forever, and its trend never breaks. WIKA in August 2026 is the worked
+    example - 20 straight zero-volume days at 204, and it ranked into a
+    long-horizon basket until this check was added.
+
+    Returns a dict with ``tradeable`` plus the reasons it failed.
+    """
+    reasons = []
+    if bars is None or len(bars) < 5:
+        return {"tradeable": False, "reasons": ["insufficient history"]}
+
+    recent = bars.tail(window)
+    zero_volume = int((recent["volume"] <= 0).sum())
+    if zero_volume > max_zero_volume:
+        reasons.append(f"{zero_volume} of the last {len(recent)} sessions had no volume "
+                       f"- likely suspended")
+
+    flat = int((recent["high"] <= recent["low"]).sum())
+    if flat / max(len(recent), 1) > max_flat_share:
+        reasons.append(f"{flat} of the last {len(recent)} bars had zero range "
+                       f"- not trading normally")
+
+    value_traded = float((recent["close"] * recent["volume"]).median())
+    if value_traded < min_value_traded:
+        reasons.append(f"median turnover {format_idr(value_traded)}/day is below "
+                       f"{format_idr(min_value_traded)}")
+
+    return {
+        "tradeable": not reasons,
+        "reasons": reasons,
+        "zero_volume_days": zero_volume,
+        "flat_bars": flat,
+        "median_value_traded": value_traded,
+    }
+
+
 def format_idr(value: float, short: bool = True) -> str:
     """Human-readable rupiah, using Indonesian scale words when ``short``."""
     if value is None or not math.isfinite(value):
