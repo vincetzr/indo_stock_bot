@@ -76,6 +76,15 @@ and it says so rather than saving nonsense.
 
 **Route B — fetch it with a real browser (run on your machine).**
 
+> ⚠️ **IDX prohibits scraping.** A widely-used community dataset carries the
+> notice *"PT BEI telah melarang tiap-tiap pengguna untuk melakukan web crawling
+> ataupun scraping"* — IDX has forbidden users from crawling or scraping the
+> site. That reframes this route: the Cloudflare block is not an obstacle to
+> route around, it is the stated policy being enforced. `scripts/fetch_broker_summary.mjs`
+> remains in the repo because reading a page you are entitled to view is a
+> different act from bulk harvesting, but **Route A and Route C are the
+> defensible paths** and this one is at your own risk. Prefer them.
+
 ```bash
 npm install playwright && npx playwright install chromium
 node scripts/fetch_broker_summary.mjs BBCA 2026-08-06
@@ -102,6 +111,13 @@ Pricing sits behind signup, so confirm two things before paying:
    horizon EOD is fine; for day trading it is not.
 2. **How much history?** Campaign profiling needs months, ideally years. A
    real-time-only feed cannot backtest the thesis.
+3. **Is it per-broker, or foreign-flow aggregate?** Aggregate cannot support the
+   ledger, campaign segmentation, lead-lag or coordination analysis. Some
+   vendors describe both as "bandarmology".
+4. **Does history include buy/sell VALUE, not just lots?** This is the quiet
+   dealbreaker. Without value columns there is no VWAP, so no cost basis, so no
+   way to tell whether a desk is underwater — which is half of what the ledger
+   exists to compute.
 
 Because each vendor uses its own paths, auth style and field names — and their
 docs are behind signup — the engine ships a **generic REST adapter** rather than
@@ -215,6 +231,23 @@ means flow crossed their membership. It is a strong signal of institutional
 intent. It is not a confession of one.
 
 ---
+
+## 4b. Routes exhausted from a sandboxed environment
+
+Recorded so this is not re-litigated. Every one of these was actually attempted:
+
+| Route | Result |
+|---|---|
+| `idx.co.id` — 6 endpoint patterns, browser headers, Referer, XHR headers | 403 Cloudflare, every path |
+| Headless Chromium against IDX | Fails, but on an unrelated proxy incompatibility — it also failed on Yahoo, which curl reaches. The approach is sound from a normal connection. |
+| idnfinancials, sahamidx, duniainvestasi, britama, RTI, pasardana | Cloudflare / maintenance / 404 / egress policy |
+| Stockbit API | Authenticated app session required |
+| archive.org + Wayback CDX | 429, then blocked by egress policy |
+| GitHub datasets (wildangunawan, faisalburhanudin, nichsedge) | Price and fundamentals only — no per-stock rekap broker |
+| GoAPI / Invezgo / OHLC.dev / Sectors | Live and key-gated |
+
+The conclusion is not "the data does not exist". It is that **every legitimate
+route runs through an account someone holds** — yours, or a vendor's.
 
 ## 5. What is blocked, and why the fallback exists
 
