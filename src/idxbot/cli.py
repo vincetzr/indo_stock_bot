@@ -12,6 +12,7 @@
     idxbot daytrade    --universe all           intraday momentum scan + plans
     idxbot invest      --universe lq45          long-horizon basket (60d momentum)
     idxbot paste       BBCA                    ingest broker summary you copied
+    idxbot verify      --tickers BBCA           is that data good enough to trust?
     idxbot dashboard   --universe lq45          offline HTML report
     idxbot live        --file ticks.jsonl       live broker summary from running trade
     idxbot pine        [BBCA]                   Pine Script / plan inputs
@@ -314,6 +315,34 @@ def cmd_playbook(args) -> int:
     _write_csv(campaigns, args.out, "campaigns")
     _write_csv(book, args.playbook_out, "playbook")
     return 0
+
+
+def cmd_verify(args) -> int:
+    """Acceptance test: can this broker data actually support the analysis?"""
+    from . import verify as vf
+
+    engine = _engine(args)
+    tickers = _resolve_tickers(engine.cfg, args)
+
+    frames, prices = [], {}
+    for ticker in tickers:
+        summary = engine.broker_provider.fetch(ticker)
+        if summary is not None and not summary.empty:
+            frames.append(summary)
+            bars = engine.prices(ticker)
+            if bars is not None and not bars.empty:
+                prices[ticker.upper()] = bars
+
+    if not frames:
+        print("No broker summary found for the requested tickers.")
+        print(f"  provider chain: {engine.data_provenance()}")
+        print("  Drop files in data/broker_summary/, or run: idxbot paste <TICKER>")
+        return 1
+
+    summary = pd.concat(frames, ignore_index=True)
+    report = vf.verify(summary, engine.cfg.brokers, prices=prices)
+    print(vf.render(report))
+    return 0 if report.usable else 1
 
 
 def cmd_plan_reverse(args) -> int:
@@ -894,6 +923,11 @@ def build_parser() -> argparse.ArgumentParser:
                    help="also run the forward-return edge test")
     p.add_argument("--playbook-out", help="write the playbook table to this CSV")
     p.set_defaults(func=cmd_playbook)
+
+    # verify
+    p = sub.add_parser("verify", help="acceptance test for broker-summary data")
+    common(p)
+    p.set_defaults(func=cmd_verify)
 
     # reverse
     p = sub.add_parser("reverse", help="reverse-engineer the institutional plan")

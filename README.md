@@ -20,7 +20,7 @@ PYTHONPATH=src python3 -m idxbot.cli dashboard --universe lq45
 | Claim | Status |
 |---|---|
 | Price/volume history is real and deep | ✅ 169,553 daily bars / 30 names / up to 26.2 yrs; IHSG from **1990-04-06** |
-| Ledger, cost basis, campaign maths | ✅ 128 unit tests, hand-computed expectations |
+| Ledger, cost basis, campaign maths | ✅ 171 unit tests, hand-computed expectations |
 | Tick / lot / ARA-ARB / fee mechanics | ✅ unit tested against IDX rules |
 | Score has no look-ahead | ✅ explicitly tested — scoring bar *i* is unchanged by appending future bars |
 | `accumulation` profile predicts forward returns | ❌ **REFUTED — inverted. See below.** |
@@ -123,6 +123,8 @@ signals and turned it slightly positive — on n=3, which is not evidence.
 
 | Command | What it does |
 |---|---|
+| `verify` | Acceptance test: can this broker data support the analysis? Run it first |
+| `reverse` | Institutional plan: who leads, do they coordinate, when to join |
 | `daytrade` | Intraday momentum scan + timed entry/exit execution plan |
 | `invest` | Long-horizon basket from the validated 60-day momentum score |
 | `screen` | Rank a universe by score, with evidence for each hit |
@@ -250,7 +252,7 @@ src/idxbot/
   daytrade.py     intraday burst scanner, ORB entry rule, day plans
   invest.py       long-horizon portfolio construction
   portfolio.py    long-only simulation vs universe and IHSG
-tests/            128 tests
+tests/            171 tests
 docs/             LIVE_DATA.md, TRADING_PLAN.md
 ```
 
