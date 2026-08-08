@@ -26,6 +26,7 @@ PYTHONPATH=src python3 -m idxbot.cli dashboard --universe lq45
 | `accumulation` profile predicts forward returns | ❌ **REFUTED — inverted. See below.** |
 | `momentum` profile predicts forward returns | ⚠️ **Holds, but most of the apparent edge was survivorship** — see below |
 | **How J.P. Morgan / UBS / CLSA actually trade** | ❌ **not verified — no real broker-summary data was obtainable** |
+| Fundamental ratios predict returns | ❌ **cannot be tested** — only a current snapshot exists, so any historical join is look-ahead. Used as a present-tense exclusion filter only |
 
 ### Two results on 55,699 real observations (66 tickers, 2001–2026)
 
@@ -147,6 +148,7 @@ signals and turned it slightly positive — on n=3, which is not evidence.
 | `invest` | Long-horizon basket from the validated 60-day momentum score |
 | `screen` | Rank a universe by score, with evidence for each hit |
 | `evaluate` | Cross-sectional rank IC, quantile spreads, per-component diagnosis, train/holdout |
+| `fundamentals` | Current-snapshot quality screen — excludes wreckage. **Not backtestable, by construction** |
 | `analyze TICKER` | Deep dive: score breakdown, Wyckoff phase, broker positions, campaigns |
 | `plan` | Executable plan — entry band, stop, targets, lot-rounded size, R:R |
 | `playbook` | Reverse-engineer each broker's entry/exit behaviour across a universe |

@@ -536,6 +536,13 @@ windows would show t≈9, which is why this repo does not use them.
   not possible — not difficult, not expensive, not possible. Any fundamental
   screen built on this data would be silently comparing today's balance sheet
   against a 2009 price, which is the purest form of look-ahead there is.
+  `idxbot fundamentals` therefore ships as a *present-tense* exclusion filter
+  and deliberately offers no historical sampling. Two traps it does handle:
+  **13 of the 45 LQ45 names report in USD while trading in IDR**, so Yahoo's
+  price/book is nonsense as published (ADRO 14,941x, INCO 20,074x — both
+  actually under 1.3x once repaired at spot); and a sub-1 current ratio is
+  normal for banks, telcos and toll roads, so testing it alone flags TLKM,
+  MTEL and UNVR as distressed. Neither is visible unless you look.
 - **That the universe is truly point-in-time.** A delisted company's ticker is
   absent from the screener that built `idx_all`, so some survivorship remains.
   The correction from 66 to 724 names cut the holdout IC by more than half; the

@@ -411,6 +411,37 @@ def cmd_backtest(args) -> int:
     return 0
 
 
+def cmd_fundamentals(args) -> int:
+    """Current-snapshot fundamental screen. Cannot be backtested - see the module."""
+    from .data.fundamentals import YahooFundamentals, render, screen
+
+    engine = _engine(args)
+    tickers = _resolve_tickers(engine.cfg, args)
+    provider = YahooFundamentals(engine.cfg)
+
+    print(f"Fetching fundamentals for {len(tickers)} tickers "
+          f"(cached {int(provider.cache.age_seconds('fundamentals', tickers[0]) or 0) // 3600}h"
+          f" or fresher where available)...\n")
+    universe = provider.fetch_many(tickers, verbose=not args.quiet)
+
+    if not universe:
+        print("No fundamentals retrieved. Yahoo's quoteSummary endpoint rate-limits")
+        print("aggressively; if a large price fetch just ran, wait and retry.")
+        print("Nothing is fabricated to fill the gap.")
+        return 1
+
+    missing = [t for t in tickers if t.upper() not in universe]
+    if missing:
+        print(f"\n  no data for {len(missing)}: {', '.join(missing[:12])}"
+              f"{' ...' if len(missing) > 12 else ''}")
+
+    df = screen(universe, engine.cfg)
+    print()
+    print(render(df))
+    _write_csv(df, args.out, "fundamental screen")
+    return 0
+
+
 def cmd_walkforward(args) -> int:
     """Choose the weighting out-of-sample, then score it on unseen years."""
     from . import walkforward as wf
@@ -1008,6 +1039,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_backtest)
 
     # evaluate
+    p = sub.add_parser("fundamentals",
+                       help="current-snapshot fundamental screen (NOT backtestable)")
+    common(p)  # supplies --universe/--tickers/--limit/--out
+    p.set_defaults(func=cmd_fundamentals)
+
     p = sub.add_parser("walkforward",
                        help="pick the weighting out-of-sample and score it on unseen years")
     p.add_argument("--observations", default="reports/obs_full_clean.csv",
