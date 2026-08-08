@@ -24,31 +24,35 @@ PYTHONPATH=src python3 -m idxbot.cli dashboard --universe lq45
 | Tick / lot / ARA-ARB / fee mechanics | ✅ unit tested against IDX rules |
 | Score has no look-ahead | ✅ explicitly tested — scoring bar *i* is unchanged by appending future bars |
 | `accumulation` profile predicts forward returns | ❌ **REFUTED — inverted. See below.** |
-| `momentum` profile predicts forward returns | ✅ **Holds out-of-sample** (60d IC +0.041, t=5.52) |
+| `momentum` profile predicts forward returns | ✅ **Holds out-of-sample** (60d IC +0.046, t=4.92) |
 | **How J.P. Morgan / UBS / CLSA actually trade** | ❌ **not verified — no real broker-summary data was obtainable** |
 
-### Two results on 56,745 real observations (66 tickers, 2001–2026)
+### Two results on 55,699 real observations (66 tickers, 2001–2026)
 
-Metrics are **cross-sectional** — ranked within each date, so market direction
-cancels — with the t-statistic computed over dates. Train 2001–2017, **holdout
-2017–2026 untouched until the profile was frozen.**
+Metrics are **cross-sectional** — ranked within each date on a shared exchange
+calendar (median 52 names per cross-section), so market direction cancels — with
+the t-statistic computed over dates. Train 2001–2016, **holdout 2016–2026
+untouched until the profile was frozen.**
 
 | Profile | Train 20d IC (t) | Holdout 20d IC (t) | Holdout 60d IC (t) |
 |---|---|---|---|
-| `accumulation` (contrarian) | −0.0566 (−7.62) | −0.0017 (−0.25) | −0.0204 (−2.93) |
-| `momentum` (trend) | +0.0538 (+6.73) | **+0.0261 (+3.47)** | **+0.0411 (+5.52)** |
+| `accumulation` (contrarian) | −0.0379 (−5.30) | +0.0001 (+0.02) | −0.0103 (−1.33) |
+| `momentum` (trend) | +0.0612 (+6.56) | **+0.0313 (+3.08)** | **+0.0462 (+4.92)** |
 
-**1. The accumulation thesis is refuted.** Every contrarian component had a
-negative information coefficient — worst was `volume_dryup` (t = −6.30). Wyckoff
-phase E, which the planner *blocks* as "a chase", was the best-performing state.
+**1. The accumulation thesis is refuted.** The component split is perfectly clean
+along family lines: every momentum component positive, every contrarian one zero
+or negative — worst `volume_dryup` (t = −6.35). Wyckoff phase E, which the planner
+*blocks* as "a chase", was the best-performing state.
 
 **2. A momentum profile built from that diagnosis survives the holdout.** Top
-quintile beat bottom by **+3.83% over 60 days (t = 7.00)**, ~+3.43% net of costs.
+quintile beat bottom by **+5.16% over 60 days (t = 5.90)**; a long-only top-10
+basket beat the equal-weight universe by **+4.67% per period (t = 2.32)** with a
+smaller drawdown (−16.9% vs −32.2% for IHSG).
 
-**But it has real drawdowns: only 6 of 10 holdout years were positive** (2024:
-−6.65%). That is how momentum behaves everywhere — positive expectancy with
-multi-quarter crashes. Full analysis, caveats, and why this is a sanity check
-rather than a discovery: **`docs/FINDINGS.md`**.
+**But: only 6 of 10 holdout years were positive** (2024: −6.65%), and **~8 points
+of the headline CAGR is survivorship bias**, not skill — the equal-weight universe
+alone beat IHSG by +7.96% CAGR purely from being built out of today's constituent
+lists. Full analysis: **`docs/FINDINGS.md`**.
 
 The broker-flow half — the actual thesis — remains untested because the data is
 paywalled. `--profile momentum_plus_flow` is the experiment to run when you
