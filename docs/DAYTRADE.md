@@ -335,3 +335,84 @@ take.
 
 Nothing intraday in this repo is profitable, and this section exists so that
 stays visible rather than being rediscovered with real money.
+
+---
+
+## 8. Pushing harder: dip entries, one real finding, and a bug worth the trip
+
+§7 tested only *breakout* entries, which buy strength. That was an incomplete
+search, and the gap mattered: the ceiling table shows +5% is reachable from the
+session low far more often than from the open, so entry timing is exactly where
+the remaining room was. This section runs that search on **739,320 five-minute
+bars, 216 names, 11,838 sessions**.
+
+### Dip entries genuinely beat breakouts
+
+Target +5%, stop −5%, all sessions:
+
+| entry rule | fills | fill rate | win rate | expectancy |
+|---|---|---|---|---|
+| ORB breakout | 4,662 | 39% | 33% | −0.59% |
+| limit −1% below open | 8,920 | 75% | 41% | −0.61% |
+| limit −2% below open | 6,349 | 54% | 42% | −0.56% |
+| limit −3% below open | 4,581 | 39% | 45% | −0.50% |
+| VWAP dip | 11,747 | 99% | 37% | −0.68% |
+
+Monotonic in depth, on both win rate and expectancy. Pushed further, into names
+whose *prior* ten sessions were in the top volatility decile (trailing, no
+look-ahead), a −7% limit with a +5% target and −10% stop reaches:
+
+**61% win rate, +0.58% per trade, profit factor 1.35 — the first positive
+intraday expectancy in this repo.**
+
+Split in time, the second half is the stronger one (67% win, +1.03%, t=3.45
+against 57%, +0.23%, t=0.68). That is not the signature of noise. But it is
+**378 trades over three months in one regime, selected as the best of 24 grid
+cells**, and 61% is not 80%. It is a lead worth more data, not capital.
+
+### The bug this nearly became
+
+Validating that finding on 25 years of daily bars produced a **96% win rate and
+profit factor 9.44**. It was entirely false, and the mechanism is worth stating
+because it is easy to reproduce by accident.
+
+A daily bar reports a high and a low but not **which came first**. Simulating
+"buy on a limit 7% below the open, then check whether the session high reached
+my target" answers yes almost always — because the high had already happened
+before the limit filled:
+
+| limit depth | sessions where the high preceded the fill |
+|---|---|
+| −3% | 58% |
+| −5% | 74% |
+| −7% | **79%** |
+
+The simulation credits the trade with a rally it could not have been in. Worse,
+it scales the wrong way: a deeper limit fills nearer the session low, so more of
+the day's range sits before the fill, so the fabricated edge *grows* exactly as
+the rule starts to look irresistible.
+
+Identical rule, identical sessions, only the time ordering differing:
+
+| depth | correct (5m, ordered) | broken (daily, unordered) |
+|---|---|---|
+| −5% | 52% win | 93% win |
+| −7% | **55% win** | **96% win** |
+
+The 5-minute cross-check is the only reason this was caught. `tests/
+test_ordering_trap.py` now pins the rule: once an entry is triggered by a
+**price level** rather than a bar's open or close, only bars strictly after the
+trigger may resolve the outcome — and daily bars cannot support that at all.
+
+This does not touch the 20-day and 60-day results in `FINDINGS.md`. Those enter
+at the **next bar's open**, which is unambiguously that bar's first price, so no
+ordering question arises.
+
+### Where this leaves the original question
+
+| | |
+|---|---|
+| +5% intraday at 80% win | still not reached — best honest result is **61%** |
+| Best intraday expectancy | **+0.58%/trade**, hi-vol names, −7% limit, n=378, unestablished |
+| Improvement from harder searching | real: 33% → 61% win, −0.59% → +0.58% |
+| Most valuable output | the ordering trap, now permanently tested |
