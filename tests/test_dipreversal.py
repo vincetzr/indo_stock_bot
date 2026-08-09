@@ -223,3 +223,94 @@ def test_gap_render_states_the_confidence_interval_not_just_the_hit_rate():
 def test_gap_render_refuses_and_explains_when_conditions_fail():
     text = render_gap_plan("BREN", 1000.0, -0.05, 0.008, 0.01)
     assert "no trade" in text
+
+
+# --------------------------------------------------------------------------
+# capitulation variant — the validated rule
+# --------------------------------------------------------------------------
+
+from idxbot.dipreversal import (  # noqa: E402
+    CAP_GAP_MIN,
+    CAP_STOP,
+    CAP_TARGET,
+    capitulation_levels,
+    capitulation_qualifies,
+    render_capitulation_plan,
+    simulate_capitulation,
+)
+
+
+def test_capitulation_needs_all_three_conditions():
+    ok, reasons = capitulation_qualifies(gap=-0.12, index_gap=-0.01,
+                                         prior_20d_return=-0.15)
+    assert ok and reasons == []
+
+
+@pytest.mark.parametrize("gap,igap,r20,missing", [
+    (-0.05, -0.01, -0.15, "gap"),        # gap too shallow
+    (-0.12, -0.01, +0.15, "falling"),    # stock was rising
+    (-0.12, +0.01, -0.15, "market-wide"),  # index gapped UP
+])
+def test_each_missing_condition_refuses_with_a_reason(gap, igap, r20, missing):
+    ok, reasons = capitulation_qualifies(gap, igap, r20)
+    assert not ok
+    assert any(missing in r for r in reasons)
+
+
+def test_the_rising_stock_case_is_the_one_the_small_sample_got_backwards():
+    """On 25 hourly trades a RISING prior trend looked right; on 761k daily
+    sessions it measured 68.2% against 82.2% for a falling one. The rule
+    encodes the large-sample direction."""
+    rising = capitulation_qualifies(-0.12, -0.01, +0.10)[0]
+    falling = capitulation_qualifies(-0.12, -0.01, -0.10)[0]
+    assert falling and not rising
+
+
+def test_a_qualifying_session_that_bounces_makes_the_target():
+    r = simulate_capitulation(session_high=1060.0, session_low=980.0,
+                              session_close=1050.0, session_open=1000.0,
+                              gap=-0.12, index_gap=-0.01, prior_20d_return=-0.15)
+    assert r["outcome"] == "target" and r["made_target"] is True
+    assert r["ret"] == pytest.approx(CAP_TARGET)
+
+
+def test_a_qualifying_session_that_stalls_exits_at_the_close():
+    r = simulate_capitulation(1020.0, 980.0, 1010.0, 1000.0,
+                              -0.12, -0.01, -0.15)
+    assert r["outcome"] == "close" and r["made_target"] is False
+    assert r["ret"] == pytest.approx(0.01)
+
+
+def test_the_stop_takes_precedence_over_the_target():
+    # Touched both; daily bars cannot order them, so the loss is assumed.
+    r = simulate_capitulation(session_high=1060.0, session_low=750.0,
+                              session_close=800.0, session_open=1000.0,
+                              gap=-0.12, index_gap=-0.01, prior_20d_return=-0.15)
+    assert r["outcome"] == "stop"
+    assert r["ret"] == pytest.approx(-CAP_STOP)
+
+
+def test_a_non_qualifying_session_is_not_traded_at_all():
+    assert simulate_capitulation(1060.0, 980.0, 1050.0, 1000.0,
+                                 gap=-0.02, index_gap=-0.01,
+                                 prior_20d_return=-0.15) is None
+
+
+def test_levels_are_exactly_the_open_and_its_multiples():
+    lv = capitulation_levels(1000.0)
+    assert lv["entry"] == pytest.approx(1000.0)
+    assert lv["target"] == pytest.approx(1050.0)
+    assert lv["stop"] == pytest.approx(800.0)
+
+
+def test_render_carries_the_walk_forward_number_and_the_weak_year():
+    text = render_capitulation_plan("BBRI", 1000.0, -0.12, -0.01, -0.15)
+    assert "all three conditions met" in text
+    assert "84.6%" in text and "[81.5%, 87.6%]" in text
+    assert "86.2%" in text          # the walk-forward figure
+    assert "2025 at 65%" in text    # the weak year travels with it
+
+
+def test_render_refuses_and_explains():
+    text = render_capitulation_plan("BBRI", 1000.0, -0.02, -0.01, -0.15)
+    assert "no trade" in text

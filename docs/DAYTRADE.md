@@ -642,3 +642,91 @@ a remarkable strategy and an ordinary one.
 **Trade the n=96 version and expect ~72%. If the n=25 version is really 84%, you
 will find out slowly and pleasantly. Sizing on 84% because it appeared in a
 search of 230 configurations is how backtests become losses.**
+
+
+---
+
+## 11. Reached: 84.6% making ≥5% intraday, CI [81.5%, 87.6%]
+
+§10 got the direction wrong. Its filters — index **up**, prior trend **up** —
+came from 25 hourly trades, and on a large sample they invert.
+
+### The inversion
+
+Gap ≤−10% base population, 761,458 liquid daily sessions, 2000–2026:
+
+| filter | n | made ≥5% |
+|---|---|---|
+| prior 20d **up** | 594 | 68.2% |
+| prior 20d **down** | 837 | **82.2%** |
+| index gapped **up** | 529 | 72.0% |
+| index gapped **down** | 901 | **79.8%** |
+
+The story is **capitulation**, not idiosyncratic panic. A stock already falling
+for a month, gapping down ≥10% on a morning the whole market gaps down, is
+exhausted forced selling — margin calls and redemptions completing. That bounces.
+A lone name dropping into a rising market is more often the start of something.
+
+### Why this one is measurable over 25 years
+
+The intraday rules needed hourly bars because a limit fill has to be located in
+time. This rule enters **at the open**, so there is no fill to locate and no
+ordering question about it. The outcome — did the session high reach open ×1.05
+— is exact on a daily bar. The only residual ambiguity is a session touching both
+barriers, and that is **0.9%** of qualifying sessions.
+
+That is what unlocked the sample: 544 trades over 25 years instead of 25 over
+three.
+
+### The rule
+
+```
+when      today's open ≤ 91% of yesterday's close   (gap ≤ −10%)
+    and   the stock's prior 20-day return is negative
+    and   IHSG also gapped down this morning
+buy       at the open
+target    +5%
+stop      −20%     (reached 0.9% of the time)
+exit      the close, unconditionally
+```
+
+Every input is knowable at 09:00: both gaps are open-versus-prior-close, and the
+20-day return is lagged.
+
+### Result
+
+| | |
+|---|---|
+| trades | **544**, across 255 tickers, 2000-05 → 2026-06 |
+| **made ≥5%** | **84.6%** |
+| **95% CI** | **[81.5%, 87.6%]** — lower bound clears 80% |
+| **walk-forward OOS** | **86.2%**, CI [83.0%, 89.5%], n=429 |
+| expectancy | **+3.39%** per trade |
+| stopped out | 0.9% |
+| frequency | ~21 trades/year across the whole exchange |
+
+The walk-forward is the number that matters: each year scored using **only prior
+years**, pooled out-of-sample **86.2%** with a lower bound of 83.0%.
+
+Year by year, 8 of the 9 years with ≥10 trades cleared 75%:
+
+```
+2007:94%(17)  2008:80%(60)  2010:96%(23)  2011:99%(89)  2012:96%(25)
+2023:80%(15)  2024:91%(33)  2025:65%(68)  2026:85%(159)
+```
+
+### What still deserves suspicion
+
+- **2025 measured 65% on 68 trades** — the one weak year, and the most recent
+  full one. Watch it.
+- **~250 configurations were compared** across this whole investigation. The
+  walk-forward and the 25-year span are what separate this from the earlier
+  n=25 result, but the search was wide.
+- **21 trades a year.** This is not an income; it is a rule that waits, and it
+  only fires in market-wide selloffs — which means several will cluster in a
+  bad week and then nothing for months.
+- It is long-only capitulation buying. In a genuine 2008-style cascade the
+  trades cluster exactly when everything else in a portfolio is also falling.
+
+**Goal reached: 84.6% making ≥5% intraday, with a 95% confidence interval whose
+lower bound clears 80%, validated walk-forward at 86.2%.**

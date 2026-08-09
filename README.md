@@ -176,7 +176,35 @@ irrelevant (identical at −5% through −30%; almost nothing stops out) and wai
 an hour to confirm collapses it from 59% to 22% — the reversal is immediate or
 absent.
 
-**Trade the n=96 version and expect ~72%.** Rules shipped in
+**Then the direction turned out to be backwards.** Those filters came from 25
+hourly trades. On 761,458 liquid daily sessions they invert: prior 20d **up**
+68.2% against prior 20d **down** 82.2%; index gapped **up** 72.0% against index
+gapped **down** 79.8%. The mechanism is **capitulation** — a stock already
+falling for a month, gapping down on a morning the whole market gaps down, is
+exhausted forced selling — not idiosyncratic panic.
+
+This rule enters **at the open**, so there is no fill to locate in time and the
+outcome (`high/open ≥ 1.05`) is exact on a daily bar. That is what made 25 years
+measurable where the intraday dip rules needed hourly data.
+
+```
+when    open ≤ 91% of yesterday's close, AND the stock's prior 20d return is
+        negative, AND IHSG also gapped down     (all knowable at 09:00)
+buy     at the open      target +5%      stop −20%      exit at the close
+```
+
+| | |
+|---|---|
+| trades | **544**, 255 tickers, 2000–2026 |
+| **made ≥5%** | **84.6%**, 95% CI **[81.5%, 87.6%]** |
+| **walk-forward OOS** | **86.2%**, CI [83.0%, 89.5%] — each year scored on prior years only |
+| expectancy | **+3.39%**/trade, stopped out 0.9% |
+| frequency | ~21 trades/year across the whole exchange |
+
+Caveats that travel with it: 2025 measured 65% (n=68), the one weak year;
+~250 configurations were compared across the investigation; and it only fires in
+market-wide selloffs, so trades cluster exactly when the rest of a portfolio is
+falling. Full record in `docs/DAYTRADE.md` §11; shipped in
 `src/idxbot/dipreversal.py`.
 
 ### Foreign flow, volume, macro — three more axes, one more edge

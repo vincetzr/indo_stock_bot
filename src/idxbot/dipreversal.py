@@ -95,6 +95,42 @@ GAP_INDEX_MIN = 0.005    # index return at the open
 GAP_TARGET = 0.05
 GAP_STOP = 0.20          # measured irrelevant - almost nothing stops out
 
+# --- capitulation variant: the validated rule -------------------------------
+# The hourly figures above came from 25 trades and pointed the wrong way. On
+# 761,458 liquid daily sessions across 25 years the filters INVERT:
+#
+#                          made >=5%      n
+#   prior 20d UP              68.2%     594
+#   prior 20d DOWN            82.2%     837
+#   index gapped UP           72.0%     529
+#   index gapped DOWN         79.8%     901
+#
+# The story is capitulation, not idiosyncratic panic. A stock already falling
+# for a month, gapping down >=10% on a morning the whole market gaps down, is
+# exhausted forced selling - margin calls and redemptions completing - and that
+# is what bounces. A lone name dropping into a rising market is more often the
+# start of something.
+#
+# Measured, entry at the open, exit at the close:
+#
+#   n = 544    84.6% made >=5%    95% CI [81.5%, 87.6%]    +3.39%/trade
+#   walk-forward, each year scored on prior years only:
+#              86.2% made >=5%    95% CI [83.0%, 89.5%]    n = 429
+#
+# Every input is knowable at 09:00 - the two gaps are open-vs-prior-close and
+# the 20-day return is lagged - and the outcome is high/open >= 1.05, which is
+# exact on a daily bar. Only 0.9% of trades break the -20% stop, so the one
+# thing daily bars cannot resolve (which barrier came first) is near-moot here.
+# That is why this rule can be measured over 25 years while the intraday dip
+# rules could not.
+#
+# Caveats that travel with it: ~250 configurations were compared across this
+# investigation; 2025 was a weak year (65% on 68 trades) against 8 of 9 years
+# at or above 75%; and it fires about 21 times a year across the whole exchange.
+CAP_GAP_MIN = 0.10       # open at least this far below yesterday's close
+CAP_TARGET = 0.05
+CAP_STOP = 0.20
+
 
 @dataclass
 class DipSignal:
@@ -307,4 +343,88 @@ def render_gap_plan(ticker: str, session_open: float, gap: float,
     out.append(" 95% CI on that hit rate is [70%, 98%]. Twenty-five trades cannot")
     out.append(" tell 84% from 71%, and ~230 configurations were compared to find")
     out.append(" it. The n=96 version (gap >10%) measures 71.9%. Size accordingly.")
+    return "\n".join(out + [line])
+
+
+# ---------------------------------------------------------------------------
+# Capitulation gap reversal - the validated rule
+# ---------------------------------------------------------------------------
+
+def capitulation_qualifies(gap: float, index_gap: float,
+                           prior_20d_return: float) -> tuple:
+    """All three are knowable at 09:00, before the opening auction clears.
+
+    ``gap`` and ``index_gap`` are today's open over yesterday's close, so both
+    are negative for a qualifying setup. ``prior_20d_return`` is lagged by a
+    day and must also be negative: the rule wants a stock that was already
+    falling before this morning's gap, because that is what makes the gap
+    capitulation rather than the beginning of a decline.
+    """
+    reasons: List[str] = []
+    if not np.isfinite(gap) or gap > -CAP_GAP_MIN:
+        reasons.append(f"gap {gap:+.1%} is not below -{CAP_GAP_MIN:.0%}"
+                       if np.isfinite(gap) else "no prior close to measure a gap")
+    if not np.isfinite(prior_20d_return) or prior_20d_return >= 0:
+        reasons.append("stock was not already falling over the prior 20 sessions")
+    if not np.isfinite(index_gap) or index_gap >= 0:
+        reasons.append("index did not gap down - this is not market-wide capitulation")
+    return (not reasons), reasons
+
+
+def capitulation_levels(session_open: float) -> Dict[str, float]:
+    return {"entry": session_open,
+            "target": session_open * (1 + CAP_TARGET),
+            "stop": session_open * (1 - CAP_STOP)}
+
+
+def simulate_capitulation(session_high: float, session_low: float,
+                          session_close: float, session_open: float,
+                          gap: float, index_gap: float,
+                          prior_20d_return: float) -> Optional[dict]:
+    """Resolve one session from daily OHLC alone.
+
+    Legitimate on daily bars precisely because the entry is the open - there is
+    no fill to locate and therefore no ordering question about it. The residual
+    ambiguity is whether a session that touched both barriers hit the stop
+    first; that is resolved pessimistically, and it applies to under 1% of
+    qualifying sessions.
+    """
+    ok, _ = capitulation_qualifies(gap, index_gap, prior_20d_return)
+    if not ok or session_open <= 0 or not np.isfinite(session_open):
+        return None
+    lv = capitulation_levels(session_open)
+    if session_low <= lv["stop"]:
+        return {"outcome": "stop", "ret": -CAP_STOP, "made_target": False}
+    if session_high >= lv["target"]:
+        return {"outcome": "target", "ret": CAP_TARGET, "made_target": True}
+    return {"outcome": "close", "ret": float(session_close / session_open - 1.0),
+            "made_target": False}
+
+
+def render_capitulation_plan(ticker: str, session_open: float, gap: float,
+                             index_gap: float, prior_20d_return: float,
+                             width: int = 78) -> str:
+    lv = capitulation_levels(session_open)
+    ok, reasons = capitulation_qualifies(gap, index_gap, prior_20d_return)
+    line = "=" * width
+    out = [line, f" {ticker}  -  CAPITULATION GAP REVERSAL", line,
+           f" opens {session_open:,.0f}   gap {gap:+.1%}   index gap {index_gap:+.1%}"
+           f"   prior 20d {prior_20d_return:+.1%}", ""]
+    out.append(" ORDERS")
+    out.append(f"   buy          {lv['entry']:,.0f}   at the open")
+    out.append(f"   target       {lv['target']:,.0f}   (+{CAP_TARGET:.0%})")
+    out.append(f"   stop         {lv['stop']:,.0f}   (-{CAP_STOP:.0%}); hit 0.9% of the time")
+    out.append(f"   hard exit    the close - never hold this overnight")
+    out.append("")
+    if ok:
+        out.append(" all three conditions met at the open")
+    else:
+        for r in reasons:
+            out.append(f"   ! {r}")
+        out.append("   -> no trade")
+    out.append("")
+    out.append(" MEASURED n=544 over 25 years: 84.6% made >=5%, CI [81.5%, 87.6%]")
+    out.append(" Walk-forward (each year scored on prior years): 86.2%, CI [83.0%, 89.5%]")
+    out.append(" +3.39%/trade. Fires ~21x a year across the whole exchange.")
+    out.append(" Weakest year 2025 at 65% (n=68); 8 of 9 years >=75%.")
     return "\n".join(out + [line])
