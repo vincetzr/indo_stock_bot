@@ -139,3 +139,87 @@ def test_render_states_the_sample_and_that_80_percent_is_not_reached():
     assert "all conditions met" in text
     assert "138 trades" in text
     assert "63.0% reach +5%" in text
+
+
+# --------------------------------------------------------------------------
+# gap-down variant
+# --------------------------------------------------------------------------
+
+from idxbot.dipreversal import (  # noqa: E402
+    GAP_MIN,
+    GAP_STOP,
+    GAP_TARGET,
+    gap_levels,
+    gap_qualifies,
+    render_gap_plan,
+    simulate_gap_session,
+)
+
+
+def test_gap_levels_hang_off_the_open_because_that_is_the_entry():
+    lv = gap_levels(1000.0)
+    assert lv["entry"] == pytest.approx(1000.0)
+    assert lv["target"] == pytest.approx(1000.0 * (1 + GAP_TARGET))
+    assert lv["stop"] == pytest.approx(1000.0 * (1 - GAP_STOP))
+
+
+def test_a_shallow_gap_does_not_qualify():
+    ok, reasons = gap_qualifies(gap=-0.05, index_return=0.01, prior_trend=0.01)
+    assert not ok and any("not below" in r for r in reasons)
+
+
+def test_a_gap_up_never_qualifies():
+    ok, _ = gap_qualifies(gap=+0.20, index_return=0.01, prior_trend=0.01)
+    assert not ok
+
+
+def test_a_deep_gap_into_a_rising_market_qualifies():
+    ok, reasons = gap_qualifies(gap=-0.18, index_return=0.008, prior_trend=0.01)
+    assert ok and reasons == []
+
+
+def test_a_deep_gap_into_a_falling_market_is_refused():
+    """The distinction the whole rule rests on: idiosyncratic vs market-wide."""
+    ok, reasons = gap_qualifies(gap=-0.18, index_return=-0.01, prior_trend=0.01)
+    assert not ok and any("index" in r for r in reasons)
+
+
+def test_gap_session_takes_the_target_when_it_recovers():
+    highs = np.array([1000.0, 1020.0, 1060.0])
+    lows = np.array([980.0, 990.0, 1010.0])
+    r = simulate_gap_session(highs, lows, highs, 1000.0, -0.18, 0.008, 0.01)
+    assert r["outcome"] == "target"
+    assert r["ret"] == pytest.approx(GAP_TARGET)
+
+
+def test_gap_session_exits_at_the_close_when_it_stalls():
+    highs = np.array([1000.0, 1020.0, 1030.0])
+    lows = np.array([980.0, 990.0, 1000.0])
+    closes = np.array([1000.0, 1010.0, 1020.0])
+    r = simulate_gap_session(highs, lows, closes, 1000.0, -0.18, 0.008, 0.01)
+    assert r["outcome"] == "close"
+    assert r["ret"] == pytest.approx(0.02)
+
+
+def test_the_entry_bar_itself_cannot_resolve_the_trade():
+    """Entry is the open, so bar 0's own high is part of the entry bar.
+
+    Counting it would let a trade win on a print that may have happened before
+    the fill - the same ordering error the daily-bar analysis made.
+    """
+    highs = np.array([2000.0, 1010.0, 1020.0])   # bar 0 spikes above the target
+    lows = np.array([1000.0, 1000.0, 1005.0])
+    r = simulate_gap_session(highs, lows, highs, 1000.0, -0.18, 0.008, 0.01)
+    assert r["outcome"] != "target"
+
+
+def test_gap_render_states_the_confidence_interval_not_just_the_hit_rate():
+    text = render_gap_plan("BREN", 1000.0, -0.18, 0.008, 0.01)
+    assert "84.0% made +5%" in text
+    assert "[70%, 98%]" in text          # the error bar must travel with it
+    assert "n=25" in text
+
+
+def test_gap_render_refuses_and_explains_when_conditions_fail():
+    text = render_gap_plan("BREN", 1000.0, -0.05, 0.008, 0.01)
+    assert "no trade" in text

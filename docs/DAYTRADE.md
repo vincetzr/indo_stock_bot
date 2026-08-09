@@ -560,3 +560,85 @@ shows.
 **The honest deliverable is 63% at +5%, with +1.25% per trade and a profit
 factor of 1.71.** That is a real, positive-expectancy intraday rule. It is not
 80%, and no configuration reached 80%.
+
+
+---
+
+## 10. The gap-down reversal — the point estimate reaches 80%
+
+§9 concluded that 63% was the ceiling. That was wrong about one thing: it had
+only tested dips measured **from the session open**, and never the population
+that opens far below *yesterday's close*. Those are different events, and the
+gap version is materially stronger.
+
+The gap is known at 09:00, before a single trade — which is what makes it
+executable at the open rather than an observation after the fact.
+
+### Monotone in gap depth
+
+Full IDX, liquid only, **168,504 sessions**, 2023-07 to 2026-08. Buy at the open,
++5% target, exit at the close. Index up and prior trend positive throughout:
+
+| setup | n | **made ≥5%** | expectancy |
+|---|---|---|---|
+| gap ≥3% | 1,462 | 50.1% | +1.73% |
+| gap ≥5% | 1,031 | 59.1% | +2.22% |
+| gap ≥7% | 718 | 60.7% | +2.40% |
+| gap ≥10% | 208 | 68.8% | +2.77% |
+| **gap ≥15%, index up >0.5%** | **25** | **84.0%** | **+3.80%** |
+
+Two structural facts fall out. The stop is irrelevant — −5%, −10%, −20% and −30%
+all measure identically, because almost nothing stops out once the conditions
+hold. And **waiting an hour to "confirm" destroys it**: entering on the first
+hour's close instead of the open drops the rate from 59% to 22%. The reversal
+happens immediately or not at all.
+
+### Why it works
+
+A stock that opens 15% below yesterday while the index is *up* is not
+participating in anything. That is a forced seller, a margin call, or a headline
+the market has already decided is not systemic — and the first hour is other
+participants deciding the same. When the index is falling too, the same gap is
+just the stock doing what everything else is doing, and the edge disappears:
+removing the index filter costs roughly eight points of hit rate.
+
+### The number, with its error bar
+
+**84.0% made ≥5%, +3.80% per trade — on 25 trades.**
+
+That point estimate clears 80%. The confidence interval does not:
+
+| setup | n | made ≥5% | 95% CI |
+|---|---|---|---|
+| gap ≥15%, idx >0.5% | 25 | 84.0% | **[70%, 98%]** |
+| gap ≥15%, idx >0.3% | 32 | 81.2% | [68%, 95%] |
+| gap ≥10%, idx >0.5% | 96 | 71.9% | [63%, 81%] |
+| gap ≥10%, idx >0.3% | 136 | 70.6% | [63%, 78%] |
+
+**No configuration tested has a CI lower bound clearing 80%.** Twenty-five trades
+cannot distinguish 84% from 71%, and roughly 230 configurations were compared
+across this investigation. The estimate also moved under its own feet: 84% on
+the first universe, 78.6% when the universe widened, back to 84% once an
+illiquidity filter cut the sample to 25.
+
+The split-half readings on the deep-gap cells swing between 50% and 91% — that is
+twelve trades per half, and it means nothing either way.
+
+### What to actually believe
+
+| | |
+|---|---|
+| **Point estimate at the goal** | **84.0% making ≥5%, +3.80%/trade** |
+| Can it be shown to exceed 80%? | **No** — CI [70%, 98%], n=25 |
+| The version with real evidence | gap ≥10%, n=96: **71.9%**, +3.19%/trade |
+| Frequency | ~25 qualifying events in 3 years across the whole exchange |
+
+The deep-gap reversal is a genuine and strong effect — every version of it is
+profitable, the mechanism is economically coherent, and it is monotone in gap
+depth. Whether its true hit rate is 84% or 71% is a question this data cannot
+answer, and the difference between those two numbers is the difference between
+a remarkable strategy and an ordinary one.
+
+**Trade the n=96 version and expect ~72%. If the n=25 version is really 84%, you
+will find out slowly and pleasantly. Sizing on 84% because it appeared in a
+search of 230 configurations is how backtests become losses.**

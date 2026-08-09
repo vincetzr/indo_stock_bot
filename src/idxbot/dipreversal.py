@@ -1,4 +1,17 @@
-"""Intraday dip reversal — the only positive-expectancy intraday rule found.
+"""Intraday reversal rules — the only positive-expectancy intraday setups found.
+
+Two variants, both buying capitulation and both exiting the same session:
+
+  * ``GAP`` — the stock **opens** far below yesterday's close while the index is
+    up. Buy at the open. This is the stronger of the two and the only rule in
+    this repo whose point estimate reaches an 80% rate of making +5%.
+  * ``DIP`` — the stock **falls** 10% from its own open while the index is up.
+    Buy on a limit. Weaker but far more frequent.
+
+Both rest on the same idea: a collapse that the market is not sharing is forced
+or panicked selling in one name, and that reverts. A collapse the whole market
+is sharing does not. The index filter is the rule, not a refinement — removing
+it costs roughly eight points of hit rate.
 
 Everything else tried intraday lost money. Opening-range breakouts, VWAP entries,
 volatility filters, momentum bursts: all negative after the 0.40% round trip,
@@ -58,6 +71,29 @@ STOP_PCT = 0.20          # stop from the fill; wide, because the entry is a knif
 MAX_ENTRY_BAR = 2        # hourly bars: only the first three hours qualify
 MIN_INDEX_RETURN = 0.005  # index must be up this much at the moment of fill
 MIN_TREND = 0.0          # prior 20-session mean open-to-close must be positive
+
+# --- gap variant -----------------------------------------------------------
+# Measured on 168,504 liquid sessions, full IDX, 2023-07 to 2026-08 (hourly).
+#
+#   gap >=15%, index up >0.5%   n= 25   84.0% made +5%   +3.80%/trade
+#   gap >=15%, index up >0.3%   n= 32   81.2% made +5%   +3.66%/trade
+#   gap >=10%, index up >0.5%   n= 96   71.9% made +5%   +3.19%/trade
+#
+# READ THE SAMPLE SIZE BEFORE THE HIT RATE. At n=25 the 95% confidence interval
+# on 84% is [70%, 98%] - the data cannot distinguish 84% from 71%. Roughly 230
+# configurations were compared across this investigation, and the point estimate
+# fell from 84% to 78.6% once the universe was widened, then returned to 84%
+# only after an illiquidity filter cut the sample back to 25. No configuration
+# tested has a confidence-interval LOWER bound clearing 80%.
+#
+# The honest reading: the deep-gap reversal is a strong effect with a point
+# estimate at the 80% mark and error bars far too wide to bank on. The 10% gap
+# threshold, at n=96 and 71.9%, is the version with enough observations to
+# deserve confidence, and it does not reach 80%.
+GAP_MIN = 0.15           # how far below yesterday's close the open must be
+GAP_INDEX_MIN = 0.005    # index return at the open
+GAP_TARGET = 0.05
+GAP_STOP = 0.20          # measured irrelevant - almost nothing stops out
 
 
 @dataclass
@@ -195,4 +231,80 @@ def render_plan(ticker: str, session_open: float, index_return: float = np.nan,
     out.append(" MEASURED: 138 trades, 63.0% reach +5%, +1.25%/trade, PF 1.71")
     out.append(" ~140 configurations were compared to find this, on 138 trades.")
     out.append(" It does NOT reach an 80% win rate and no variant does. Small size.")
+    return "\n".join(out + [line])
+
+
+# ---------------------------------------------------------------------------
+# Gap variant
+# ---------------------------------------------------------------------------
+
+def gap_levels(session_open: float) -> Dict[str, float]:
+    """Entry is the open itself, so the levels hang off it directly."""
+    return {
+        "entry": session_open,
+        "target": session_open * (1 + GAP_TARGET),
+        "stop": session_open * (1 - GAP_STOP),
+    }
+
+
+def gap_qualifies(gap: float, index_return: float, prior_trend: float) -> tuple:
+    """``gap`` is today's open over yesterday's close, so it is negative here.
+
+    Everything needed is known at 09:00, before the first trade - which is what
+    makes this rule executable at the open rather than a post-hoc observation.
+    """
+    reasons: List[str] = []
+    if not np.isfinite(gap) or gap > -GAP_MIN:
+        reasons.append(f"gap {gap:+.1%} is not below -{GAP_MIN:.0%}"
+                       if np.isfinite(gap) else "no prior close to measure a gap")
+    if not np.isfinite(index_return) or index_return <= GAP_INDEX_MIN:
+        reasons.append(f"index not up >{GAP_INDEX_MIN:.1%} at the open"
+                       if np.isfinite(index_return) else "index return unknown")
+    if not np.isfinite(prior_trend) or prior_trend <= MIN_TREND:
+        reasons.append("prior 20-session trend is not positive")
+    return (not reasons), reasons
+
+
+def simulate_gap_session(highs, lows, closes, session_open: float, gap: float,
+                         index_return: float, prior_trend: float) -> Optional[dict]:
+    """Resolve one gap-down session. Entry is the open; bar 0 is the entry bar."""
+    ok, _ = gap_qualifies(gap, index_return, prior_trend)
+    if not ok or session_open <= 0 or len(highs) < 2:
+        return None
+    lv = gap_levels(session_open)
+    H, L, C = np.asarray(highs)[1:], np.asarray(lows)[1:], np.asarray(closes)[1:]
+    for k in range(len(H)):
+        if L[k] <= lv["stop"]:
+            return {"outcome": "stop", "ret": -GAP_STOP, "bars": k + 1}
+        if H[k] >= lv["target"]:
+            return {"outcome": "target", "ret": GAP_TARGET, "bars": k + 1}
+    return {"outcome": "close", "ret": float(C[-1] / session_open - 1),
+            "bars": len(C)}
+
+
+def render_gap_plan(ticker: str, session_open: float, gap: float,
+                    index_return: float = np.nan, prior_trend: float = np.nan,
+                    width: int = 78) -> str:
+    lv = gap_levels(session_open)
+    ok, reasons = gap_qualifies(gap, index_return, prior_trend)
+    line = "=" * width
+    out = [line, f" {ticker}  -  GAP-DOWN REVERSAL", line,
+           f" opens {session_open:,.0f}   gap {gap:+.1%} vs yesterday's close", ""]
+    out.append(" ORDERS")
+    out.append(f"   buy          {lv['entry']:,.0f}   at the open")
+    out.append(f"   target       {lv['target']:,.0f}   (+{GAP_TARGET:.0%})")
+    out.append(f"   stop         {lv['stop']:,.0f}   (-{GAP_STOP:.0%}); rarely reached")
+    out.append(f"   hard exit    the close - never hold this overnight")
+    out.append("")
+    if ok:
+        out.append(" all conditions met at the open")
+    else:
+        for r in reasons:
+            out.append(f"   ! {r}")
+        out.append("   -> no trade")
+    out.append("")
+    out.append(" MEASURED: n=25, 84.0% made +5%, +3.80%/trade")
+    out.append(" 95% CI on that hit rate is [70%, 98%]. Twenty-five trades cannot")
+    out.append(" tell 84% from 71%, and ~230 configurations were compared to find")
+    out.append(" it. The n=96 version (gap >10%) measures 71.9%. Size accordingly.")
     return "\n".join(out + [line])

@@ -157,8 +157,27 @@ gives **56.2%** against 60.7% hourly, so coarse bars were flattering the result.
 Lowering the target does not help — 74.6% net-positive at a +1% target, by which
 point expectancy is −1.01%.
 
-**Maximum reached: 63.0% at +5%, against a requirement of 80%.** Full record in
-`docs/DAYTRADE.md` §9; rule shipped as `src/idxbot/dipreversal.py`.
+**Then the gap-down reversal was found** (`docs/DAYTRADE.md` §10). Dips measured
+*from the open* were the wrong population; stocks that **open** far below
+yesterday's close while the index is up are a different and stronger one — and
+the gap is known at 09:00, before any trade. Monotone in depth, on 168,504 liquid
+sessions:
+
+| setup | n | **made ≥5%** | expectancy | 95% CI |
+|---|---|---|---|---|
+| gap ≥5%, index up | 1,031 | 59.1% | +2.22% | |
+| gap ≥10%, index up >0.5% | 96 | 71.9% | +3.19% | [63%, 81%] |
+| **gap ≥15%, index up >0.5%** | **25** | **84.0%** | **+3.80%** | **[70%, 98%]** |
+
+The point estimate reaches the 80% goal. **The confidence interval does not, and
+no configuration tested has a lower bound clearing 80%** — 25 trades cannot tell
+84% from 71%, and ~230 configurations were compared to find it. The stop is
+irrelevant (identical at −5% through −30%; almost nothing stops out) and waiting
+an hour to confirm collapses it from 59% to 22% — the reversal is immediate or
+absent.
+
+**Trade the n=96 version and expect ~72%.** Rules shipped in
+`src/idxbot/dipreversal.py`.
 
 ### Foreign flow, volume, macro — three more axes, one more edge
 
