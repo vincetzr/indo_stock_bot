@@ -236,3 +236,102 @@ choice for anyone who wants speed. Two days is the one row that loses money.
 
 **So: ~2 weeks is the floor for an 80% win rate on IDX.** Below it, costs exceed
 the gross drift and no amount of selection closes the gap.
+
+---
+
+## 7. Intraday specifically: +5% at an 80% win rate is above the ceiling
+
+§6 covered 1–2 day holds. This covers the strictly harder case — in and out
+within one session — and the answer is not "very difficult". It is
+**arithmetically unavailable**, and that can be shown without proposing a single
+strategy.
+
+### The bound, computed from the data alone
+
+A same-session trade cannot return more than the session's own range. So the
+ceiling follows from daily bars directly (`scripts/intraday_ceiling.py`), over
+**761,420 liquid sessions, 792 tickers, 2000–2026**:
+
+| target | reachable from the **open** | reachable from the **session low** |
+|---|---|---|
+| +2% | 34.6% | 77.3% |
+| +3% | 22.5% | 57.2% |
+| **+5%** | **10.8%** | **29.4%** |
+| +8% | 4.7% | 12.2% |
+
+The right column is what a trader who buys the **exact low of every session**
+would achieve. That is perfect foresight — the low is only identifiable after
+the close — so it bounds *every* intraday system that will ever be written. At
++5% it is **29.4%**. An 80% win rate is not 2.4× harder than the state of the
+art; it is above a ceiling no skill can reach.
+
+Filtering to the most violent sessions raises both columns and does not rescue
+the realistic one:
+
+| cut | n | +5% from open | +5% from low |
+|---|---|---|---|
+| all sessions | 761,420 | 10.8% | 29.4% |
+| ATR top decile | 75,692 | 34.1% | 80.6% |
+| ATR top 1% & volume >3× | 1,367 | **42.3%** | 87.6% |
+
+The last row is the only place perfect foresight clears 80% — and it is 1,367
+sessions out of 761,420, about **two opportunities a month across the entire
+exchange**, still requiring you to buy the exact low. The implementable number
+is 42.3%.
+
+### Confirmed on real 5-minute bars
+
+The bound above is inferred from daily OHLC. So it was re-run on genuine
+intraday data — **245,199 five-minute bars, 70 liquid names, 3,818 sessions** —
+with a real strategy: enter on the first 5m close above the 30-minute opening
+range, exit on target/stop within the session, stop checked first.
+
+| target | stop | trades | win rate | hit target | expectancy | PF |
+|---|---|---|---|---|---|---|
+| +5% | −3% | 1,614 | 30% | 10% | **−0.60%** | 0.55 |
+| +5% | −5% | 1,614 | 33% | 12% | −0.56% | 0.59 |
+| +3% | −5% | 1,614 | 37% | 22% | −0.58% | 0.55 |
+| +2% | −5% | 1,614 | 42% | 33% | −0.55% | 0.48 |
+
+Every configuration loses. The same sessions put the perfect-foresight ceiling
+at 52.5% for +5% — higher than the 25-year figure only because these are the 70
+most liquid names in a recent volatile stretch, and still nowhere near 80%.
+
+### Why the two requirements are mutually exclusive
+
+Shrinking the target raises the win rate, exactly as expected — until it doesn't:
+
+| target | win rate | net expectancy |
+|---|---|---|
+| +2.0% | 42% | −0.60% |
+| +1.0% | 57% | −0.53% |
+| +0.5% | **70%** | −0.51% |
+| +0.3% | **0%** | −0.53% |
+
+The collapse from 70% to **zero** is the whole argument in one line. A 0.3%
+target is smaller than the 0.40% round trip, so every trade that "hits its
+target" still books a loss. The win rate can only rise while the target stays
+above costs, and it runs out of room at ~70%.
+
+Underneath it all:
+
+    open-to-close drift  -0.42%      (the average IDX session drifts DOWN)
+    round-trip cost      -0.40%
+    ------------------------------
+    before any strategy  -0.82%
+
+You are paying 0.40% to enter a game with negative expected value. Selection
+cannot fix a starting position that bad — it can only choose which −0.82% you
+take.
+
+### The honest bottom line
+
+| | |
+|---|---|
+| **+5% intraday at 80% win rate** | **impossible** — ceiling is 29.4% (25y) / 52.5% (5m), even with perfect entry |
+| Best real intraday win rate found | ~70%, at a +0.5% target, expectancy −0.51% |
+| Best intraday expectancy found | −0.55%, i.e. every variant loses |
+| Shortest hold that reaches 80% **and** makes money | **20-day cap, ~9.8 days actual** — 85% win, +1.27%/trade, 32.7% annualised |
+
+Nothing intraday in this repo is profitable, and this section exists so that
+stays visible rather than being rediscovered with real money.

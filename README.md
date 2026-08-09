@@ -130,6 +130,18 @@ touch +5% within two days, so an 80% hit rate needs a 4.1× lift. More decisivel
 the 2-day gross drift on IDX is **−0.041%** against a 0.40% round trip — costs
 are 10× the edge, so there is nothing to harvest before selection even starts.
 
+**Intraday is above the ceiling, not merely hard.** A same-session trade cannot
+return more than the session's own range, so the bound is computable without
+proposing any strategy. Over 761,420 liquid sessions, +5% is reachable from the
+open in **10.8%** of them — and in only **29.4%** even for a trader who buys the
+exact low of every session, which is perfect foresight. Confirmed on 245,199
+real 5-minute bars: an opening-range breakout targeting +5% wins 30% of the time
+at **−0.60%** expectancy, and *every* variant tested loses. Shrinking the target
+lifts the win rate to ~70% and no further — below a 0.4% target every "win" is
+smaller than the round trip, so the win rate collapses to zero. Underneath it,
+the average IDX session drifts **−0.42%** open-to-close against a 0.40% cost.
+See `docs/DAYTRADE.md` §7.
+
 **Treat the honest expectation as high-single-digit CAGR, not 35–40%.**
 
 **But: only 6 of 10 holdout years were positive** (2024: −6.65%), and **~8 points
