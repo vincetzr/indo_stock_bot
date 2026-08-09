@@ -442,6 +442,29 @@ def cmd_fundamentals(args) -> int:
     return 0
 
 
+def cmd_macro(args) -> int:
+    """Macro and foreign-appetite context. See docs/FINDINGS.md Part IV."""
+    from . import macro as macro_mod
+
+    engine = _engine(args)
+    print("Fetching macro series...")
+    panel = macro_mod.fetch(engine.cfg, verbose=not args.quiet)
+    if panel.empty:
+        print("No macro series retrieved.")
+        return 1
+    feats = macro_mod.features(panel)
+    print()
+    print(macro_mod.render(panel, feats))
+    print()
+    print(" Macro moved the market in-sample and did NOT improve stock selection")
+    print(" out-of-sample: the strategy's edge over the equal-weight universe was")
+    print(" ~2.5-4% per period in BOTH good and bad macro. Use this as context for")
+    print(" position size, not as a stock picker. docs/FINDINGS.md Part IV.")
+    _write_csv(feats.reset_index().rename(columns={"index": "date"}),
+               args.out, "macro features")
+    return 0
+
+
 def cmd_barrier(args) -> int:
     """What a target-and-stop trade actually returns, path by path."""
     from . import barrier as barrier_mod
@@ -1125,6 +1148,13 @@ def build_parser() -> argparse.ArgumentParser:
                        help="current-snapshot fundamental screen (NOT backtestable)")
     common(p)  # supplies --universe/--tickers/--limit/--out
     p.set_defaults(func=cmd_fundamentals)
+
+    p = sub.add_parser("macro", help="macro regime and foreign-appetite proxy")
+    p.add_argument("--providers", default="none")
+    p.add_argument("--profile")
+    p.add_argument("--quiet", action="store_true")
+    p.add_argument("--out", help="write macro features to this CSV")
+    p.set_defaults(func=cmd_macro)
 
     p = sub.add_parser("barrier",
                        help="target/stop exits: real hit rate and expectancy")

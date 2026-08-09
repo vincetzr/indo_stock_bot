@@ -142,6 +142,32 @@ smaller than the round trip, so the win rate collapses to zero. Underneath it,
 the average IDX session drifts **−0.42%** open-to-close against a 0.40% cost.
 See `docs/DAYTRADE.md` §7.
 
+### Foreign flow, volume, macro — three more axes, one more edge
+
+`docs/FINDINGS.md` Part IV tests everything beyond price technicals:
+
+| axis | verdict |
+|---|---|
+| **technical** | the one durable edge — distance from the 52-week high, 20d IC +0.066 (t=10.2), non-decaying |
+| **macro** | moves the **market**, weakly and decaying out-of-sample; does **not** improve selection |
+| **volume** | **no stable signal** — every feature reverses sign between train and holdout |
+| **foreign flow** | **still unmeasured**; the rupiah/EM proxy inherits the macro verdict |
+
+The macro result is the instructive one. In-sample it looked like the strongest
+conditioner in the project — the foreign-appetite proxy split 20-day returns
+**+6.70% vs +1.39%**, and every cut had the economically correct sign. But
+decomposing each date into strategy, benchmark, and the difference shows the
+strategy's **excess over the market** is 2.4–4.0% in *both* good and bad macro.
+Macro was moving the market and the strategy was inheriting the beta. The
+train-half claim that selection improves in good macro **reverses** on the
+holdout (+3.21% → −0.66%). Use macro to size, not to pick.
+
+Volume is worse than useless: turnover rank runs 60d IC **+0.0327 (t=5.00)** in
+training and **−0.0280 (t=−5.01)** in the holdout. A feature that flips sign
+actively hurts in the period after the one it was fitted on, so volume stays out
+of the score entirely — the only volume quantity that earns its place is the
+Rp1bn/day liquidity *filter*.
+
 **Treat the honest expectation as high-single-digit CAGR, not 35–40%.**
 
 **But: only 6 of 10 holdout years were positive** (2024: −6.65%), and **~8 points
@@ -215,6 +241,7 @@ signals and turned it slightly positive — on n=3, which is not evidence.
 | `evaluate` | Cross-sectional rank IC, quantile spreads, per-component diagnosis, train/holdout |
 | `barrier` | Path-dependent exits: what a target/stop trade really returns, hit rate **and** expectancy |
 | `fundamentals` | Current-snapshot quality screen — excludes wreckage. **Not backtestable, by construction** |
+| `macro` | Macro regime and the foreign-appetite proxy (rupiah + EM flows) |
 | `analyze TICKER` | Deep dive: score breakdown, Wyckoff phase, broker positions, campaigns |
 | `plan` | Executable plan — entry band, stop, targets, lot-rounded size, R:R |
 | `playbook` | Reverse-engineer each broker's entry/exit behaviour across a universe |

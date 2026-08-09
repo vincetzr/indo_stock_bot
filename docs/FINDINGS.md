@@ -625,6 +625,129 @@ return.
 
 ---
 
+# Part IV — foreign flow, volume, macro
+
+Three axes beyond price technicals. One is still unmeasurable, one is actively
+unstable, and one is real but does something other than what it appears to.
+
+```bash
+idxbot macro                    # current regime and the foreign-appetite proxy
+```
+
+A data-layer bug had to be fixed first: `to_yahoo_symbol` appended `.JK` to
+anything without a dot, so `BZ=F`, `USDIDR=X` and `EEM` became `BZ=F.JK` and
+friends. Yahoo answers those with an empty result rather than an error, so every
+macro series simply came back missing with no indication why. Twelve series now
+retrieve, most from 2000–2003.
+
+## Result 13 — foreign flow is still unmeasured, and the proxy is honest about it
+
+Per-broker foreign net buy/sell was never obtainable, so nothing here measures
+it. What is measurable is the constraint every foreign buyer faces: **to own an
+Indonesian share you must first own rupiah.** Sustained foreign accumulation
+should therefore show up as rupiah strength alongside EM risk appetite.
+
+`foreign_appetite` combines those two as trailing percentiles. It is a proxy for
+foreign *appetite*, not a measurement of foreign *flow*, and both the module and
+the rendered output say so wherever the number appears.
+
+In-sample it looked like the strongest conditioner in the entire project:
+
+| foreign appetite | n | strategy 20d return | win rate |
+|---|---|---|---|
+| high | 675 | **+6.70%** | 56% |
+| low | 675 | **+1.39%** | 51% |
+
+A 5.3-point spread, wider than any technical component. Every other macro cut
+agreed and every sign was economically sensible — rupiah weakness bad, strong
+dollar bad, copper strength good, IHSG above its 200-day good. That coherence is
+exactly what makes it seductive, and it is why §14 matters.
+
+## Result 14 — macro times the market; it does not improve selection
+
+Decomposing each rebalance date into the top-5 return, the equal-weight universe
+return, and the difference between them:
+
+| macro state | n | strategy | benchmark | **excess** | t(excess) |
+|---|---|---|---|---|---|
+| foreign appetite high | 135 | 6.08% | 2.06% | **4.02%** | 2.92 |
+| foreign appetite low | 135 | 2.20% | −0.27% | **2.47%** | 2.88 |
+| copper 60d up | 137 | 5.93% | 2.07% | 3.86% | 2.88 |
+| copper 60d down | 137 | 2.36% | −0.26% | 2.62% | 3.01 |
+| dollar 60d down | 137 | 5.65% | 1.62% | 4.04% | 3.06 |
+| dollar 60d up | 137 | 2.64% | 0.19% | 2.45% | 2.71 |
+
+The strategy's raw return swings by ~3.9 points across macro states. Its **excess
+over the market** swings by ~1.5 points and stays firmly positive in both, with
+t-stats bunched around 2.7–3.1. **The macro effect is inherited market beta.**
+Good macro lifts everything, including the benchmark; the selection edge is
+indifferent to it.
+
+And the part that does not survive contact with a holdout:
+
+| | train | holdout |
+|---|---|---|
+| selection edge, good macro | 3.84% | 3.90% |
+| selection edge, bad macro | 0.63% | **4.56%** |
+| difference | +3.21% | **−0.66%** |
+
+The train half says selection works better in good macro. The holdout says the
+opposite. That is noise.
+
+The market-timing effect itself is weak and mostly decays:
+
+| feature | train t | holdout t |
+|---|---|---|
+| copper 60d | 2.66 | **0.44** |
+| EM equities 60d | 1.91 | **−0.18** |
+| dollar index 60d | 1.91 | **0.15** |
+| foreign appetite | 1.30 | 1.83 |
+| IHSG vs 200d | 0.61 | 1.92 |
+
+Only the two IDX-proximate ones held up, and neither reaches significance.
+Acting on it does not pay either — skipping the worst macro quintile moves CAGR
+47.2% → 40.3% and max drawdown −55.9% → −48.3%, which is the same
+return-per-drawdown with fewer trades.
+
+**Verdict: macro is context for how much to hold, not a stock picker.** That is a
+real use — knowing the benchmark is −0.27% rather than +2.06% is worth having
+when sizing — but it is not the edge the in-sample table advertised.
+
+## Result 15 — volume carries no stable cross-sectional signal
+
+Every volume feature tested **reverses sign** between the training and holdout
+halves, both directions significant:
+
+| feature | train 60d IC | t | holdout 60d IC | t |
+|---|---|---|---|---|
+| turnover rank | +0.0327 | 5.00 | **−0.0280** | −5.01 |
+| turnover growth | +0.0268 | 4.55 | **−0.0182** | −3.01 |
+| volume dry-up | −0.0282 | −4.49 | **+0.0320** | +5.26 |
+| OBV divergence | −0.0192 | −2.74 | +0.0037 | 0.60 |
+
+This is not a weak signal, it is an unstable one, and the distinction matters:
+a weak feature costs a little, whereas a feature that flips sign actively hurts
+in the period after the one it was fitted on. Adding `obv_divergence` at weight
+0.15 lifts full-sample 60d IC from +0.0535 to +0.0562 — a pure in-sample
+improvement that the split says would reverse.
+
+**Volume stays out of the score.** The only volume-derived quantity that earns
+its place is the liquidity *filter* — turnover ≥ Rp1bn/day — which exists to
+exclude untradeable names, not to rank tradeable ones.
+
+## Result 16 — what actually survives, all four axes
+
+| axis | status |
+|---|---|
+| **technical** | the one durable edge: distance from the 52-week high, 20d IC +0.066 (t=10.2), non-decaying |
+| **macro** | moves the market, weakly and decaying; does **not** improve selection |
+| **volume** | no stable signal — every feature reverses out-of-sample |
+| **foreign flow** | **still unmeasured**; the rupiah/EM proxy inherits the macro verdict |
+
+Four axes examined, one edge. That ratio is the honest summary of this project.
+
+---
+
 ## What this does and does not establish
 
 **Does:**

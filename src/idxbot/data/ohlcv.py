@@ -40,9 +40,20 @@ OHLCV_COLUMNS = ["date", "open", "high", "low", "close", "adj_close", "volume"]
 
 
 def to_yahoo_symbol(ticker: str) -> str:
-    """``BBCA`` -> ``BBCA.JK``; index symbols such as ``^JKSE`` pass through."""
+    """``BBCA`` -> ``BBCA.JK``; anything already fully qualified passes through.
+
+    The pass-through cases are wider than they look. Futures (``BZ=F``), FX
+    pairs (``USDIDR=X``) and plain US listings (``EEM``) all lack a dot, so a
+    naive rule appends ``.JK`` and silently requests a symbol that cannot exist.
+    Yahoo answers with an empty result rather than an error, so the macro series
+    simply came back missing with no indication why.
+    """
     ticker = ticker.strip().upper()
-    if ticker.startswith("^") or "." in ticker:
+    if ticker.startswith("^") or "." in ticker or "=" in ticker or "-" in ticker:
+        return ticker
+    if len(ticker) != 4:
+        # Every IDX equity code is exactly four letters. Anything else is a
+        # foreign listing being asked for by name.
         return ticker
     return f"{ticker}.JK"
 
