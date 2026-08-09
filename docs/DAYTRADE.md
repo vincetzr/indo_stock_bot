@@ -416,3 +416,98 @@ ordering question arises.
 | Best intraday expectancy | **+0.58%/trade**, hi-vol names, −7% limit, n=378, unestablished |
 | Improvement from harder searching | real: 33% → 61% win, −0.59% → +0.58% |
 | Most valuable output | the ordering trap, now permanently tested |
+
+
+---
+
+## 9. Goal: 80% win rate at +5% intraday — the exhaustive attempt
+
+Directive: keep going until 80% at +5% intraday. This section is the record of
+that attempt, including the best rule it produced and why the target itself is
+unreachable.
+
+### The search
+
+The earlier sections were limited by sample: only ~60 days of 5-minute history.
+Yahoo serves **730 days of hourly bars**, so the search was rerun on
+**168,586 sessions, 251 names, 2023-07 to 2026-08** — 46× the 5-minute sample,
+and still time-ordered, which is what the daily-bar approach lacked.
+
+**120 base configurations** — every entry depth from buy-at-open to a −10% limit,
+every stop from −3% to −20%, unconditional and in the top 10% / 3% / 1% of
+trailing volatility — plus ~20 stacked filter combinations.
+
+| best of 120, target +5% | trades | win | expectancy | PF |
+|---|---|---|---|---|
+| −10% limit, −20% stop, top 3% volatility | 774 | **61.1%** | +0.63% | 1.36 |
+| −10% limit, −20% stop, all sessions | 3,982 | 60.7% | +0.67% | 1.42 |
+
+61.1%. The 5-minute dataset — three months, different years, twelve times finer
+resolution — independently gave **61%**. Two samples that share almost nothing
+landing on the same number is the strongest evidence in this document that 61%
+is where the unfiltered rule actually sits.
+
+### What lifted it, and how far
+
+The dip that reverts is the **idiosyncratic** one — a stock down 10% while the
+index is *up*. That is forced or panicked selling in a single name rather than a
+market event, and market-wide selloffs do not bounce the same way:
+
+| filter added | trades | win | expectancy | PF |
+|---|---|---|---|---|
+| none | 3,982 | 60.7% | +0.67% | 1.42 |
+| index up at fill | 1,046 | 63.9% | +0.85% | 1.51 |
+| index up >0.5% at fill | 350 | 66.0% | +1.16% | 1.80 |
+| + prior 20-session trend positive | 200 | 68.0% | +1.12% | 1.70 |
+| **+ dip within the first 3 hours** | **138** | **68.8%** | **+1.25%** | **1.71** |
+
+Then it stops. Deeper dips (−12%, −15%), stricter index thresholds, more
+recovery time — each either fails to improve or runs the sample below 50 trades.
+The win rate asymptotes at **~70%** and the sample collapses before 80%.
+
+### Why 80% at +5% cannot be reached
+
+Lowering the target does not get there either:
+
+| target | trades | win rate | expectancy |
+|---|---|---|---|
+| +5% | 138 | 68.8% | **+1.25%** |
+| +4% | 138 | 70.3% | +0.78% |
+| +3% | 138 | 71.7% | +0.25% |
+| +2% | 138 | 72.5% | −0.40% |
+| +1% | 138 | **74.6%** | **−1.01%** |
+
+**74.6% is the maximum at any target**, and by then the trade loses money. The
+two requirements move in opposite directions and never meet: the win rate climbs
+only as the target shrinks, and expectancy turns negative at +2% — below the
+point where the win rate would still need another six points.
+
+Combined with §7's bound — even buying the *exact session low* reaches +5% in
+only 29.4% of sessions across 25 years — the conclusion is arithmetic rather
+than a failure of searching.
+
+### What the search did produce
+
+The first positive-expectancy intraday rule in this repo, shipped as
+`src/idxbot/dipreversal.py`:
+
+```
+entry     limit at -10% from the session open, first three hours only
+filter    index up >0.5% at the moment of fill, prior 20-session trend positive
+target    +5% from the fill
+stop      -20% from the fill
+exit      the close, unconditionally
+```
+
+**138 trades, 68.8% win rate, +1.25% per trade, PF 1.71, t = 2.73.** Split
+chronologically the second half is stronger (73.9%, +1.46%, t=2.26).
+
+Read it with the caveats attached. **Roughly 140 configurations were compared to
+arrive at 138 trades** — that is a great deal of searching for a thin sample, and
+the holdout being stronger is reassuring rather than conclusive. The limit fills
+on about 2% of sessions, preferentially on days that keep falling, so the index
+filter is carrying heavy weight on little data. It is an experiment worth funding
+in small size, not an established edge.
+
+**The goal was not reached. 68.8% at +5% was, and it is real money rather than a
+number produced by relaxing a definition.**

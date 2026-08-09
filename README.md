@@ -142,6 +142,19 @@ smaller than the round trip, so the win rate collapses to zero. Underneath it,
 the average IDX session drifts **−0.42%** open-to-close against a 0.40% cost.
 See `docs/DAYTRADE.md` §7.
 
+**Exhaustive attempt at 80% intraday, on 168,586 sessions.** Rerun on 730 days of
+hourly bars (46× the 5-minute sample), 120 base configurations plus ~20 stacked
+filters. Best unfiltered result: **61.1%** — and the independent 5-minute sample
+gave **61%**, two samples sharing almost nothing landing on the same number.
+Filtering to *idiosyncratic* dips — a stock down 10% while the index is **up**,
+i.e. forced selling in one name rather than a market event — lifts it to
+**68.8% win, +1.25%/trade, PF 1.71 (t=2.73)**, the first positive-expectancy
+intraday rule here. It then stops: the win rate asymptotes at ~70% and the
+sample collapses. Lowering the target does not help either — **74.6% at +1% is
+the maximum at any target**, by which point expectancy is −1.01%. The win rate
+and the 5% target move in opposite directions and never meet. Full record in
+`docs/DAYTRADE.md` §9; rule shipped as `src/idxbot/dipreversal.py`.
+
 ### Foreign flow, volume, macro — three more axes, one more edge
 
 `docs/FINDINGS.md` Part IV tests everything beyond price technicals:
@@ -242,6 +255,7 @@ signals and turned it slightly positive — on n=3, which is not evidence.
 | `barrier` | Path-dependent exits: what a target/stop trade really returns, hit rate **and** expectancy |
 | `fundamentals` | Current-snapshot quality screen — excludes wreckage. **Not backtestable, by construction** |
 | `macro` | Macro regime and the foreign-appetite proxy (rupiah + EM flows) |
+| *(module)* `dipreversal` | The one positive-expectancy intraday rule: idiosyncratic −10% dip reversal |
 | `analyze TICKER` | Deep dive: score breakdown, Wyckoff phase, broker positions, campaigns |
 | `plan` | Executable plan — entry band, stop, targets, lot-rounded size, R:R |
 | `playbook` | Reverse-engineer each broker's entry/exit behaviour across a universe |
