@@ -201,10 +201,21 @@ buy     at the open      target +5%      stop −20%      exit at the close
 | expectancy | **+3.39%**/trade, stopped out 0.9% |
 | frequency | ~21 trades/year across the whole exchange |
 
-Caveats that travel with it: 2025 measured 65% (n=68), the one weak year;
-~250 configurations were compared across the investigation; and it only fires in
-market-wide selloffs, so trades cluster exactly when the rest of a portfolio is
-falling. Full record in `docs/DAYTRADE.md` §11; shipped in
+**The 10% threshold is the exchange's auto-rejection floor, not a fitted
+parameter** — and that is the strongest reason to believe this. Sliced finely the
+hit rate *steps* rather than slopes: (−10.0%, −9.5%] measures **56.9%** and
+(−10.5%, −10.0%] measures **86.3%**, a 29-point jump across half a percent. And
+**81% of the −10% cohort opens within 0.4% of exactly −10%** (92% for the −15%
+cohort) — these stocks opened *on the limit price*. A stock through
+auto-rejection has had its sell queue clear at the floor; one gapping −9% never
+reached it, so supply is still arriving. Pooled: −8% to −10% → 65.4%, ≤−10% →
+84.6%, **z = 7.67**.
+
+Caveats that travel with it: 2025 measured 65% (n=68) and its setups had median
+prior-20d of −11.3% against −24% in the good years, so they gapped without having
+capitulated first; ~250 configurations were compared across the investigation;
+and it only fires in market-wide selloffs, so trades cluster exactly when the
+rest of a portfolio is falling. Full record in `docs/DAYTRADE.md` §11; shipped in
 `src/idxbot/dipreversal.py`.
 
 ### Foreign flow, volume, macro — three more axes, one more edge

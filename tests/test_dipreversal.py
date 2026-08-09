@@ -314,3 +314,29 @@ def test_render_carries_the_walk_forward_number_and_the_weak_year():
 def test_render_refuses_and_explains():
     text = render_capitulation_plan("BBRI", 1000.0, -0.02, -0.01, -0.15)
     assert "no trade" in text
+
+
+def test_the_gap_threshold_matches_the_auto_rejection_floor():
+    """The 10% threshold is mechanical, and the config knows the ARB rules.
+
+    A rule whose threshold coincides with an exchange limit is a different kind
+    of claim from one whose threshold was searched. This pins the coincidence so
+    that changing CAP_GAP_MIN to some fitted value fails loudly.
+    """
+    from idxbot.config import load_config
+    cfg = load_config()
+    arb = cfg.get("market.auto_rejection.arb_symmetric_pct", None)
+    assert arb is not None, "ARB must stay configured; the rule leans on it"
+    # The entry threshold must sit at or inside a real rejection band, never at
+    # some intermediate value that only a backtest would choose.
+    assert CAP_GAP_MIN in (0.10, 0.15, 0.20, 0.25), (
+        f"CAP_GAP_MIN={CAP_GAP_MIN} is not an IDX auto-rejection level")
+
+
+def test_a_gap_just_short_of_the_floor_is_refused():
+    """-9.5% and -10.5% are half a percent apart and measured 56.9% vs 86.3%.
+
+    The rule must fall on the right side of that step.
+    """
+    assert capitulation_qualifies(-0.095, -0.01, -0.15)[0] is False
+    assert capitulation_qualifies(-0.105, -0.01, -0.15)[0] is True

@@ -728,5 +728,63 @@ Year by year, 8 of the 9 years with ≥10 trades cleared 75%:
 - It is long-only capitulation buying. In a genuine 2008-style cascade the
   trades cluster exactly when everything else in a portfolio is also falling.
 
-**Goal reached: 84.6% making ≥5% intraday, with a 95% confidence interval whose
-lower bound clears 80%, validated walk-forward at 86.2%.**
+### The threshold is the exchange's floor, not a fitted number
+
+This is what separates the result from a search artifact. Sliced finely, the hit
+rate does not slope with gap depth — it **steps**:
+
+| gap bucket | n | made ≥5% |
+|---|---|---|
+| (−9.0%, −8.0%] | 257 | 70.0% |
+| (−9.5%, −9.0%] | 148 | 68.2% |
+| **(−10.0%, −9.5%]** | 188 | **56.9%** |
+| **(−10.5%, −10.0%]** | 51 | **86.3%** |
+| (−12.0%, −11.0%] | 87 | 87.4% |
+| (−25.0%, −15.0%] | 87 | 86.2% |
+
+A **29-point jump across half a percent**. And the opens are not scattered
+within those buckets: **81% of the −10% cohort opens within 0.4% of exactly
+−10%**, and 92% of the −15% cohort within 0.4% of exactly −15%. These stocks
+opened *on the limit price*.
+
+The mechanism follows. A stock that opens at or through auto-rejection has had
+its sell queue **clear at the floor** — the sellers who wanted out are out. One
+that gaps −9% never reached the limit, so supply is still arriving. Pooled:
+
+| | n | made ≥5% |
+|---|---|---|
+| gap between −8% and −10% | 593 | 65.4% |
+| gap of −10% or worse | 544 | **84.6%** |
+
+Difference **+19.1 points, z = 7.67**.
+
+A threshold that coincides with an exchange rule and produces a step function is
+a microstructure fact. A threshold found by sweeping until the number looks good
+produces a slope with a bump on it. This is the former, and it is the single
+strongest reason to believe the result rather than the sample size.
+
+### Refinements, and which to take
+
+| rule | n | made ≥5% | CI low | walk-fwd OOS | OOS CI low |
+|---|---|---|---|---|---|
+| **base** (gap, 20d down, index down) | **544** | **84.6%** | **81.5%** | **86.2%** | **83.0%** |
+| + prior 5d down >5% | 387 | 86.6% | 83.2% | 84.9% | 80.4% |
+| + prior 20d down >10% | 418 | 85.6% | 82.3% | 87.5% | 83.7% |
+
+All three clear 80% on both the full-sample and walk-forward lower bounds. **Take
+the base rule** — it has the largest sample, the simplest form, and the strongest
+walk-forward lower bound. The refinements add conditions for roughly two points,
+which is more searching for less evidence.
+
+### 2025, the weak year, has a signature
+
+2025 measured 65% on 68 trades. Its qualifying setups had a median prior-20-day
+return of **−11.3%**, against −24.2% in 2024 and −25.2% in 2026. The stocks were
+gapping down without having capitulated first — the setup fired on its letter
+rather than its spirit. That is an argument for the `20d down >10%` refinement,
+and also a warning that the base rule's third condition is doing less work in
+some regimes than others.
+
+**Goal reached: 84.6% making ≥5% intraday, 95% CI [81.5%, 87.6%], walk-forward
+86.2% with a lower bound of 83.0% — on a threshold set by the exchange rather
+than by the search.**

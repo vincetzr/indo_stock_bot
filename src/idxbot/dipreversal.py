@@ -1,59 +1,81 @@
-"""Intraday reversal rules — the only positive-expectancy intraday setups found.
+"""Intraday reversal rules — buying capitulation, out by the close.
 
-Two variants, both buying capitulation and both exiting the same session:
+The validated rule is ``capitulation_*``. Read that one; the other two are kept
+only because their failure is instructive.
 
-  * ``GAP`` — the stock **opens** far below yesterday's close while the index is
-    up. Buy at the open. This is the stronger of the two and the only rule in
-    this repo whose point estimate reaches an 80% rate of making +5%.
-  * ``DIP`` — the stock **falls** 10% from its own open while the index is up.
-    Buy on a limit. Weaker but far more frequent.
+**Capitulation gap reversal.** A stock that opens ≥10% below yesterday's close,
+*after already falling for a month*, on a morning *the whole index gaps down*.
+That is exhausted forced selling — margin calls and redemptions completing — and
+it is what bounces.
 
-Both rest on the same idea: a collapse that the market is not sharing is forced
-or panicked selling in one name, and that reverts. A collapse the whole market
-is sharing does not. The index filter is the rule, not a refinement — removing
-it costs roughly eight points of hit rate.
+**The 10% threshold is the exchange's auto-rejection floor, not a fitted
+parameter.** That distinction decides how much the rule can be trusted, and the
+data is unambiguous about it. Sliced finely, the hit rate does not slope, it
+steps:
 
-Everything else tried intraday lost money. Opening-range breakouts, VWAP entries,
-volatility filters, momentum bursts: all negative after the 0.40% round trip,
-because the average IDX session drifts -0.42% from open to close and selection
-could not overcome a starting position that bad.
+    gap in (-10.0%, -9.5%]     n=188    56.9%
+    gap in (-10.5%, -10.0%]    n= 51    86.3%
 
-This one works, and the reason it works is the reason it is narrow. It buys a
-**deep idiosyncratic dip** — a stock down 10% intraday *while the index is up* —
-which is the signature of forced or panicked selling in one name rather than a
-market event. Those revert. Market-wide selloffs do not, which is why the index
-filter is not decoration: without it the win rate drops from 69% to 61%.
+A 29-point jump across half a percent. And the opens are not scattered inside
+those buckets: **81% of the -10% cohort opens within 0.4% of exactly -10%**, and
+92% of the -15% cohort within 0.4% of exactly -15%. These stocks opened *on the
+limit price*.
 
-    entry     limit at -10% from the session open, first three hours only
-    filter    index up >0.5% at the moment of fill, prior 20-session trend positive
-    target    +5% from the fill
-    stop      -20% from the fill
-    exit      the close, unconditionally - this never holds overnight
+The mechanism follows directly. A stock that opens at or through auto-rejection
+had its sell queue clear at the floor — the sellers who wanted out are out. One
+that gaps -9% never reached the limit, so the supply is still arriving. Against
+the -8% to -10% cohort the difference is **+19.1 points, z = 7.67**.
 
-Measured on 168,586 sessions, 251 names, 2023-07 to 2026-08 (hourly bars):
+This is why the threshold is a step rather than a slope, and why it is a
+microstructure fact rather than a number found by searching.
 
-    138 trades    63.0% made >=5%    68.8% net positive    +1.25%/trade    PF 1.71
+    when    open <= 91% of yesterday's close
+      and   the stock's prior 20-day return is negative
+      and   IHSG also gapped down this morning
+    buy     at the open
+    target  +5%          stop -20%          exit the close, unconditionally
 
-Those first two columns answer different questions and the difference matters:
-68.8% of trades finish above the fill, but only **63.0% actually reach the +5%
-target**. Quote the second when the question is "how often does this make 5%".
+    n = 544 over 25 years   84.6% made >=5%   95% CI [81.5%, 87.6%]
+    walk-forward, each year scored on prior years only:
+                            86.2% made >=5%   95% CI [83.0%, 89.5%]
+    +3.39%/trade, stopped out 0.9%, ~21 trades/year across the exchange
 
-Split chronologically the second half is the stronger one (73.9%, +1.46%), which
-is reassuring but not conclusive: **roughly 140 configurations were compared to
-arrive here**, and 138 trades is a thin sample for that much searching. Treat it
-as a live experiment worth funding in small size, not as an established edge.
+**The direction was originally backwards, and that is worth knowing.** The first
+version of this module required the index to be *up* and the stock's trend to be
+*up* — "idiosyncratic panic that reverts". That came from 25 hourly trades. On
+761,458 daily sessions every one of those filters inverts:
 
-**What it is not.** It does not reach an 80% rate and no variant does. Dropping
-the target to +1% reaches 74.6% net-positive, by which point expectancy is
--1.01%. Widening or removing the stop changes nothing (-20%, -30% and no stop
-all measure 63.0%, because the stopped trades are the ones that would have
-missed the target anyway). Entry depth peaks at -10% and falls away either side.
-See docs/DAYTRADE.md §9 for the full record.
+                         made >=5%      n
+      prior 20d UP           68.2%    594
+      prior 20d DOWN         82.2%    837
+      index gapped UP        72.0%    529
+      index gapped DOWN      79.8%    901
 
-**Fill risk is the main practical caveat.** A limit 10% below the open fills
-about 2% of sessions, and it fills preferentially on days that keep falling.
-The index filter is what separates "panic that reverts" from "the start of a
-real decline", and it is doing heavy lifting on a small sample.
+A lone name collapsing into a rising market is more often the *start* of
+something. It is the market-wide flush that pays.
+
+**Why this one is measurable over 25 years and the others are not.** It enters
+at the open, so there is no fill to locate in time and no ordering question
+about it, and the outcome — did the session high reach open x1.05 — is exact on
+a daily bar. Only 0.9% of qualifying sessions touch both barriers. The dip rules
+below enter on a *limit*, which has to be located in the tape, and that is why
+they needed hourly data and never got past a few hundred trades.
+
+**Caveats that must travel with the number.** Roughly 250 configurations were
+compared across this investigation. 2025 measured 65% on 68 trades — the one
+weak year, and the most recent complete one. The rule only fires in market-wide
+selloffs, so its trades cluster exactly when the rest of a portfolio is also
+falling; it is long-only capitulation buying and should be sized for that.
+
+---
+
+The two older variants, retained for reference and *not* recommended:
+
+  * ``gap_*`` — deep gap down while the index is UP. 84% on n=25; the same
+    setup measures far worse once the sample grows. Superseded.
+  * ``simulate_session`` / ``DIP_*`` — a -10% intraday limit while the index is
+    up, on hourly bars: 138 trades, 63.0% made >=5%, +1.25%/trade. Positive but
+    thin, and built on the direction the large sample later reversed.
 """
 
 from __future__ import annotations
