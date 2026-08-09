@@ -148,11 +148,16 @@ filters. Best unfiltered result: **61.1%** — and the independent 5-minute samp
 gave **61%**, two samples sharing almost nothing landing on the same number.
 Filtering to *idiosyncratic* dips — a stock down 10% while the index is **up**,
 i.e. forced selling in one name rather than a market event — lifts it to
-**68.8% win, +1.25%/trade, PF 1.71 (t=2.73)**, the first positive-expectancy
-intraday rule here. It then stops: the win rate asymptotes at ~70% and the
-sample collapses. Lowering the target does not help either — **74.6% at +1% is
-the maximum at any target**, by which point expectancy is −1.01%. The win rate
-and the 5% target move in opposite directions and never meet. Full record in
+**63.0% of trades reaching +5%** (68.8% finish net positive), **+1.25%/trade,
+PF 1.71** — the first positive-expectancy intraday rule here. Then it stops.
+Widening or removing the stop changes nothing (−20%, −30% and no stop all give
+63.0%, because the stopped trades are the ones that would have missed anyway);
+entry depth peaks at −10% and falls away either side; a 5-minute cross-check
+gives **56.2%** against 60.7% hourly, so coarse bars were flattering the result.
+Lowering the target does not help — 74.6% net-positive at a +1% target, by which
+point expectancy is −1.01%.
+
+**Maximum reached: 63.0% at +5%, against a requirement of 80%.** Full record in
 `docs/DAYTRADE.md` §9; rule shipped as `src/idxbot/dipreversal.py`.
 
 ### Foreign flow, volume, macro — three more axes, one more edge

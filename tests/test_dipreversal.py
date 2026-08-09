@@ -137,5 +137,5 @@ def test_render_refuses_and_says_why_when_conditions_fail():
 def test_render_states_the_sample_and_that_80_percent_is_not_reached():
     text = render_plan("BBCA", 1000.0, index_return=0.01, prior_trend=0.01)
     assert "all conditions met" in text
-    assert "does NOT reach an 80% win rate" in text
     assert "138 trades" in text
+    assert "63.0% reach +5%" in text

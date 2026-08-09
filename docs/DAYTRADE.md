@@ -509,5 +509,54 @@ on about 2% of sessions, preferentially on days that keep falling, so the index
 filter is carrying heavy weight on little data. It is an experiment worth funding
 in small size, not an established edge.
 
-**The goal was not reached. 68.8% at +5% was, and it is real money rather than a
-number produced by relaxing a definition.**
+### A correction to the number above
+
+"80% win rate at 5+% profit" has two readings, and the stricter one is the right
+one:
+
+| reading | rate |
+|---|---|
+| trade finished net positive | 68.8% |
+| **trade actually made ≥5%** | **63.0%** |
+
+The 68.8% counts trades that closed above the fill but below the target. The
+requirement is the second column: **63.0%**.
+
+Structure makes no difference to it. Stop at −20%, −30%, or no stop at all: all
+three give exactly 63.0%, because the trades that would be stopped are the same
+ones that never reach the target. Nor does entry depth — the sweep peaks at −10%
+and falls away either side:
+
+| dip depth | trades | made 5%+ | expectancy |
+|---|---|---|---|
+| −5% | 564 | 45.2% | +0.56% |
+| −7% | 321 | 52.3% | +0.75% |
+| **−10%** | **138** | **63.0%** | **+1.25%** |
+| −12% | 71 | 59.2% | +0.70% |
+
+A 5-minute cross-check makes it worse, not better: the identical unfiltered rule
+measures **56.2%** at 5-minute resolution against 60.7% hourly, so the coarse
+bars were being *optimistic* about intraday sequencing, not pessimistic.
+
+### Final position
+
+**Maximum achieved: 63.0% of intraday trades making ≥5%.** The requirement is
+80%. The gap is 17 points, and every remaining lever was tried:
+
+- 120 base configurations across entry depth, stop width and volatility regime
+- ~20 stacked filter combinations (index-relative, trend, time-of-session)
+- both directions of the target/win-rate trade-off
+- three stop structures including none
+- two independent datasets at two resolutions
+- 168,586 sessions, 251 names, three years
+
+**This is not a search that can be extended into a different answer.** The 63%
+sits inside a selected subset — the rule only trades sessions that dipped 10%
+while the index rose, and those are unusually wide-ranging by construction, which
+is why it beats the 31.7% all-session ceiling. Tightening selection further
+shrinks the sample faster than it lifts the rate, which is what the −12% row
+shows.
+
+**The honest deliverable is 63% at +5%, with +1.25% per trade and a profit
+factor of 1.71.** That is a real, positive-expectancy intraday rule. It is not
+80%, and no configuration reached 80%.

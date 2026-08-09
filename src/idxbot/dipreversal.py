@@ -19,17 +19,23 @@ filter is not decoration: without it the win rate drops from 69% to 61%.
 
 Measured on 168,586 sessions, 251 names, 2023-07 to 2026-08 (hourly bars):
 
-    138 trades    68.8% win rate    +1.25% per trade    PF 1.71    t = 2.73
+    138 trades    63.0% made >=5%    68.8% net positive    +1.25%/trade    PF 1.71
+
+Those first two columns answer different questions and the difference matters:
+68.8% of trades finish above the fill, but only **63.0% actually reach the +5%
+target**. Quote the second when the question is "how often does this make 5%".
 
 Split chronologically the second half is the stronger one (73.9%, +1.46%), which
 is reassuring but not conclusive: **roughly 140 configurations were compared to
 arrive here**, and 138 trades is a thin sample for that much searching. Treat it
 as a live experiment worth funding in small size, not as an established edge.
 
-**What it is not.** It does not reach an 80% win rate, and no variant does: even
-dropping the target to +1% only reaches 74.6%, by which point expectancy is
--1.01%. The win rate and the 5% target move in opposite directions and never
-meet. See docs/DAYTRADE.md §9.
+**What it is not.** It does not reach an 80% rate and no variant does. Dropping
+the target to +1% reaches 74.6% net-positive, by which point expectancy is
+-1.01%. Widening or removing the stop changes nothing (-20%, -30% and no stop
+all measure 63.0%, because the stopped trades are the ones that would have
+missed the target anyway). Entry depth peaks at -10% and falls away either side.
+See docs/DAYTRADE.md §9 for the full record.
 
 **Fill risk is the main practical caveat.** A limit 10% below the open fills
 about 2% of sessions, and it fills preferentially on days that keep falling.
@@ -186,7 +192,7 @@ def render_plan(ticker: str, session_open: float, index_return: float = np.nan,
             out.append(f"   ! {r}")
         out.append("   -> do NOT take the fill")
     out.append("")
-    out.append(" MEASURED: 138 trades, 68.8% win, +1.25%/trade, PF 1.71 (t=2.73)")
+    out.append(" MEASURED: 138 trades, 63.0% reach +5%, +1.25%/trade, PF 1.71")
     out.append(" ~140 configurations were compared to find this, on 138 trades.")
     out.append(" It does NOT reach an 80% win rate and no variant does. Small size.")
     return "\n".join(out + [line])
