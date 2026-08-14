@@ -12,3 +12,5 @@ data/broker_summary/*
 reports/*
 !reports/backtest_real.txt
 !reports/data_availability.csv
+
+data/Dataset-Saham-IDX/

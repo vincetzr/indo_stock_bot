@@ -839,3 +839,108 @@ idxbot walkforward --observations reports/obs_full_clean.csv --horizon 60 --top 
 *A backtest that contradicts the strategy is more valuable than one that
 flatters it. The first result here cost the original thesis; the second was only
 trustworthy because the holdout was left untouched until the end.*
+
+
+---
+
+# Part V — foreign flow, finally measured
+
+For most of this project the README said per-stock foreign flow could not be
+obtained. **That was wrong**, and the error was one of search rather than
+availability: only `idx.co.id` and commercial vendors were ever probed, never
+public datasets. `wildangunawan/Dataset-Saham-IDX` carries `foreign_buy` and
+`foreign_sell` per stock per day for **958 IDX tickers, 2019-07-29 → 2025-02-21**.
+
+Verified directly rather than taken on trust: HTTP 200, 312,457 bytes for BBCA,
+and the unit assertion `foreign_buy <= volume` holds on **100.000% of 913,084
+usable rows**, which is what confirms the figures are shares. Market-wide yearly
+totals match known reality — **−61.7trn** in 2020's COVID outflow, **+44.0trn**
+in 2022's inflow, **−28.9trn** in 2024.
+
+## Two different things are called "foreign flow"
+
+| | measure | unit | source |
+|---|---|---|---|
+| **F-flag** | IDX's per-trade foreign-investor flag, aggregated per stock/day | **shares** | this dataset |
+| **F-broker** | sum over members flagged foreign in `config/brokers.yaml` | lots + IDR | `bandarmology.foreign_flow` |
+
+They do not reconcile — a foreign investor can trade through a domestic member,
+and a foreign-*owned* member (YP/Mirae) mostly serves domestic retail. They are
+never summed, differenced, or shown in one column.
+
+## Result 17 — every validation passed, and the conclusion was still wrong
+
+Cross-sectional rank IC on **322,827 liquid rows, 783 tickers**, median 248 names
+per date. 20-day cumulative net foreign over turnover:
+
+| horizon | mean IC | t |
+|---|---|---|
+| 5d | −0.0060 | −2.67 |
+| 20d | −0.0185 | −7.83 |
+| **60d** | **−0.0254** | **−10.88** |
+
+Strongly negative, and monotone in *both* horizon and accumulation window. Then
+every robustness check passed:
+
+- **Chronological split**: train 60d IC −0.0179 (t=−5.41), **holdout −0.0353
+  (t=−11.05)** — *stronger* out of sample.
+- **Year by year**: negative in all six years (2019 −0.085, 2020 −0.020,
+  2021 −0.003, 2022 −0.012, 2023 −0.030, 2024 −0.041).
+- **Not a size proxy**: survives inside every size tercile (smallest −0.0350
+  t=−11.46, largest −0.0161 t=−3.98).
+
+The reading that invites itself — "fade foreign buying, t = −10.88" — is wrong,
+and would have been the wrong trade.
+
+### The deciles show why
+
+| decile | mean 60d forward |
+|---|---|
+| **D1 heaviest foreign SELLING** | **+3.34%** |
+| D4 | −0.38% |
+| D6 | −2.47% |
+| D7 | −2.57% |
+| D9 | +1.81% |
+| **D10 heaviest foreign BUYING** | **+1.25%** |
+
+**U-shaped, not monotone.** Rank IC assumes monotonicity; when the true shape is
+a U it reports a large negative number measuring the slope through the middle
+and says nothing directional about the tails. Both extremes of foreign activity
+outperform a quiet centre — which is closer to a volatility effect than an
+information one.
+
+The tradeable spread confirms it. Q1−Q5 is **+0.15%, t = 0.76**. On
+non-overlapping 60-day rebalances every variant sits inside its own error bar:
+
+| | mean 60d | t |
+|---|---|---|
+| long D1 (fade buying) | +4.24% | 1.10 |
+| long D10 (follow buying) | +1.63% | 0.54 |
+| equal-weight all | −0.32% | −0.11 |
+
+**Net foreign flow, measured this way, is not a tradeable signal in either
+direction.** The bandarmology premise — follow the foreign money — is not
+supported; neither is its inverse.
+
+### The methodological point
+
+This is the cleanest example in the project of a statistic passing every check
+and still not meaning what it appears to. Split-sample, year-by-year, size
+controls, a t-statistic of −10.88 — and a long-short spread of zero. **Rank IC
+is a monotonicity measure. Always look at the deciles before trading the IC.**
+
+### Live sources, for later
+
+The dataset ends **2025-02-21** — 18 months stale, a research source and never a
+live one, and the upstream repo carries IDX's anti-crawling notice and forbids
+commercial use. Two live routes were verified and recorded:
+
+- **infovesta.com** — top-5 foreign buy/sell, no auth (verified HTTP 200),
+  previous session only, 5 rows per side. A freshness ping, not a universe scan.
+- **api.zpi.web.id** — key-gated foreign-flow route (verified 401 without a
+  key), documented to carry both shares and IDR back to 2020, free tier 2,000
+  requests/month.
+
+```bash
+python3 scripts/foreign_flow_study.py     # clones, unit-checks, and re-runs all of the above
+```

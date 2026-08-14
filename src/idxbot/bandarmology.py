@@ -6,6 +6,24 @@ explicitly, because the interesting part of bandarmology is not the idea - it
 is that small differences in how the numbers are computed change the answer
 completely, and most tools do not say which convention they use.
 
+**This module computes F-BROKER, not F-FLAG.** Two different quantities are
+called "foreign flow" on IDX and they do not reconcile:
+
+    F-flag    IDX's per-trade foreign-investor flag, per stock/day, in SHARES.
+              Obtainable free for 2019-2025; see scripts/foreign_flow_study.py.
+    F-broker  the sum over members flagged foreign in config/brokers.yaml, in
+              lots and IDR. That is what everything below computes.
+
+A foreign investor can trade through a domestic member, and a foreign-owned
+member mostly serves domestic retail, so the two never sum or difference.
+
+**And F-flag has now been tested.** On 322,827 liquid rows it produced a 60-day
+rank IC of -0.0254 (t=-10.88) that survived a chronological holdout, every year,
+and every size tercile - and a long-short spread of +0.15% (t=0.76), because the
+relationship is U-shaped rather than monotone. Net foreign, measured that way,
+is not tradeable in either direction. See docs/FINDINGS.md Part V. Whether
+F-broker behaves the same is still unmeasured.
+
 **The inputs.** Everything below needs *broker summary*: one row per
 (date, ticker, broker) carrying buy lot, buy value, sell lot and sell value.
 That is an aggregation of the running trade, published by IDX after the close.
