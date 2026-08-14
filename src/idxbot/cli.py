@@ -442,6 +442,52 @@ def cmd_fundamentals(args) -> int:
     return 0
 
 
+def cmd_bandar(args) -> int:
+    """Bandarmology: net foreign accumulation and owner-style broker campaigns."""
+    from . import bandarmology as bm
+
+    engine = _engine(args)
+    ticker = args.ticker.upper()
+    analysis = engine.analyze(ticker, with_campaigns=False)
+    summary = analysis.summary if analysis is not None else None
+
+    if summary is None or summary.empty:
+        print(bm.render(ticker, []))
+        print()
+        print("  Broker summary is the one input this needs and it is not")
+        print("  connected. Options, in order of how much they cost:")
+        print("    idxbot paste %s      - paste it from your platform" % ticker)
+        print("    docs/LIVE_DATA.md         - CSV drop, or a paid vendor")
+        return 1
+
+    _provenance_notice(engine, pd.DataFrame(
+        [{"data_mode": analysis.signal.data_mode,
+          "data_source": analysis.signal.data_source}]))
+
+    flow = bm.foreign_flow(summary, engine.cfg.brokers, args.foreign_basis)
+    profiles = bm.bandar_profiles(summary, engine.cfg.brokers, ticker, args.window)
+    print(bm.render(ticker, profiles, flow=flow, window=args.window))
+
+    print()
+    signatures = bm.detect_bandar(summary, engine.cfg.brokers, ticker,
+                                  bars=analysis.bars, window=args.detect_window)
+    print(bm.render_bandar(ticker, signatures))
+
+    if args.compare_basis:
+        cmp = bm.foreign_basis_comparison(summary, engine.cfg.brokers)
+        if not cmp.empty:
+            c = cmp[cmp["ticker"] == ticker].tail(args.window)
+            print()
+            print("  NET FOREIGN UNDER BOTH CONVENTIONS (last %d sessions)" % len(c))
+            print("    institutional only : %,.0f" % c["net_foreign_val_institutional"].sum())
+            print("    every foreign-owned: %,.0f" % c["net_foreign_val_ownership"].sum())
+            print("    difference is retail routed through foreign-owned brokers:")
+            print("                        %,.0f" % c["retail_via_foreign_broker"].sum())
+
+    _write_csv(flow, args.out, "foreign flow")
+    return 0
+
+
 def cmd_macro(args) -> int:
     """Macro and foreign-appetite context. See docs/FINDINGS.md Part IV."""
     from . import macro as macro_mod
@@ -1148,6 +1194,25 @@ def build_parser() -> argparse.ArgumentParser:
                        help="current-snapshot fundamental screen (NOT backtestable)")
     common(p)  # supplies --universe/--tickers/--limit/--out
     p.set_defaults(func=cmd_fundamentals)
+
+    p = sub.add_parser("bandar",
+                       help="bandarmology: net foreign flow and bandar detection")
+    p.add_argument("ticker")
+    p.add_argument("--window", type=int, default=20,
+                   help="sessions for the broker table and foreign totals")
+    p.add_argument("--detect-window", type=int, default=60,
+                   help="sessions for campaign detection; a campaign is slow")
+    p.add_argument("--foreign-basis", default="institutional",
+                   choices=["institutional", "ownership"],
+                   help="'institutional' drops foreign-OWNED retail houses (YP)")
+    p.add_argument("--compare-basis", action="store_true",
+                   help="show net foreign under both conventions")
+    p.add_argument("--providers")
+    p.add_argument("--profile")
+    p.add_argument("--as-of")
+    p.add_argument("--quiet", action="store_true")
+    p.add_argument("--out", help="write the foreign flow series to this CSV")
+    p.set_defaults(func=cmd_bandar)
 
     p = sub.add_parser("macro", help="macro regime and foreign-appetite proxy")
     p.add_argument("--providers", default="none")
