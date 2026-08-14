@@ -25,10 +25,19 @@ Read this before the strategy. It determines how much weight each rule carries.
 > waiting on broker-level data to be tested properly, not as a validated edge.
 > Details: `docs/FINDINGS.md`.
 
-That last row is the honest limit of this work, and it is the row you care most
-about. I could not obtain real IDX broker summary: `idx.co.id` is behind a WAF
-(403), Stockbit requires an authenticated app session, and GoAPI's broker-summary
-route exists but is gated on a paid key. There is no free public source.
+That last row was the honest limit of this work for most of its life, and it is
+the row you care most about. It has moved, but only partway.
+
+Real IDX broker summary **is now connected** — IndoPremier, an IDX member,
+publishes the rekap broker on a public page and `idxbot` reads it by default
+(`docs/LIVE_DATA.md`). `idx.co.id` still 403s this network on every path, and
+that turned out to be the whole story: the block is on the requesting network,
+and the commercial platforms are licensed subscribers rather than cleverer
+scrapers.
+
+**Having the data is not the same as having an edge from it.** No broker-flow
+signal in this repo has been tested against forward returns. Until that is done,
+treat every bandarmology output as description, not forecast.
 
 So the repo ships a **simulator** to make the pipeline runnable. The simulator
 *assumes* institutions buy weakness and retail chases momentum. If you run the

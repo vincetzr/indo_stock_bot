@@ -1,10 +1,139 @@
-# Getting live broker flow on IDX
+# Getting broker summary and net foreign on IDX
 
-> "My broker only shows broker summary two hours after the close. Any way to get it live?"
+> "How do other sites track broker summary when this repo can't?"
 
-Short answer: **yes, but not by finding a live "broker summary" feed.** You get it
-by capturing **running trade**, which is already live on your platform, and
-aggregating it yourself.
+Answered first, because the answer changed: **this repo can now, and the reason
+it could not before was never technical skill.**
+
+---
+
+## 0. Why idx.co.id blocks you and not them
+
+Three facts, each verified rather than assumed:
+
+1. **The block is on the network, not the endpoint.** `idx.co.id` returns
+   `403` from Cloudflare for the broker-summary JSON, the stock-summary JSON,
+   the digital-statistics API — *and for the bare homepage*. Nothing is being
+   defended selectively. This egress is simply not welcome, which is what a
+   datacentre IP outside Indonesia usually gets. Someone on an ordinary
+   Indonesian connection hits none of this.
+2. **The big platforms are not scraping at all.** Stockbit, RTI, Ajaib and the
+   bank-owned terminals are IDX-licensed data-feed subscribers. They pay for
+   trade-by-trade with member codes and redistribute it under licence. There is
+   no clever request to reverse-engineer, because they are not making one.
+3. **IDX prohibits scraping outright.** *"PT BEI telah melarang tiap-tiap
+   pengguna untuk melakukan web crawling ataupun scraping."* So the 403 is the
+   stated policy being enforced, not an obstacle to route around.
+
+The asymmetry was licensing and geography. Knowing that is what pointed at the
+route that actually works.
+
+---
+
+## 0b. The route that works: an IDX member publishes it
+
+Broker summary is not IDX-exclusive. Every exchange member receives it and some
+publish it. **IndoPremier** (PT Indo Premier Sekuritas, an IDX member) renders
+the full rekap broker on a public, unauthenticated page:
+
+```
+/module/saham/include/data-brokersummary.php?code=BBCA&start=2026-08-13&end=2026-08-13&board=RG
+```
+
+One GET, no key, no session. `src/idxbot/data/ipot.py` reads it and it is in
+the default provider chain:
+
+```bash
+idxbot analyze BBCA              # real broker flow, no configuration
+idxbot screen --universe lq45
+```
+
+**What it gives you**
+
+| | |
+|---|---|
+| Coverage | top 10 buyers + top 10 sellers, ranked independently |
+| Fields | lots, value, average price, per side; plus net foreign value |
+| Broker class | the source's own three-way label: foreign / **bumn** (state-owned) / local |
+| Boards | regular / cash / negotiated, filterable |
+| History | back to roughly 2008; 2005 returns zeroes |
+| Freshness | previous session, available the same evening |
+| Cost | free |
+
+**Proof it is the real thing, not a lookalike.** Regular-board totals were
+checked against Yahoo's tape for 2026-08-13:
+
+| | parsed | tape | error |
+|---|---|---|---|
+| BBCA | 832,077 lots | 832,080 | 4e-6 |
+| ANTM | 860,776 | 860,777 | 1e-6 |
+| ASII | 484,063 | 484,073 | 2e-5 |
+| UNVR | 99,947 | 99,958 | 1e-4 |
+
+And independently, the table over-determines itself — value must equal
+lots x 100 x average. Across 160 rows and eight stocks the median disagreement
+is 0.2%, entirely explained by display rounding.
+
+### Three ways this will bite you
+
+**1. Use the regular board.** The default all-board view folds in negotiated
+block crossings that print at arbitrary prices. GOTO on 2026-08-13 reads
+**25.0M lots all-board against 196k on the regular board** — a factor of 127,
+at an average price of 32 against a close of 50. `board: "RG"` is the default
+here for that reason.
+
+**2. A top-10 view cannot balance, so the inventory ledger drifts.** In a
+complete rekap every lot bought is a lot sold and the market-wide net is
+exactly zero. In a top-10 view a broker only appears on the side where it was
+large that day, so a steady accumulator's selling is censored away. On BBCA
+over 52 sessions DX appears as a top-10 buyer on 21 days and a top-10 seller on
+5, and the market-wide cumulative net — which must be zero — comes to **-2.8
+million lots**. `truncation_bias()` measures this and `idxbot analyze` prints it
+above the position table. *Direction and relative ranking survive. Absolute
+positions, cost basis and open P/L do not.*
+
+**3. Big figures are abbreviated.** `3.4 M`, `699.9 B` — two to three
+significant figures above one million, exact below it, with average prices
+always exact. Fetching one session at a time (which the provider does) keeps
+the numbers small and therefore exact far more often than a range query, which
+sums first and abbreviates afterwards.
+
+### Please do not abuse it
+
+This is a public page on a licensed member's site, read the way a browser reads
+it. It is still someone else's server, and IDX still restricts redistribution
+of its market data. The provider fetches one day at a time, sleeps between
+requests, and caches permanently. Do not turn it into a bulk harvester and do
+not redistribute what it returns.
+
+---
+
+## 0c. What this fixed elsewhere in the repo
+
+Connecting a real source immediately exposed two things no amount of reasoning
+had:
+
+* **20 broker codes were missing from `config/brokers.yaml`** and silently
+  defaulted to `foreign: false`. That is not a neutral default — it pushed real
+  foreign flow into the domestic bucket and understated net foreign. They are
+  added now, carrying the source's own F/D flag (stable across 90 fetches),
+  with names left as bare codes rather than invented.
+* **BQ, DR and TP disagree.** All three have foreign parents and are flagged
+  foreign here on an ownership basis; the exchange-side flag calls them
+  domestic, every time. Both answer different questions and the disagreement is
+  recorded rather than resolved by fiat.
+* **A whole category was missing.** The source labels brokers three ways, not
+  two — the third being `bumn`, state-owned. Exactly four houses carry it: CC
+  (Mandiri Sekuritas), DX (Bahana), NI (BNI Sekuritas), OD (BRI Danareksa).
+  `state_owned` is now a third axis on `Broker`, because "the state is
+  accumulating" is a different claim from "a domestic institution is
+  accumulating". **DX had no registry entry at all** — a state-owned house
+  among the exchange's largest desks, surfaced only by connecting real data.
+
+The simulator has also been **removed from the default provider chain**. It
+existed because no real source was reachable; leaving it as a fallback would
+let a transient network failure swap simulated flow into a real-looking report
+one ticker at a time. Ask for it explicitly with `--providers synthetic`.
 
 ---
 
@@ -243,11 +372,16 @@ Recorded so this is not re-litigated. Every one of these was actually attempted:
 | idnfinancials, sahamidx, duniainvestasi, britama, RTI, pasardana | Cloudflare / maintenance / 404 / egress policy |
 | Stockbit API | Authenticated app session required |
 | archive.org + Wayback CDX | 429, then blocked by egress policy |
-| GitHub datasets (wildangunawan, faisalburhanudin, nichsedge) | Price and fundamentals only — no per-stock rekap broker |
+| GitHub datasets (wildangunawan, faisalburhanudin, nichsedge) | Per-stock *foreign flow* yes (shares, to 2025-02); per-broker rekap no |
 | GoAPI / Invezgo / OHLC.dev / Sectors | Live and key-gated |
+| **indopremier.com public module** | ✅ **works — see section 0b** |
 
-The conclusion is not "the data does not exist". It is that **every legitimate
-route runs through an account someone holds** — yours, or a vendor's.
+The old conclusion here was "every legitimate route runs through an account
+someone holds". That was wrong, and wrong in an instructive way: the search had
+only ever probed IDX itself and the commercial vendors. It never occurred to me
+to ask whether an exchange *member* publishes the same table — and one does, on
+a page with no login at all. The error was in where I looked, not in what
+exists.
 
 ## 5. What is blocked, and why the fallback exists
 
@@ -259,11 +393,10 @@ From this build environment:
 | `idx.co.id` broker summary | ❌ 403, Cloudflare WAF |
 | Stockbit API | ❌ requires an authenticated app session |
 | GoAPI broker summary | 🔑 route exists, needs a paid key |
+| **IndoPremier rekap broker** | ✅ works, free, unauthenticated |
 
-Because no free public broker-summary API exists, the repo ships a **simulator**
-(`src/idxbot/data/synthetic.py`) so the pipeline runs end to end today. It is
-clearly labelled everywhere it is used, and every report prints a warning banner,
-because the simulator *assumes* institutions buy weakness — so analysing its
-output and concluding "institutions buy weakness" is circular and proves nothing.
-
-Use it to see the machinery work. Connect a real source before you trade.
+The simulator (`src/idxbot/data/synthetic.py`) is still in the tree but **out of
+the default chain**, because the condition that justified it no longer holds. It
+*assumes* institutions buy weakness, so analysing its output and concluding
+"institutions buy weakness" is circular and proves nothing. It is now only for
+exercising the pipeline offline: `--providers synthetic`, deliberately.

@@ -36,6 +36,13 @@ class Broker:
     tier: str = "unknown"
     foreign: bool = False
     confidence: str = "unverified"
+    #: Badan Usaha Milik Negara - an Indonesian state-owned enterprise. This is
+    #: a separate axis from ``tier`` and from ``foreign``: the state bank
+    #: securities arms are domestic institutions, but "the state is buying" and
+    #: "a domestic institution is buying" are not the same claim, and only one
+    #: of them is interesting. Sourced from the exchange member's own
+    #: three-way classification (see :func:`idxbot.data.ipot.broker_classes`).
+    state_owned: bool = False
 
     @property
     def is_bulge(self) -> bool:
@@ -69,6 +76,7 @@ class BrokerRegistry:
                 tier=meta.get("tier", "unknown"),
                 foreign=bool(meta.get("foreign", False)),
                 confidence=meta.get("confidence", "unverified"),
+                state_owned=bool(meta.get("state_owned", False)),
             )
         return cls(brokers)
 
@@ -101,6 +109,10 @@ class BrokerRegistry:
     @property
     def retail_codes(self) -> List[str]:
         return self.codes(tier="retail")
+
+    def state_owned_codes(self) -> List[str]:
+        """State-owned (BUMN) member firms."""
+        return sorted(c for c, b in self._brokers.items() if b.state_owned)
 
     def institutional_codes(self) -> List[str]:
         return sorted(c for c, b in self._brokers.items() if b.is_institutional)

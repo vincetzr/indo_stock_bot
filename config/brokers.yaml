@@ -51,9 +51,9 @@ brokers:
   YP: {name: "Mirae Asset Sekuritas Indonesia", tier: retail, foreign: true, confidence: high}
 
   # ---------------- domestic institutional ----------------
-  CC: {name: "Mandiri Sekuritas", tier: local_inst, foreign: false, confidence: high}
-  NI: {name: "BNI Sekuritas", tier: local_inst, foreign: false, confidence: high}
-  OD: {name: "BRI Danareksa Sekuritas", tier: local_inst, foreign: false, confidence: medium}
+  CC: {name: "Mandiri Sekuritas", tier: local_inst, foreign: false, state_owned: true, confidence: high}
+  NI: {name: "BNI Sekuritas", tier: local_inst, foreign: false, state_owned: true, confidence: high}
+  OD: {name: "BRI Danareksa Sekuritas", tier: local_inst, foreign: false, state_owned: true, confidence: medium}
   LG: {name: "Trimegah Sekuritas Indonesia", tier: local_inst, foreign: false, confidence: high}
   DH: {name: "Sinarmas Sekuritas", tier: local_inst, foreign: false, confidence: high}
   AZ: {name: "Sucor Sekuritas", tier: local_inst, foreign: false, confidence: high}
@@ -71,3 +71,78 @@ brokers:
   YJ: {name: "Lotus Andalan Sekuritas", tier: retail, foreign: false, confidence: medium}
   PC: {name: "First Asia Capital", tier: retail, foreign: false, confidence: medium}
   MG: {name: "Semesta Indovest Sekuritas", tier: retail, foreign: false, confidence: medium}
+
+  # ---------------- observed in live data, not yet named ----------------
+  # These codes appear in real IDX broker summary (via the IndoPremier public
+  # module) but had no entry here, so they were silently defaulting to
+  # tier "unknown", foreign: false. That default is not neutral: it pushed
+  # genuine foreign flow into the domestic bucket and understated net foreign.
+  #
+  # The `foreign` flag below is NOT guessed. It is the source's own F/D
+  # classification, read from the rendered table and observed across 30 stocks
+  # x 3 dates (90 fetches) with zero code changing its flag. Names are left as
+  # the bare code deliberately - the flag is evidence, a firm name would be
+  # invention. Fill them in from IDX's Anggota Bursa directory and raise
+  # `confidence` when you do.
+  AG: {name: "AG", tier: unknown, foreign: true,  confidence: ipot-observed}
+  DP: {name: "DP", tier: unknown, foreign: true,  confidence: ipot-observed}
+  KK: {name: "KK", tier: unknown, foreign: true,  confidence: ipot-observed}
+  BB: {name: "BB", tier: unknown, foreign: false, confidence: ipot-observed}
+  BR: {name: "BR", tier: unknown, foreign: false, confidence: ipot-observed}
+  BS: {name: "BS", tier: unknown, foreign: false, confidence: ipot-observed}
+  CP: {name: "CP", tier: unknown, foreign: false, confidence: ipot-observed}
+  HD: {name: "HD", tier: unknown, foreign: false, confidence: ipot-observed}
+  IU: {name: "IU", tier: unknown, foreign: false, confidence: ipot-observed}
+  MU: {name: "MU", tier: unknown, foreign: false, confidence: ipot-observed}
+  OK: {name: "OK", tier: unknown, foreign: false, confidence: ipot-observed}
+  PG: {name: "PG", tier: unknown, foreign: false, confidence: ipot-observed}
+  PO: {name: "PO", tier: unknown, foreign: false, confidence: ipot-observed}
+  PP: {name: "PP", tier: unknown, foreign: false, confidence: ipot-observed}
+  QA: {name: "QA", tier: unknown, foreign: false, confidence: ipot-observed}
+  RB: {name: "RB", tier: unknown, foreign: false, confidence: ipot-observed}
+  RF: {name: "RF", tier: unknown, foreign: false, confidence: ipot-observed}
+  SS: {name: "SS", tier: unknown, foreign: false, confidence: ipot-observed}
+  XC: {name: "XC", tier: unknown, foreign: false, confidence: ipot-observed}
+  YB: {name: "YB", tier: unknown, foreign: false, confidence: ipot-observed}
+  AF: {name: "AF", tier: unknown, foreign: false, confidence: ipot-observed}
+  AO: {name: "AO", tier: unknown, foreign: false, confidence: ipot-observed}
+  ES: {name: "ES", tier: unknown, foreign: false, confidence: ipot-observed}
+  GA: {name: "GA", tier: unknown, foreign: false, confidence: ipot-observed}
+  IC: {name: "IC", tier: unknown, foreign: false, confidence: ipot-observed}
+  IN: {name: "IN", tier: unknown, foreign: false, confidence: ipot-observed}
+  PI: {name: "PI", tier: unknown, foreign: false, confidence: ipot-observed}
+  RO: {name: "RO", tier: unknown, foreign: false, confidence: ipot-observed}
+  SH: {name: "SH", tier: unknown, foreign: false, confidence: ipot-observed}
+
+  # DX is Bahana - a state-owned house and one of the largest desks on the
+  # exchange, and it was missing entirely. It is the clearest single argument
+  # for connecting real data before trusting a registry: no amount of desk
+  # research had surfaced it, and one afternoon of real broker summary did.
+  DX: {name: "DX", tier: local_inst, foreign: false, state_owned: true, confidence: ipot-observed}
+
+  # ---------------- unresolved F/D disagreements ----------------
+  # BQ, DR and TP are marked `foreign: true` above on an ownership basis - the
+  # parent firms are Korean, Malaysian and Singaporean respectively. The
+  # IndoPremier module marks all three DOMESTIC, consistently, every time.
+  #
+  # Both can be right, because they are answering different questions. The
+  # repo's flag asks "who owns the member firm"; the exchange-side flag appears
+  # to track the member's own registration status, under which a foreign-parented
+  # firm incorporated locally counts as local. This is the same fault line that
+  # `foreign_basis` already handles for YP (foreign-owned, retail-serving).
+  # Left unchanged rather than overwritten, because picking one silently would
+  # destroy the information that they disagree. Resolve against IDX's Anggota
+  # Bursa directory before relying on either for these three codes.
+
+  # ---------------- state ownership (BUMN) ----------------
+  # `state_owned` is a third axis, independent of `tier` and `foreign`. It comes
+  # from the exchange member's own three-way display classification
+  # (foreign / bumn / local), observed across 18 stocks x 10 dates with no code
+  # ever changing class. Exactly four houses carry it: CC (Mandiri Sekuritas),
+  # DX (Bahana), NI (BNI Sekuritas) and OD (BRI Danareksa) - the securities arms
+  # of the state banks.
+  #
+  # It matters because "the state is accumulating" and "a domestic institution
+  # is accumulating" are different claims and only one of them is interesting,
+  # and because in Indonesia state-linked desks are frequently the counterparty
+  # that absorbs foreign selling. A `local_inst` tier alone cannot express that.

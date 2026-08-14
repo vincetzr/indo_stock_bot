@@ -944,3 +944,137 @@ commercial use. Two live routes were verified and recorded:
 ```bash
 python3 scripts/foreign_flow_study.py     # clones, unit-checks, and re-runs all of the above
 ```
+
+---
+
+# Part VI — the broker summary itself, finally connected
+
+## Result 18 — the access problem was licensing and geography, not skill
+
+For most of this project's life the README asserted there was no free public
+source of IDX broker summary. That claim is now retired. It was wrong the same
+way the foreign-flow claim in Part V was wrong: **the search was too narrow, not
+the world too closed.**
+
+Three verified facts settle how commercial sites do it:
+
+1. **`idx.co.id` blocks the network, not the endpoint.** Cloudflare returns 403
+   for the broker-summary JSON, the stock-summary JSON, the digital-statistics
+   API *and the bare homepage*. Nothing is being defended selectively — this
+   egress is unwelcome, which is ordinary treatment for a datacentre IP outside
+   Indonesia.
+2. **The platforms are not scraping.** Stockbit, RTI and the bank terminals are
+   IDX-licensed data-feed subscribers redistributing under licence. There is no
+   clever request to reverse-engineer because they are not making one.
+3. **IDX prohibits scraping explicitly**, so the 403 is policy being enforced.
+
+The route that works was never IDX and never a vendor: **an exchange member
+publishes the table**. IndoPremier renders the full rekap broker at a public,
+unauthenticated URL. One GET, no key.
+
+### It is the real table, and here is why that is not a guess
+
+Regular-board totals against Yahoo's tape, 2026-08-13:
+
+| ticker | parsed | tape | relative error |
+|---|---|---|---|
+| BBCA | 832,077 lots | 832,080 | 4e-6 |
+| ANTM | 860,776 | 860,777 | 1e-6 |
+| ASII | 484,063 | 484,073 | 2e-5 |
+| UNVR | 99,947 | 99,958 | 1e-4 |
+
+Independently, the table over-determines itself: value must equal
+lots x 100 x average. Pooled over 160 rows and eight stocks the median
+disagreement is **0.2%**, the maximum 4.5% — under the 5% ceiling that one
+decimal place of display rounding permits. A swapped or mis-scaled column would
+miss by orders of magnitude, so nothing real lands in between.
+
+## Result 19 — a top-10 view cannot balance, and the ledger integrates the gap
+
+This is the failure mode worth naming, because it produces confident,
+precise-looking numbers that are wrong.
+
+In a complete rekap every lot bought is a lot sold, so summing all members gives
+exactly zero net every session. A top-10 view breaks that identity **and not
+randomly**: a broker appears only on the side where it was large that day. A
+steady accumulator therefore shows up among the top buyers constantly and the
+top sellers rarely, its unobserved selling is censored away, and a cumulative
+inventory ledger marches upward whether or not it bought anything on net.
+
+Measured on BBCA over 52 sessions to 2026-08-13:
+
+| | |
+|---|---|
+| DX appears as a top-10 buyer | 21 days |
+| DX appears as a top-10 seller | 5 days |
+| market-wide cumulative net (must be 0) | **−2,808,171 lots** |
+| that drift as a share of observed flow | 2.1% |
+
+**Direction over a window and relative ranking between brokers survive this. An
+absolute position, and any cost basis or open P/L derived from one, does not.**
+`truncation_bias()` measures it and `idxbot analyze` prints it directly above
+the position table rather than in a footnote.
+
+## Result 20 — connecting real data immediately found a silent bug
+
+Twenty broker codes appearing in live IDX data had no entry in
+`config/brokers.yaml`, so they defaulted to `foreign: false`. That default is
+not neutral — it pushed genuine foreign flow into the domestic bucket and
+understated net foreign for every stock those desks touched. They are added
+now, carrying the source's own F/D flag, which was stable across 90 fetches
+(30 stocks x 3 dates) with no code ever changing.
+
+The flag agrees with the repo on every confident entry, **including YP (Mirae)
+as foreign** — the retail-serving, foreign-owned broker that motivated
+`foreign_basis` in the first place. It disagrees on BQ, DR and TP, which have
+Korean, Malaysian and Singaporean parents yet come back domestic every time;
+the exchange-side flag appears to follow the member's registration rather than
+its shareholders. Both readings answer different questions, so the disagreement
+is recorded rather than resolved by fiat.
+
+The simulator was also removed from the default provider chain. It existed
+because no real source was reachable; as a fallback it would let a transient
+network failure swap fabricated flow into a real-looking report one ticker at a
+time.
+
+## Result 21 — the classification is three-way, and the third bucket is the interesting one
+
+The first version of the parser read the source's broker labels as
+foreign-or-domestic. There is a third: **`bumn`** — *Badan Usaha Milik Negara*,
+an Indonesian state-owned enterprise. Matching only two buckets silently
+dropped every state-owned desk from the classification while they continued to
+count toward totals.
+
+Across 18 stocks x 10 dates, with no code ever changing class, exactly four
+houses carry it: **CC** (Mandiri Sekuritas), **DX** (Bahana), **NI** (BNI
+Sekuritas) and **OD** (BRI Danareksa) — the securities arms of the state banks.
+
+This matters beyond bookkeeping. *"The state is accumulating"* and *"a domestic
+institution is accumulating"* are different claims, and only one of them is
+interesting; in Indonesia the state-linked desks are frequently the counterparty
+absorbing foreign selling. A `local_inst` tier cannot express that, so
+`state_owned` is now a third axis on `Broker`, independent of `tier` and
+`foreign`.
+
+**DX had no registry entry at all** until real data surfaced it — a state-owned
+house among the largest desks on the exchange, invisible to every amount of
+prior desk research, found in one afternoon of actual broker summary. That is
+the argument for connecting data before trusting a config file, in one line.
+
+## What this does and does not establish
+
+It establishes that the data is obtainable, that what arrives is genuinely the
+exchange's rekap broker, and that the top-10 truncation has a measured, bounded
+effect on which conclusions are safe.
+
+**It establishes nothing about whether broker flow predicts returns.** No
+signal in `bandarmology.py` has been tested against forward returns. Part V is
+the standing warning here: net foreign passed a split-sample test, a
+year-by-year test, size controls and a t-statistic of −10.88, and still had a
+long-short spread of zero. The machinery being connected is the start of that
+work, not the end of it.
+
+```bash
+idxbot analyze BBCA                  # real broker flow, no configuration
+python3 -m pytest tests/test_ipot.py # 49 tests, all offline against real captures
+```

@@ -251,22 +251,29 @@ of the headline CAGR is survivorship bias**, not skill — the equal-weight univ
 alone beat IHSG by +7.96% CAGR purely from being built out of today's constituent
 lists. Full analysis: **`docs/FINDINGS.md`**.
 
-The broker-flow half — the actual thesis — remains untested because the data is
-paywalled. `--profile momentum_plus_flow` is the experiment to run when you
-connect a real source.
+The broker-flow half — the actual thesis — is now **connected but still
+untested**. Those are different things, and the difference matters:
+`--profile momentum_plus_flow` is the experiment to run, and it can finally be
+run, but nobody has run it against forward returns yet.
 
-**There is no free public IDX broker-summary API.** `idx.co.id` is behind a WAF
-(403), Stockbit needs an authenticated app session, and GoAPI's broker-summary
-route exists but is gated on a paid key. So the repo ships a **simulator** to
-make the pipeline runnable end to end.
+**Real broker summary is free and works out of the box.** `idx.co.id` is behind
+a WAF that 403s this network on every path including its own homepage — but
+IndoPremier, an IDX member, publishes the rekap broker on a public page, and
+`src/idxbot/data/ipot.py` reads it. Top-10 each side, lots/value/average, net
+foreign, F/D flags, history to ~2008, previous session by evening. Regular-board
+totals reconcile to the tape within 1e-5. See `docs/LIVE_DATA.md`.
 
-The simulator *assumes* institutions buy weakness and retail chases momentum. Run
-the playbook against it and it will report that institutions buy weakness —
-because that was typed in by hand. **Circular, and worthless as evidence about the
-real market.** Every report prints a warning banner when broker flow is simulated.
+Two limits to hold on to. A top-10 view **cannot balance**, so the inventory
+ledger's absolute positions drift — trust direction and ranking, not cost basis
+or open P/L; `idxbot analyze` prints the measured drift above the table. And
+large figures are display-rounded to 2-3 significant digits.
 
-The machinery for the real answer is built and tested. Connect a real source
-(`docs/LIVE_DATA.md`) and the same commands produce a genuine answer.
+The **simulator is no longer in the default chain**. It existed because no real
+source was reachable, and leaving it as a fallback would let a network blip swap
+fabricated flow into a real-looking report one ticker at a time. It assumes
+institutions buy weakness, so analysing it and concluding that institutions buy
+weakness is circular. Reach for it deliberately with `--providers synthetic` or
+not at all.
 
 ---
 

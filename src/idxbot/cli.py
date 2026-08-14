@@ -189,6 +189,18 @@ def cmd_analyze(args) -> int:
 
     if not analysis.positions.empty:
         print("\n RECONSTRUCTED BROKER POSITIONS (relative to the start of the data window)")
+        # A top-10 source censors each broker's smaller side, so the ledger
+        # integrates a drift rather than a position. Say so next to the
+        # numbers, not in a footnote nobody reads.
+        from .data.ipot import is_truncated, truncation_bias
+
+        if is_truncated(analysis.summary):
+            bias = truncation_bias(analysis.summary)
+            print(f"   ! top-10 source: each broker's smaller side is censored, so these")
+            print(f"     are DIRECTIONAL, not positions. Across all brokers the net should")
+            print(f"     be 0 and is {bias.get('cumulative_net_lot', float('nan')):+,.0f} lots"
+                  f" ({bias.get('cumulative_net_share', float('nan')):.1%} of observed flow).")
+            print(f"     Trust the sign and the ranking; do not trust avg cost or open P/L.")
         top = analysis.positions.copy()
         top["tier"] = top["broker"].map(lambda c: engine.cfg.brokers.get(c).tier)
         top = top.reindex(top["inventory_lot"].abs().sort_values(ascending=False).index).head(12)

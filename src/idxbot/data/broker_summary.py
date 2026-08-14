@@ -5,9 +5,11 @@ member bought and sold, and at what average price. It is the raw material for
 every "bandarmology" inference in this package: without it you can only guess at
 institutional intent from price and volume.
 
-There is no free public API for it. IDX's own endpoint sits behind a WAF, and
-the retail platforms that display it require an authenticated session. The
-options that actually work are documented in ``docs/LIVE_DATA.md``; this module
+IDX's own endpoint sits behind a WAF that blocks this network outright. That
+does not mean the data is unreachable: IndoPremier, an IDX member, renders the
+same table on a public unauthenticated page, and :mod:`idxbot.data.ipot` reads
+it - regular-board totals reconcile to the tape within ~1e-5. Every route,
+including the paid ones, is documented in ``docs/LIVE_DATA.md``; this module
 provides the plumbing for all of them behind one interface.
 
 Canonical schema produced by every provider
@@ -36,6 +38,7 @@ import numpy as np
 import pandas as pd
 
 from ..config import Config
+from .cache import Cache
 
 SCHEMA = [
     "date", "ticker", "broker",
@@ -581,6 +584,13 @@ def build_provider(cfg: Config, names: Optional[Sequence[str]] = None,
             providers.append(CsvBrokerSummary(cfg.path("data.csv_dir", "data/broker_summary")))
         elif name == "goapi":
             providers.append(GoApiBrokerSummary())
+        elif name == "ipot":
+            from .ipot import IpotBrokerSummary  # imported late: needs requests
+            providers.append(IpotBrokerSummary(
+                cache=Cache(cfg.path("data.cache_dir", "data/cache")),
+                board=cfg.get("data.ipot.board", "RG"),
+                delay=float(cfg.get("data.ipot.delay_seconds", 1.2)),
+                max_days=int(cfg.get("data.ipot.max_days", 400))))
         elif name == "rest":
             providers.append(RestBrokerSummary(cfg))
         elif name == "synthetic":

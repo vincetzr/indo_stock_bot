@@ -5,8 +5,28 @@ data:
   # Providers are tried in order; the first that returns data wins.
   # See README "Data sources" for what each one needs.
   ohlcv_provider: "yahoo"
-  broker_summary_providers: ["csv", "synthetic"]
+  # "ipot" reads the public IndoPremier rekap-broker module: real exchange
+  # data, top-10 per side, regular board, history back to ~2008. It sits behind
+  # "csv" so your own export still wins.
+  #
+  # "synthetic" is deliberately NOT in this chain any more. It existed because
+  # no real broker-summary source was reachable; now one is. Leaving it as a
+  # fallback would mean a transient network failure silently swaps simulated
+  # flow in behind a real-looking report, one ticker at a time. Ask for it
+  # explicitly with --providers synthetic when you want to exercise the
+  # pipeline without touching the network.
+  broker_summary_providers: ["csv", "ipot"]
   csv_dir: "data/broker_summary"       # drop your exported broker summary here
+  ipot:
+    # RG = regular board. Do not change this casually: the all-board view folds
+    # in negotiated block crossings that print at arbitrary prices - GOTO on
+    # 2026-08-13 reads 25.0M lots all-board against 196k on the regular board.
+    board: "RG"
+    # Someone else's public server. The delay is courtesy, not latency to tune.
+    delay_seconds: 1.2
+    # Ceiling on sessions fetched per ticker in one call, so a wide date range
+    # cannot silently turn into thousands of requests.
+    max_days: 400
   # Generic adapter for a commercial broker-summary vendor. Fill this in after
   # signing up and reading their docs, then use --providers rest.
   # Vendors that advertise per-stock broker/bandarmology data: invezgo.com,
