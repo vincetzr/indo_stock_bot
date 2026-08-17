@@ -2154,3 +2154,42 @@ Worth recording as its own result because it is a reminder that the benchmark
 deserves the same scrutiny as the strategy. A backtest that beats a
 mis-measured hold has beaten nothing, and the error here ran in the direction
 that would have flattered any timing rule reported against it.
+
+## Result 51 — the last idea, and the number that ends the argument
+
+Every ADRO rule tested so far parked in **cash** when out, which Result 28 says
+is the single largest cost of timing. So the final test removes that entirely:
+sell ADRO at the peak, **redeploy into the market**, buy ADRO back at the low.
+Capital never idles.
+
+| ADRO rule | parked in | growth | CAGR | in ADRO |
+|---|---|---|---|---|
+| ma_cross 20/100 | **LQ45** | **30.39x** | +20.8% | 53% |
+| donchian 20/100 | LQ45 | 30.24x | +20.8% | 79% |
+| donchian 20/100 | IHSG | 20.83x | +18.3% | 79% |
+| dd -50% / new high | LQ45 | 13.41x | +15.4% | 97% |
+
+It works — 30.4x against 7.77x for holding ADRO, nearly 4x better. And then the
+baseline that matters:
+
+| | growth | CAGR |
+|---|---|---|
+| hold ADRO | **7.77x** | +12.0% |
+| hold IHSG | 2.86x | +6.0% |
+| **hold LQ45 equal-weight, no timing at all** | **24.15x** | **+19.3%** |
+| best ADRO timing + redeployment | 30.39x | +20.8% |
+
+**Simply owning the LQ45 basket returned 24.15x.** All the ADRO timing
+machinery, with capital perfectly redeployed and parameters chosen in hindsight,
+adds **+1.5% a year** over doing nothing at all — an edge far too thin to survive
+the walk-forward that every other variant failed.
+
+And there is the number that ends the whole exercise: **ADRO returned 7.77x
+while the LQ45 basket returned 24.15x.** ADRO was not a good thing to own. Three
+parts of research went into timing the peaks and lows of a stock that
+underperformed a passive basket of Indonesian large caps by a factor of three.
+
+**The best thing to do with ADRO capital was never to time it. It was not to
+concentrate it in ADRO.** That is the same answer as Result 29, Result 39 and
+Result 46, arrived at from the opposite direction — and it is why the
+hundredfold lives in cross-sectional breadth and not in any single name.
