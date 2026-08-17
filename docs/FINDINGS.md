@@ -2492,3 +2492,96 @@ rebalance every 20 days, no take-profit, always invested
 Every absolute figure carries survivorship (Part XII measured IHSG at 10.9x
 against 295.2x for the same panel's blue chips). **The excess over equal-weight,
 which is measured inside the same biased panel, is the number that survives.**
+
+---
+
+# Part XIV — The complete trading history, from the start of the data
+
+Rp50,000,000 on 2000-03-30, the validated engine run across the whole exchange
+to today, every transaction logged. Rank all liquid IDX names on 120-day
+momentum within each date, hold the top 5 equal-weight, rebalance every 20
+sessions, always invested. Whole lots, 0.15%/0.25% fees, next-bar fills, a
+10%-of-turnover capacity cap.
+
+## Result 61 — the record
+
+| | |
+|---|---|
+| final value, 2026-08-14 | **Rp17,990,489,691** |
+| growth | **359.8x** over 26.4 years |
+| CAGR | **+25.00%** |
+| max drawdown | **-66.2%** |
+| transactions | 2,244 (1,057 buys, 721 sells, 466 trims) |
+| distinct names traded | **271** |
+| fees paid | Rp2,660,790,578 |
+
+Full log: ``reports/trading_history.txt`` and ``reports/paper_account_trades.csv``.
+
+The first trade was **1,076 lots of ASII at Rp93 on 2001-04-27**. The most
+recent was **307,450 lots of JGLE at Rp100 on 2026-08-07**.
+
+## Result 62 — year by year, and the part nobody quotes
+
+| year | end equity | return | | year | end equity | return |
+|---|---|---|---|---|---|---|
+| 2001 | Rp74,499,675 | +49.0% | | 2014 | Rp1,408,168,003 | +5.9% |
+| 2002 | Rp60,471,616 | -18.8% | | 2015 | Rp1,265,399,938 | -10.1% |
+| 2003 | Rp108,677,525 | +79.7% | | 2016 | Rp2,367,565,297 | +87.1% |
+| 2004 | Rp179,748,415 | +65.4% | | 2017 | Rp3,566,140,646 | +50.6% |
+| 2005 | Rp155,052,019 | -13.7% | | 2018 | Rp5,828,066,941 | +63.4% |
+| 2006 | Rp242,579,277 | +56.5% | | 2019 | Rp4,246,028,924 | **-27.1%** |
+| 2007 | Rp649,808,424 | **+167.9%** | | 2020 | Rp7,336,580,592 | +72.8% |
+| 2008 | Rp547,410,032 | -15.8% | | 2021 | Rp17,444,559,546 | **+137.8%** |
+| 2009 | Rp858,329,219 | +56.8% | | 2022 | Rp16,054,687,377 | -8.0% |
+| 2010 | Rp1,304,462,022 | +52.0% | | 2023 | Rp20,150,729,098 | +25.5% |
+| 2011 | Rp1,114,017,526 | -14.6% | | 2024 | Rp14,750,499,399 | **-26.8%** |
+| 2012 | Rp1,444,827,110 | +29.7% | | 2025 | Rp36,478,316,403 | **+147.3%** |
+| 2013 | Rp1,329,560,014 | -8.0% | | **2026 YTD** | **Rp17,990,489,691** | **-50.7%** |
+
+**The book is in a -53.8% drawdown right now.** It peaked at Rp38,967,094,300
+and sits at Rp17,990,489,691. The headline 359.8x is what remains *after* the
+account halved in 2026. Anyone quoting the multiple without that sentence is
+quoting a number the strategy itself is not currently earning.
+
+Eight of twenty-six years were negative, four of them worse than -18%. The
+equity curve spent time below -40% from its running peak in **twenty-one
+separate episodes**, including 1.2 years underwater from 2019-09 to 2020-12.
+
+## Result 63 — the 200-day trend overlay does not survive a change of scorer
+
+Part XIII recommended adding a 200-day trend filter on the strength of the
+walk-forward, where it took the book from 4 folds of 5 beating equal-weight to
+5 of 5. Run inside this account, on 120-day momentum over 805 names, it does
+the opposite:
+
+| | final value | growth | CAGR | max drawdown |
+|---|---|---|---|---|
+| **without the filter** | **Rp17,990,489,691** | **359.8x** | **+25.00%** | -66.2% |
+| with the filter | Rp5,520,926,516 | 110.4x | +19.53% | **-81.9%** |
+
+It costs 5.5 points of CAGR *and* deepens the worst drawdown by 16 points.
+
+The two results are not reconcilable by argument, and the difference is the
+scoring function: the walk-forward ranked on the momentum *composite* over the
+observation panel, this account ranks on raw 120-day momentum over 805 names.
+**A filter that helps one scorer can hurt another**, which means the Part XIII
+recommendation should be read as conditional on its scorer rather than as a
+general improvement. Reported here rather than quietly dropped, because the
+contradiction is the finding.
+
+## What this history is, and is not
+
+It **is** a complete, auditable record: 2,244 fills, every one priced at the
+next session's open, whole lots, fees charged, positions capped at a tenth of
+the name's daily turnover.
+
+It **is not** a forecast, and three things bound it:
+
+* **Survivorship.** The panel is today's listing. IHSG returned 10.9x over the
+  same window while this panel's blue chips returned 295.2x - a factor of 27
+  that is bias, not skill. The 359.8x carries it.
+* **Concentration in manias.** 2007, 2021 and 2025 supplied most of the
+  compounding. The names bought in those years - BEKS, BCIP, BTEK, AYLS, DOOH,
+  ARTO, BBHI - are speculative small caps, and momentum owns them because they
+  are going up, not because they are sound.
+* **The drawdowns are real and current.** -66.2% at worst, -53.8% today.
