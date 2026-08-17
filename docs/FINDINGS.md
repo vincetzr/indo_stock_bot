@@ -2585,3 +2585,117 @@ It **is not** a forecast, and three things bound it:
   ARTO, BBHI - are speculative small caps, and momentum owns them because they
   are going up, not because they are sound.
 * **The drawdowns are real and current.** -66.2% at worst, -53.8% today.
+
+---
+
+# Part XV — Optimising for consistency, and the 50/50 split
+
+Part XIV's book compounds at +25% and is unpleasant to own: eight losing years
+in twenty-six, -66% at worst, -53.8% today. Maximising CAGR selects for exactly
+that shape, because one +140% year pays for four bad ones in the mean.
+
+So this searches 288 configurations - momentum lookback, concentration,
+rebalance frequency, and a **trailing exit that can sell a holding between
+rebalances when it falls from its own high** - and scores every one on
+consistency as well as return.
+
+## Result 64 — rebalance frequency, not the trailing stop, is the mechanism
+
+The intuition that "trading beats holding, even for blue chips" is correct. The
+mechanism is not what it looks like:
+
+| trailing exit | median CAGR | median max DD | median ulcer |
+|---|---|---|---|
+| none | +23.7% | -64% | 0.24 |
+| 12% | **+18.8%** | -61% | 0.23 |
+| 20% | +23.9% | -60% | 0.23 |
+| 30% | +23.5% | -63% | 0.24 |
+
+**A per-name trailing stop is close to worthless** - 20% buys 0.2 points of CAGR
+and 4 points of drawdown, and a tight 12% stop *costs* 5 points by selling
+noise. Every one of the top configurations by CAGR runs no trail at all.
+
+What does the work is **rebalance frequency**. Sorted by CAGR, the top eight
+configurations all rebalance every 5 or 10 sessions. Reshuffling the whole book
+that often exits weakening names and enters strengthening ones automatically -
+it *is* selling the peak and buying the low, executed across the universe rather
+than stock by stock. A stop on a single name only ever sells; a rebalance sells
+and buys in the same decision.
+
+## Result 65 — the configuration, and it is stable
+
+Best by CAGR-per-unit-of-time-underwater:
+
+```
+rank every liquid IDX name on 120-day momentum
+hold the top 8, equal weight
+rebalance every 10 sessions
+no trailing stop, always invested
+```
+
+| | in-sample, full history |
+|---|---|
+| CAGR | **+31.2%** |
+| median year | +24.8% |
+| worst year | -35.5% |
+| positive years | 73% |
+| **worst rolling 3 years** | **-16.6%** |
+| max drawdown | -55% |
+| trades | 6,058 |
+
+**Walk-forward, re-selecting from 180 configurations in every fold, all five
+folds independently chose this exact configuration.** That is the strongest
+stability evidence in this repository - the search does not wander.
+
+| fold | test to | out-of-sample CAGR | daily max DD |
+|---|---|---|---|
+| 1 | 2012-09 | +49.1% | -30% |
+| 2 | 2016-03 | **-1.7%** | -47% |
+| 3 | 2019-09 | +47.2% | -29% |
+| 4 | 2023-02 | +28.7% | -60% |
+| 5 | 2026-08 | **-5.9%** | **-70%** |
+
+Mean out-of-sample **+23.5%**, median **+28.7%**, and **two folds of five were
+negative**. The most recent fold is one of them. This is a high-return,
+high-variance engine, not a smooth one.
+
+## Result 66 — the 50/50 split, priced
+
+Momentum book against the multibagger sleeve (cheap, small, far below its old
+high, state-owned; three-year holds laddered a third a year), over the 18 years
+both cover:
+
+| allocation | CAGR | growth | median year | worst year | positive years | max DD |
+|---|---|---|---|---|---|---|
+| 100% momentum | **+28.4%** | 90.6x | +23.9% | -19.4% | 72% | -21% |
+| 70/30 | +27.8% | 83.3x | +28.0% | -16.3% | 83% | -20% |
+| **50/50 rebalanced** | **+27.1%** | **74.4x** | **+31.1%** | **-14.3%** | **89%** | **-19%** |
+| 30/70 | +25.9% | 63.6x | +29.4% | -12.2% | 83% | -20% |
+| 100% multibagger | +23.7% | 46.0x | +27.8% | **-9.1%** | 83% | -25% |
+
+**The 50/50 is the best consistency point.** It gives up 1.3 points of CAGR
+against the pure momentum book and buys: the **highest median year of any
+allocation (+31.1%)**, the **highest share of positive years (89% - sixteen of
+eighteen)**, a worst year improved from -19.4% to -14.3%, and a shallower
+drawdown. Correlation between the sleeves is +0.478 - moderate, and enough.
+
+Year by year, 50/50 rebalanced annually:
+`2004 +73% · 2005 +36% · 2006 +71% · 2008 +3% · 2009 +57% · 2010 +46% ·
+2011 +27% · 2012 +29% · 2013 +24% · 2015 +10% · 2016 +55% · 2017 +33% ·
+2018 +37% · 2019 +8% · 2020 +37% · 2022 -14% · 2023 -6% · 2024 +2%`
+
+## The one number in that table that is measured differently
+
+The drawdowns in the allocation table are computed on **annual** returns,
+because that is the only grid on which a 20-day book and a 3-year sleeve can be
+combined. An annual grid cannot see a fall and recovery inside one year:
+
+| same momentum book | |
+|---|---|
+| daily max drawdown | **-55.0%** |
+| annual-grid max drawdown | -35.5% |
+| what the allocation table shows for the mix | -19% |
+
+Both are arithmetically correct. **Only the daily figure is what holding it
+feels like**, and the -19% on the 50/50 row should be read as "shallower than
+the alternatives on the same grid", not as the worst it can get.
