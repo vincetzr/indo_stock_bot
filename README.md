@@ -27,7 +27,7 @@ PYTHONPATH=src python3 -m idxbot.cli dashboard --universe lq45
 | `momentum` profile predicts forward returns | ⚠️ **Holds, but most of the apparent edge was survivorship** — see below |
 | **How J.P. Morgan / UBS / CLSA actually trade** | ❌ **not verified — no real broker-summary data was obtainable** |
 | Fundamental ratios predict returns | ❌ **cannot be tested** — only a current snapshot exists, so any historical join is look-ahead. Used as a present-tense exclusion filter only |
-| Hull Suite + UT Bot beats buy-and-hold | ❌ **REFUTED on 413 IDX names over 25 years.** Loses by 9.3%/yr; 0 of 240 tuned configurations beat it even in-sample. It *does* cut catastrophic losers (+12.9%/yr in the 5% of names that collapse) and that is the only defensible use. See `docs/FINDINGS.md` Part VII |
+| Hull Suite + UT Bot beats buy-and-hold | ❌ **REFUTED on 413 IDX names over 25 years.** Loses by 9.3%/yr. 0 of 240 configurations beat B&H even with full in-sample hindsight; walk-forward tuning genuinely helped (+4.19%/yr, 5 folds of 5) and still finished 5.2 points behind. It *does* cut catastrophic losers (+12.9%/yr, 90% hit rate, in the 5% of names that collapse) — the only defensible use. **Hull alone beats the pair.** See `docs/FINDINGS.md` Part VII |
 
 ### Two results on 55,699 real observations (66 tickers, 2001–2026)
 

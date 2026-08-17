@@ -1251,11 +1251,33 @@ constructed. It is hindsight with no holdout, and it still fails:
 
 The surface is not noise, and its shape is the most informative thing in this
 study. Every one of the top ten runs `ut_key = 3.0`, the widest stop tested.
-Every one of the bottom five runs `ut_key = 0.5`, the tightest. The gradient is
-monotone in one parameter: **the less the UT Bot is allowed to do, the better
-the system performs.** Extrapolating that gradient to its limit — a stop so
-wide it never fires — lands on Hull alone, at -3.09% excess, better than the
-best confluence configuration found anywhere in the grid.
+Every one of the bottom five runs `ut_key = 0.5`, the tightest. Within the grid
+the ordering is monotone: **the less the UT Bot is allowed to do, the better
+the system performs.**
+
+That invites an obvious extrapolation — widen the stop until it never fires and
+you should recover Hull alone — and it is wrong. Pushing the key past the grid:
+
+| UT key | excess | trades |
+|---|---|---|
+| 1.0 | -9.96% | 132 |
+| **3.0** | **-6.10%** | 40 |
+| 5.0 | -7.54% | 30 |
+| 8.0 | -8.55% | 16 |
+| 40.0 | -11.44% | 2 |
+| **Hull alone, no UT at all** | **-2.62%** | 114 |
+
+The curve turns around at 3.0. Widening the stop does not gradually remove the
+UT Bot, because the damage is not the stop at all — it is the **entry**
+requirement that price must *cross* the stop line. Widen the stop far enough
+and crossings become vanishingly rare: at key 40 the rule takes two trades in
+twenty-five years and simply never participates. So key 3.0 is an interior
+compromise between "too many bad UT entries" and "no entries at all", and no
+setting of it recovers what Hull alone gets with 114 trades.
+
+The conclusion survives the corrected mechanism and is in fact stronger: **Hull
+alone beats every one of the 240 confluence configurations**, and the way to
+improve the pair is not to tune the UT Bot but to delete it.
 
 Marginalising the grid over each parameter separates a component that matters
 from one that does not:
@@ -1281,10 +1303,53 @@ published Hull length of 55 turns out to be the best of the five tested, so the
 Hull half was already well chosen by whoever picked it.
 
 So the optimiser, given complete hindsight over 240 configurations, spends its
-freedom doing one thing: trying to switch the UT Bot off. That is not a
-parameter that wants tuning. It is a component that wants removing. And the
-whole surface, from -16.32% to -6.10%, sits underwater — there is no spike to
-mistake for a discovery and no plateau to believe in.
+freedom doing one thing: turning the UT Bot down as far as the grid permits.
+And the whole surface, from -16.32% to -6.10%, sits underwater — there is no
+spike to mistake for a discovery and no plateau to believe in.
+
+## Result 27 — walk-forward optimisation helps, replicably, and still never reaches zero
+
+Parameters chosen on an expanding in-sample window, then applied to the
+untouched slice that follows, with the fixed published default scored on the
+same out-of-sample window so the comparison answers the only question that
+matters: *did searching beat leaving it alone?*
+
+| fold | test window | chosen | in-sample | out-of-sample | fixed default | value added |
+|---|---|---|---|---|---|---|
+| 1 | 2008-2012 | ehma89, key 3.0, ATR 10 | -15.10% | -9.66% | -16.89% | **+7.23%** |
+| 2 | 2012-2015 | ehma89, key 3.0, ATR 14 | -11.46% | -2.71% | -6.97% | **+4.26%** |
+| 3 | 2015-2019 | hma144, key 3.0, ATR 14 | -8.46% | -7.57% | -10.86% | **+3.29%** |
+| 4 | 2019-2022 | ehma55, key 3.0, ATR 10 | -6.92% | -3.90% | -6.66% | **+2.75%** |
+| 5 | 2022-2026 | ehma55, key 3.0, ATR 14 | -6.26% | -2.19% | -5.62% | **+3.43%** |
+
+| | |
+|---|---|
+| mean out-of-sample excess, optimised | **-5.21%** |
+| mean out-of-sample excess, fixed default | **-9.40%** |
+| **value added by optimising** | **+4.19%** |
+
+**Optimisation genuinely worked, in 5 folds out of 5.** That deserves saying
+plainly, and it is the opposite of what Part II found for the composite score,
+where walk-forward selection actively destroyed value. It is also not a fluke
+of one lucky fold: the value added is positive in every window, ranging from
++2.75% to +7.23%.
+
+But look at what it selected. **Every fold picked `ut_key = 3.0`** — the widest
+stop available — and the hull settings it chose drifted freely between ehma89,
+hma144 and ehma55 without much affecting the outcome. The optimiser was not
+discovering a configuration. It was rediscovering, independently and out of
+sample five times running, the single finding of Result 26: turn the UT Bot
+down. It found the off switch, not an edge.
+
+And having found it, the best out-of-sample result is still **-5.21%** — better
+than the -9.40% you get by leaving the defaults alone, and still four to five
+points a year behind simply owning the stock.
+
+One number needs care: out-of-sample scored *better* than in-sample in every
+fold (+4.43% on average). That is not the strategy improving. Every expanding
+training window contains 2009-2014, the era that punished this rule hardest
+(Result 24), while the test slices all sit after it. It is a regime artefact of
+expanding windows, and reading it as evidence of robustness would be a mistake.
 
 ## What to do with this
 
@@ -1295,13 +1360,22 @@ is several times larger than the first.
 
 **If you want to use it, the defensible uses are narrow:**
 
+* **Hull alone, not the pair.** This is the single most useful thing in Part
+  VII. The UT Bot subtracts value at every horizon and in every test: it turns
+  Hull's -2.6% excess into -10.3%, it is what the in-sample grid spends its
+  freedom suppressing, and it is what all five walk-forward folds independently
+  chose to turn down. The confluence is worse than half of it.
 * **As a risk overlay on a position you already hold**, not as a signal to
-  build one. The `fell > 10%/yr` row is the whole case for it.
-* **Hull alone, not the pair.** The UT Bot half subtracts value at every
-  horizon tested: it turns Hull's -3.09% excess into -10.25%. If you take one
-  thing from this study, take that the confluence is worse than half of it.
+  build one. The `fell > 10%/yr` row is the whole case for it, and it is a real
+  case: 90% of genuine collapses were improved.
 * **Never on the compounders.** Zero of 70 names growing above 15%/yr were
-  improved by it.
+  improved by it, and the damage there runs to 19 points a year.
+
+**Do tune it, and do not expect tuning to save it.** Walk-forward selection
+added +4.19%/yr out of sample and did so in 5 folds out of 5 — a real,
+replicated improvement, and notably the opposite of what happened to the
+composite score in Part II. It still finishes 5.2 points a year behind owning
+the stock. Both halves of that sentence are true and neither should be dropped.
 
 **What would change the conclusion:** a filter that identifies in advance which
 names are in the 5% that collapse. That is a different research problem, and

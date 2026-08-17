@@ -208,8 +208,13 @@ def stage_walk(panel) -> None:
           f"{result['baseline_objective'].mean():+.2%}")
     print(f" value added by optimising                   : "
           f"{result['optimisation_value_add'].mean():+.2%}")
-    drop = result["is_objective"].mean() - result["oos_objective"].mean()
-    print(f" in-sample to out-of-sample decay            : {drop:+.2%}")
+    # Signed and named explicitly: a NEGATIVE value here means out-of-sample
+    # scored BETTER than in-sample, which is not "negative decay" but a regime
+    # difference - the expanding training windows all contain 2009-2014, the
+    # worst stretch for this rule, while the test slices sit after it.
+    gap = result["oos_objective"].mean() - result["is_objective"].mean()
+    print(f" out-of-sample minus in-sample               : {gap:+.2%}")
+    print("   (positive = test windows were kinder than training, not an edge)")
     result.to_csv("reports/hullut_walkforward.csv", index=False)
     print(" -> reports/hullut_walkforward.csv")
 
