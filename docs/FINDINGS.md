@@ -2002,3 +2002,35 @@ its reported walk-forward rate, and about 26x under the harshest winsorising.**
 So a hundredfold is on the table — over a long horizon, from broad
 cross-sectional selection, and not from timing the peaks and lows of any single
 stock. That distinction is the entire finding of Parts IX through XI.
+
+## Result 47 — intraday closes the last door
+
+The dynamic program says frequency raises the ceiling: 1 trade a year on ADRO is
+198,161x, 52 a year is 6.9 x 10^19. If timing works anywhere, it should work
+where there are more turning points to catch. Yahoo serves 60 days of 5-minute
+bars and 730 of hourly, so this is a small window - 3,541 five-minute bars over
+0.22 years - but the ceiling behaves exactly as predicted:
+
+| perfect foresight, 5-minute bars | growth over 80 days |
+|---|---|
+| 10 trades | 1.9x |
+| 50 trades | 5.8x |
+| **200 trades** | **37.2x** |
+
+And the causal rules find none of it. Across 57 configurations at each frequency:
+
+| | best rule | buy & hold | configs beating hold |
+|---|---|---|---|
+| hourly | 1.167x | 1.100x | **5%** |
+| 5-minute | 1.100x | 1.091x | **11%** |
+
+The tell is the trade count: every rule that "beat" buy-and-hold did so with
+**one or two trades** — it degenerated into buy-and-hold and won by a rounding
+error. Nothing found structure at any frequency. Eighty days is far too short to
+be conclusive on its own; taken with Results 36 and 44 through 46, it is the
+last door closing.
+
+**The pattern across every frequency tested is identical.** More available
+turning points raise the theoretical ceiling and do nothing for the achievable
+result, because the difficulty was never the number of opportunities. It was
+always telling, in advance, which local minimum is *the* minimum.
