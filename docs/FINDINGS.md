@@ -1614,3 +1614,142 @@ idxbot book                              # today's picks for both sleeves
 sleeve is a defensible way to spend half the book on a lottery whose ticket
 price the data cannot confirm.** Every absolute figure above is inflated by
 survivorship; the *excess over equal-weight* is the number that survives it.
+
+---
+
+# Part IX — Timing ADRO, dividends, and state ownership
+
+## Result 35 — the ceiling on ADRO, and why "buy the low, sell the peak" misleads
+
+Owning ADRO from 2008 to 2026 returns **7.77x** (+12.0% a year, dividends in).
+With perfect foresight:
+
+| trades per year (perfect hindsight) | total | CAGR |
+|---|---|---|
+| 1 | **198,000x** | +96.3% |
+| 2 | 8.05 million x | +141.0% |
+| 4 | 1.17 billion x | +217.3% |
+| every up day, flat every down day | 8.4 x 10^19 | — |
+
+**The ceiling is not the constraint.** One perfectly-timed round trip a year is
+already a 198,000x. Any number you like can be produced by a rule that sees even
+slightly into the future, which is exactly why "it multiplied capital N times by
+buying lows and selling peaks" is not a claim that can be evaluated without the
+timestamps.
+
+What was actually there, without hindsight, is smaller than it sounds. ADRO's
+**largest single trough-to-peak run in eighteen years was 2.05x**, and chaining
+all seven of its major runs perfectly gives **29x** — an order of magnitude
+below the DP ceiling, because the ceiling is built from many small perfectly
+timed moves, not a few obvious ones.
+
+## Result 36 — no causal rule beat holding ADRO
+
+112 configurations across six families (Donchian breakout, MA cross, RSI
+reversion, z-score reversion, dip-buying, momentum), train 2008-2019, holdout
+2019-2026:
+
+| | |
+|---|---|
+| buy & hold, train | **+0.5%** |
+| best rule, train | **+15.8%** |
+| buy & hold, holdout | +31.6% |
+| best rule, holdout | +30.5% |
+| configs beating buy & hold on holdout | **1% of 112** |
+
+Walk-forward, five folds, re-selected each time: **mean OOS +16.7% against
++23.4% for buy-and-hold, 1 fold of 5 ahead.**
+
+The train column is the interesting one. Over 2008-2019 ADRO went **nowhere**
+(+0.5% a year) and timing rules returned +15.8%. Over 2019-2026 it compounded at
+31.6% and nothing beat it. This is Result 28 again, on a single name: timing pays
+when the asset does not trend, and costs when it does. You cannot know which
+regime you are in.
+
+**Shorting makes it worse, not better.** Median holdout CAGR with shorts enabled
+is -2.5% against +18.4% long-only, and -48.6% at 3x leverage. **Leverage is not
+a fix either**: 2x on the best rule reaches +49.3% on holdout with a **-91%
+drawdown in training** - a margin call, not a return.
+
+**Commodity prices do not lead the miner.** Brent, WTI and US coal equities are
+strongly correlated with ADRO *contemporaneously* (0.26 to 0.44) and carry
+essentially no predictive lead (Brent +0.008, WTI -0.007, Peabody -0.047 against
+ADRO's next 20 days). The commodity moves with the stock, so that information is
+already in the price.
+
+## Result 37 — dividends are not a strategy on IDX
+
+1,209 ex-dividend events across 54 blue chips, median yield 1.94% per event,
+0.86 events per name per year, 69% falling in April-July.
+
+**Dividend capture.** Buying ten days before the ex-date and selling ten after
+returns +3.46% gross. Against matched controls in the same stocks and the same
+calendar months it returns **+1.37%, t = +1.49** — which does not clear the 0.6%
+round trip with any confidence. The headline number was mostly market drift over
+twenty days plus the seasonal clustering.
+
+**Dividend yield as a factor.** Rank IC against forward one-year returns is
+**+0.041, t = +1.04** over 22 annual cross-sections. Not significant. The
+*zero-yield* quintile posted the **highest** mean forward return (+50.6%),
+because zero-yield names on IDX are the speculative growth tail.
+
+Neither is in the shipped book.
+
+## Result 38 — state ownership is the best multibagger factor found
+
+The "backed by the government" idea, tested:
+
+| | 3x rate | median 3-year | mean 3-year |
+|---|---|---|---|
+| private | 6.2% | **-10.5%** | +26.7% |
+| state-owned (BUMN) | 7.8% | **+9.7%** | +46.9% |
+
+And it concentrates exactly where the rest of the multibagger screen already
+points — the cheap end:
+
+| price tercile | state-owned 3x | private 3x | state mean 3y | private mean 3y |
+|---|---|---|---|---|
+| **cheapest** | **24.1%** | 9.8% | **+146.9%** | +39.8% |
+| middle | 8.1% | 5.0% | +45.6% | +32.1% |
+| dearest | 1.5% | 3.4% | +9.2% | +4.8% |
+
+**Cheap AND state-backed is the pattern; state-backed alone is not.** An
+expensive BUMN is the worst cell in the table. The mechanism is not mysterious:
+a beaten-down state issuer gets recapitalised, a beaten-down private microcap
+delists — which also makes this the one corner of the multibagger sleeve where
+survivorship bias is mild, because these names do not vanish.
+
+Adding it lifts the sleeve from +22.4% to **+24.9%** CAGR. Caveat that matters:
+the sleeve still rests on **six** independent windows, and improving a
+six-observation backtest by adding a factor is precisely what overfitting looks
+like. The *cross-sectional* evidence above (n=79 state-owned observations in the
+cheap tercile against 884 private) is the stronger half of the case.
+
+## Result 39 — the book, and what 100x actually requires
+
+| allocation | CAGR | growth | worst year | max drawdown |
+|---|---|---|---|---|
+| 100% blue chip | +18.7% | 13.2x | -27% | -27% |
+| **50/50 rebalanced yearly** | **+19.5%** | **14.5x** | **-15%** | **-23%** |
+| 30/70 | +19.3% | 14.0x | -12% | -24% |
+| 100% multibagger | +18.2% | 12.2x | -9% | -25% |
+
+Adding state ownership took the 50/50 from +18.3% to **+19.5%** while cutting the
+worst year from -27% to -15%. The split remains insensitive across 30/70 to
+70/30, so the exact 50 is still not load-bearing.
+
+**On the 100x question**, compounded over ADRO's own eighteen-year lifetime:
+
+| | CAGR | 18-year multiple |
+|---|---|---|
+| ADRO buy & hold | +12.0% | 8x |
+| ADRO best timing rule, walk-forward | +16.7% | 16x |
+| 50/50 book | +19.5% | **25x** |
+| blue-chip sleeve alone | +21.2% | 32x |
+| **cross-sectional book, walk-forward OOS** | **+31.7%** | **145x** |
+
+The hundredfold is reachable, and **not by timing ADRO**. It comes from the one
+thing in this repository validated in five out of five walk-forward folds:
+rotating cross-sectionally into whatever is strongest, always invested, never
+predicting a turning point. Timing a single name — even a violently cyclical one
+with a 198,000x hindsight ceiling — did not beat holding it.

@@ -23,14 +23,24 @@ What each sleeve is
 walk-forwarded in Part VIII: rank liquid large caps within each date, hold the
 top few for 20 days, no take-profit, always invested. Its job is to compound.
 
-**Multibagger (50%).** Small, cheap, and far below its old high. Held for three
-years, because that is the horizon on which the pattern was measured and a
-20-day rebalance would sell every one of them before it worked. Its job is to
-own a lottery-ticket book where the mean is carried by a handful of names.
+**Multibagger (50%).** Small, cheap, far below its old high, **and state-owned**.
+Held for three years, because that is the horizon on which the pattern was
+measured and a 20-day rebalance would sell every one of them before it worked.
+Its job is to own a lottery-ticket book where the mean is carried by a handful
+of names.
+
+State ownership is the single best addition found: in the cheapest price tercile
+state-backed names 3x'd at **24.1% against 9.8%** for private ones. A
+beaten-down BUMN gets recapitalised; a beaten-down private microcap delists.
 
 Note what is *not* in it: volatility and volume-surge, both of which looked
-strong on 3x probability and both of which cost return when traded. See
-``REJECTED_FACTORS``.
+strong on 3x probability and both of which cost return when traded (see
+``REJECTED_FACTORS``); and **dividend yield**, which does not predict returns on
+IDX blue chips at all - rank IC +0.041, t=+1.04 over 22 annual cross-sections,
+with the *zero-yield* quintile posting the highest mean forward return. Dividend
+*capture* fails too: buying ten days before the ex-date and selling ten after
+beats matched same-month windows by +1.37%, t=+1.49, which does not clear the
+0.6% round trip with any confidence.
 
 The honest warning, which is not boilerplate
 --------------------------------------------
@@ -63,7 +73,39 @@ BAGGER_FACTORS: Dict[str, float] = {
     "price": -1.0,        # cheapest quintile 3x'd at 11.2% vs 2.8% dearest
     "turnover": -1.0,     # smallest quintile 9.0% vs 3.1% largest
     "hi_750": -1.0,       # furthest below the 3-year high 10.1% vs 5.5%
+    "bumn": +1.0,         # state-owned; see BUMN below for why this is here
 }
+
+#: Indonesian state-owned listed issuers. This is the "backed by the government"
+#: factor, and it is the strongest thing found for the multibagger sleeve:
+#:
+#:   overall            state-owned 3x rate 7.8% vs 6.2% private,
+#:                      median 3-year return +9.7% vs **-10.5%**
+#:   cheapest tercile   state-owned **24.1%** vs 9.8% private,
+#:                      mean 3-year +146.9% vs +39.8%
+#:   dearest tercile    reverses: 1.5% vs 3.4%
+#:
+#: It is *cheap AND state-backed* that pays, not state-backed on its own - an
+#: expensive BUMN is the worst cell in the table. The mechanism is not
+#: mysterious: a beaten-down state issuer gets recapitalised rather than
+#: delisted, which also means this is the one corner of the multibagger sleeve
+#: where survivorship bias is mild, because these names do not vanish.
+#:
+#: Verify membership before relying on it - privatisations and new listings move
+#: names in and out, and this list is a present-day snapshot applied to history.
+BUMN: frozenset = frozenset({
+    "BBRI", "BMRI", "BBNI", "BBTN", "BRIS", "TLKM", "MTEL", "PGAS", "PGEO",
+    "ANTM", "PTBA", "TINS", "INAF", "KAEF", "WIKA", "WSKT", "PTPP", "ADHI",
+    "JSMR", "SMGR", "SMBR", "GIAA", "KRAS", "ELSA", "WTON", "WEGE", "PPRE",
+    "IPCC",
+})
+
+
+def attach_state_ownership(panel: pd.DataFrame) -> pd.DataFrame:
+    """Add the ``bumn`` column the multibagger score expects."""
+    out = panel.copy()
+    out["bumn"] = out["ticker"].isin(BUMN).astype(float)
+    return out
 
 #: Volatility and volume-surge are deliberately EXCLUDED, and the reason is the
 #: most useful lesson in this module.
