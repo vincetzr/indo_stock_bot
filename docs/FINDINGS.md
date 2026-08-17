@@ -2274,3 +2274,43 @@ VIII because a single path is one draw, not a distribution.
 
 And it required sitting through a **-66% drawdown**, with drawdowns worse than
 -35% in **20 of the 26 years**.
+
+## Result 55 — the true maximum on ADRO capital, and the last 6%
+
+Combining every legitimate improvement found across Parts IX-XII - the best
+timing rule, dividends reinvested, and redeploying into blue chips rather than
+sitting in cash when out of ADRO:
+
+| construction | growth | CAGR | max DD |
+|---|---|---|---|
+| buy & hold ADRO, dividends reinvested | 7.7x | +12.0% | -82% |
+| **best rule, unlevered, redeploying** | **37.1x** | **+22.1%** | **-54%** |
+| best rule, 1.5x leverage | 70.9x | +26.6% | -73% |
+| **best rule, 2x leverage** | **94.2x** | **+28.6%** | **-84%** |
+
+**94.2x is 94% of the way to a hundredfold** - Rp50,000,000 into
+Rp4,709,424,972. And it is not attainable, because the leverage that produces
+it does not survive a margin account:
+
+| setup | outcome |
+|---|---|
+| 1x, unlevered | survived, 37.1x |
+| 1.5x with 30% maintenance margin | **LIQUIDATED 2008-10** |
+| 2x with 30% maintenance margin | **LIQUIDATED 2008-09** |
+| 2x with no margin model | "survived", 65.0x |
+
+Both levered versions are wiped out in the global financial crisis, in the
+account's first year. The -84% drawdown is not a bad stretch to sit through on
+borrowed money; it is a forced sale at the bottom. Only the version with **no
+margin model at all** reaches the headline, which is precisely the kind of
+missing constraint that Result 41 and Result 52 were about.
+
+**So the true maximum for ADRO-centric capital is 37.1x: Rp50,000,000 into
+Rp1,856,853,026 at +22.1% a year, with a -54% drawdown.** Reaching 100x needs
++29.0% a year. The remaining 6.9 points can only be bought with leverage that
+2008 liquidates.
+
+For scale, the perfect-foresight ceiling on the same stock over the same window
+is **198,161x**. The distance from 37x to 198,161x is not effort - fourteen
+distinct approaches were spent on it - it is the difference between knowing
+which low is *the* low and guessing.
