@@ -2356,3 +2356,40 @@ It is also 38% of a hundredfold, and the remaining 62% does not exist at any
 leverage a margin account survives. The perfect-foresight ceiling on the same
 stock is 198,161x; the gap between that and 38x is the value of knowing which
 low is *the* low, and nothing tested here recovers it.
+
+## Result 57 — the capitulation detector finds the right week and still loses
+
+The validated capitulation rule from Part III (gap <= -10%, index also gapping
+down, prior 20 days negative - 84.6% of which made +5% across 544 IDX-wide
+cases) applied to ADRO as an entry, since catching the low is precisely what it
+was built for.
+
+It fires **10 times in 18 years**, and it identifies the right moment:
+
+| | |
+|---|---|
+| 2008-10-06, -07, -08, -27, -28, 11-06, 11-13 | **7 of 10 signals** |
+| the DP's optimal buy | **2008-11-24** |
+
+**Seven of ten signals land within seven weeks of the single best entry in the
+stock's history.** The detector works.
+
+The strategy built on it does not:
+
+| strategy | growth | CAGR |
+|---|---|---|
+| breakout only (baseline) | 19.2x | +17.8% |
+| capitulation OR breakout | 11.1x | +14.2% |
+| buy & hold | 7.8x | +12.0% |
+| capitulation -> hold 500 days | 1.6x | +2.5% |
+| capitulation -> exit at new high | 1.3x | +1.5% |
+| capitulation -> exit on trend break | 0.8x | -1.4% |
+
+Ten signals in eighteen years, seven of them in the same month, is not a
+strategy - it is one observation. The capitulation rule earned its 84.6% hit
+rate across **544 cases spanning the whole exchange**; concentrated into a
+single name it has no sample left. Being right about October 2008 is not an
+edge if October 2008 is the only thing you are right about.
+
+This is the sixteenth distinct approach and the last. **The ceiling for ADRO
+timing stands at 38.1x.**
