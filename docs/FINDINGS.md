@@ -1906,3 +1906,99 @@ been checked rather than assumed.
   exchange physically permits. The same audit applied to the cross-sectional
   book left it standing at +16.8% to +26.4% excess depending on how hard the
   tail is clipped — which is what a real result looks like when you attack it.
+
+---
+
+# Part XI — Exhausting the search on ADRO
+
+Parts IX and X kept finding the same answer from new directions. This part
+records the last approaches tried, so that the negative is a *searched* negative
+rather than an assumed one.
+
+## Result 44 — the perfect-trade rule fails walk-forward too
+
+Part X derived the rule directly from the optimal solution: enter at a 60%
+drawdown, exit at a new high, hold through the middle. In-sample on ADRO that is
+30.0x against 7.8x. Walk-forward, with the parameters re-chosen in each fold:
+
+| fold | test to | chosen | OOS | buy & hold | excess |
+|---|---|---|---|---|---|
+| 1 | 2016-12 | dd250 -60%/0% | +28.3% | +23.3% | +5.0% |
+| 2 | 2019-05 | dd250 -60%/0% | 0.0% | -5.8% | +5.8% |
+| 3 | 2021-10 | dd250 -60%/0% | +56.3% | +28.6% | +27.7% |
+| 4 | 2024-03 | dd250 -60%/0% | **0.0%** | +35.3% | **-35.3%** |
+| 5 | 2026-08 | dd250 -60%/0% | **0.0%** | +35.8% | **-35.8%** |
+| | | | **mean +16.9%** | **+23.4%** | **-6.5%** |
+
+Folds 4 and 5 read 0.0% because **the rule never fired** — ADRO never fell 60%
+below its high in those windows, so it sat in cash while the stock returned
++35% a year. That is the defining weakness of waiting for a deep low: the
+best years are the ones where the low never comes.
+
+## Result 45 — sector rotation works in exactly one sector, which is how you know it doesn't
+
+If timing one name fails, rotating among related names is the natural next step.
+Momentum rotation, top 3 of each sector, liquidity-filtered, returns capped:
+
+| sector | names | rotate top 3 | hold the sector | verdict |
+|---|---|---|---|---|
+| **coal / energy** | 10 | **168.0x** (+22.6%) | 40.7x (+15.9%) | looks great |
+| banks | 12 | 1.9x (+2.6%) | 41.5x (+16.8%) | destroys value |
+| metals | 9 | 7.4x (+8.2%) | 62.8x (+17.7%) | destroys value |
+| consumer | 12 | 1.7x (+2.0%) | 81.0x (+18.5%) | destroys value |
+| property | 10 | **0.0x** (-16.5%) | 19.1x (+12.1%) | total loss |
+
+**One sector out of five is not a strategy, it is the one that happened to
+work.** And walk-forwarding the coal case, re-selecting lookback and breadth in
+every fold, removes even that: **mean OOS +6.3% against +16.1% for simply
+holding the sector, excess -9.8%, 2 folds of 5** — with one fold at -55.0%.
+
+Rotating inside a narrow sector concentrates rather than diversifies: all ten
+coal names rise and fall together, so the rotation adds turnover and timing risk
+without adding breadth. The cross-sectional book works precisely because it
+ranks across the *whole* market, where there is always something in a different
+part of its cycle.
+
+## Result 46 — what has now been ruled out
+
+Every approach tried on the "time ADRO" problem, and how each failed:
+
+| approach | result |
+|---|---|
+| 112 configs, 6 rule families | 1% beat buy & hold on holdout; walk-forward 1/5 |
+| wide-band reversion from the DP solution | 30.0x in-sample, walk-forward **-6.5%** excess |
+| gradient boosting / random forest / ridge, 64 features | all six variants lost; **OOS IC -0.086 to -0.144** |
+| long/short | -2.5% vs +18.4% long-only |
+| 2x-3x leverage | +49.3% holdout at a **-91%** training drawdown |
+| commodity price as an exogenous signal | Brent +0.008, WTI -0.007 predictive lead |
+| deep value across all 654 IDX names | 4.4x vs 5.9x for owning the universe |
+| stops and time stops on deep value | every variant worse; 250d stop **-3.87%** |
+| coal sector rotation | walk-forward 2/5, excess **-9.8%** |
+| dividend capture | +1.37% over controls, **t = 1.49** |
+| dividend yield as a factor | IC +0.041, **t = 1.04** |
+
+**One thing survived every test**: ranking the whole liquid market
+cross-sectionally and owning the strongest few, always invested. +16.8% to
++26.4% excess over equal-weight depending on how hard the right tail is clipped,
+4 to 5 folds positive out of 5.
+
+## The arithmetic of "100x", stated plainly
+
+A **100x CAGR** means +10,000% a year. Compounded over ADRO's eighteen-year
+history that is 10^36 — more than the market capitalisation of the planet by
+roughly twenty orders of magnitude. No strategy produces it, and any claim of it
+is a units error somewhere.
+
+**100x total return** is a different and entirely reasonable target:
+
+| | required CAGR | status |
+|---|---|---|
+| 100x over 18 years | +29.4% a year | reachable |
+| 100x over 10 years | +58.5% a year | not by anything here |
+| 100x over 5 years | +151% a year | no |
+
+The validated cross-sectional book compounds to **145x over eighteen years at
+its reported walk-forward rate, and about 26x under the harshest winsorising.**
+So a hundredfold is on the table — over a long horizon, from broad
+cross-sectional selection, and not from timing the peaks and lows of any single
+stock. That distinction is the entire finding of Parts IX through XI.
