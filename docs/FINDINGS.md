@@ -2125,3 +2125,32 @@ a single trend rule if you accept that its walk-forward record is a coin flip
 (1 fold of 5). The 145x - and the hundredfold the whole exercise was aimed at -
 lives in cross-sectional selection across the whole market, and nowhere else
 that twelve distinct approaches could find.
+
+## Result 50 — a correction: ADRO's buy-and-hold was understated
+
+The AADI spin-off (ex-date 2024-11-29) is **not** adjusted out of Yahoo's
+total-return series for ADRO:
+
+| date | close | adj_close | adj change |
+|---|---|---|---|
+| 2024-11-28 | 2,760 | 2,148.3 | +19.4% |
+| **2024-11-29** | 2,080 | **1,619.0** | **-24.6%** |
+
+That -24.6% is a distribution, not a loss. Holders received AADI shares, which
+listed at 6,650 on 2024-12-05 and now trade at 9,425 (**+42%**).
+
+So every ADRO buy-and-hold figure in Parts IX to XI is **too low** — the true
+multiple is roughly 10.3x rather than 7.77x before counting AADI's subsequent
+gain, and the CAGR closer to +13.6% than +12.0%.
+
+**This makes the conclusion stronger, not weaker.** Every timing rule was
+measured against a benchmark that was understated, so each one looks *worse*
+relative to a correctly-adjusted hold, not better. The single trend rule's
+already-marginal walk-forward record (1 fold of 5) gets marginally worse; the
+"deep value fails" and "sector rotation fails" results are unaffected because
+they use the same series on both sides.
+
+Worth recording as its own result because it is a reminder that the benchmark
+deserves the same scrutiny as the strategy. A backtest that beats a
+mis-measured hold has beaten nothing, and the error here ran in the direction
+that would have flattered any timing rule reported against it.
