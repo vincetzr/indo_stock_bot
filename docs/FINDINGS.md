@@ -2314,3 +2314,45 @@ For scale, the perfect-foresight ceiling on the same stock over the same window
 is **198,161x**. The distance from 37x to 198,161x is not effort - fourteen
 distinct approaches were spent on it - it is the difference between knowing
 which low is *the* low and guessing.
+
+## Result 56 — volatility targeting cannot buy the leverage either
+
+The last idea for closing the gap from +22.1% to the +29.0% a hundredfold
+requires: **volatility-targeted leverage**, which de-levers automatically when
+volatility spikes and so should survive the 2008 crash that liquidated fixed
+leverage. Margin enforced, 9% borrow cost:
+
+| target vol | max leverage | growth | CAGR | max DD | outcome |
+|---|---|---|---|---|---|
+| 25% | 1.0x - 3.0x | 32.2-32.3x | +21.2% | -54% | survived |
+| 35% | 1.0x - 3.0x | 32.6-33.1x | +21.4% | -54% | survived |
+| 45% | 1.0x | 35.6x | +21.8% | -54% | survived |
+| **60%** | **1.5x** | **38.1x** | **+22.3%** | -63% | survived |
+| 60% | 3.0x | 29.4x | +20.6% | -71% | survived |
+
+**It survives, and it changes nothing**: 38.1x against 37.1x unlevered.
+
+The reason is visible in the table and is a property of the stock, not the
+technique. **ADRO's realised volatility runs 50-60%.** A vol target of 25-45%
+therefore holds leverage *below* 1.0x almost always, and the strategy
+degenerates into the unlevered version. Raising the target to 60% finally
+permits leverage - and immediately widens the drawdown from -54% to -63% to
+-71% without improving the return.
+
+Volatility targeting works by borrowing against calm assets. ADRO is not a calm
+asset, so there is nothing to borrow against.
+
+## The final number
+
+**Rp50,000,000 into ADRO in July 2008, timed as well as fifteen distinct
+approaches could manage, becomes Rp1,904,562,224 — 38.1x, +22.3% a year,
+through a -63% drawdown.**
+
+Against holding ADRO with dividends reinvested (7.7x), timing multiplied the
+outcome by **4.9x**. That is a real and large effect, and it is the strongest
+result for market timing anywhere in this repository.
+
+It is also 38% of a hundredfold, and the remaining 62% does not exist at any
+leverage a margin account survives. The perfect-foresight ceiling on the same
+stock is 198,161x; the gap between that and 38x is the value of knowing which
+low is *the* low, and nothing tested here recovers it.
