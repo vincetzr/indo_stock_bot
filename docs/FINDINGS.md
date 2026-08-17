@@ -2193,3 +2193,84 @@ underperformed a passive basket of Indonesian large caps by a factor of three.
 concentrate it in ADRO.** That is the same answer as Result 29, Result 39 and
 Result 46, arrived at from the opposite direction — and it is why the
 hundredfold lives in cross-sectional breadth and not in any single name.
+
+---
+
+# Part XII — Rp50,000,000, run as a real account
+
+Every number so far has been an index of returns. This runs the validated engine
+as an actual account with actual constraints, from the start of the data to
+today, and logs every fill.
+
+**Constraints enforced**: whole lots only (1 lot = 100 shares); IDX retail fees
+of 0.15% to buy and 0.25% to sell; ranking computed on the rebalance date and
+filled at the *next* session's open; dividends collected; daily returns capped
+at the +/-35% auto-rejection band; and a **capacity limit** - no position may
+exceed 10% of that name's 20-day median turnover.
+
+## Result 52 — two bugs that a returns-index backtest cannot expose
+
+**Missing marks valued at zero.** A name that did not trade on a given day has
+no price on that row. Left as NaN it silently valued the holding at **zero**,
+producing "losses" of -99.95% in a single day while the underlying stocks moved
+-12% to -16%. Prices must be carried forward for valuation; fills still require
+a day the stock actually traded. This bug is invisible in a returns index
+because there are no positions to mis-mark.
+
+**No capacity limit.** Uncapped, the account compounded into **Rp7.8 billion
+positions in stocks trading Rp10 billion a day** - fills that would move the
+market by more than the edge being harvested. Adding a 10%-of-turnover
+participation cap is what makes a compounding account's returns decay with size,
+which is the single most important thing a returns index hides.
+
+## Result 53 — the account, and the sweep
+
+| config | final value | growth | CAGR | max DD | trades |
+|---|---|---|---|---|---|
+| **top 3, 20-day** | **Rp23,127,511,407** | **462.6x** | +26.2% | **-74%** | 1,382 |
+| top 5, 20-day | Rp17,990,489,691 | 359.8x | +25.0% | -66% | 2,244 |
+| top 8, 20-day | Rp16,983,111,544 | 339.7x | +24.7% | -61% | 3,374 |
+| top 8, 60-day | Rp7,894,409,103 | 157.9x | +21.2% | -69% | 1,291 |
+| top 15, 20-day | Rp4,327,386,543 | 86.5x | +18.4% | -69% | 5,721 |
+| top 5, 60-day | Rp3,784,653,325 | 75.7x | +17.8% | -82% | 866 |
+| top 15, 60-day | Rp2,055,860,732 | 41.1x | +15.1% | -64% | 2,211 |
+| top 3, 60-day | Rp1,782,032,645 | 35.6x | +14.5% | -81% | 540 |
+
+The 20-day rebalance dominates the 60-day everywhere. But note the instability:
+at 60 days, top-3 returns 35.6x while top-8 returns 157.9x - a 4.4x spread from a
+parameter that should not matter that much. **Single-path outcomes are
+high-variance**, which is exactly why the walk-forward in Part VIII, not this
+table, is the evidence.
+
+## Result 54 — what the account is actually made of
+
+| what you did with Rp50m on 2000-03-30 | value today | growth |
+|---|---|---|
+| top 3, 20-day rebalance | Rp23.1bn | 462.6x |
+| **the strategy (top 5, 20-day)** | **Rp18.0bn** | **359.8x** |
+| **equal-weight blue chips, never traded** | **Rp14.8bn** | **295.2x** |
+| UNTR alone | Rp7.4bn | 148.3x |
+| BBCA alone | Rp3.3bn | 66.9x |
+| **IHSG index** | **Rp0.54bn** | **10.9x** |
+| ADRO alone | Rp0.39bn | 7.8x |
+| 6% bank deposit | Rp0.23bn | 4.7x |
+
+Two comparisons matter and they point in opposite directions.
+
+**Against the passive basket**: equal-weighting blue chips and never trading
+returns 295.2x against the strategy's 359.8x. Twenty-six years of ranking,
+rebalancing and 2,244 transactions add **+0.7% a year**.
+
+**Against the honest index**: IHSG returned **10.9x**. The blue-chip basket
+returned 295.2x on the same data. That gap - a factor of **27** - is
+survivorship, and it is not a small correction to the headline. It *is* most of
+the headline.
+
+So the 359.8x is arithmetically correct on this panel and mostly composed of
+Indonesian equity beta plus the fact that the panel contains only companies that
+still exist. The defensible claim is the **+0.7% a year over a passive basket**,
+not the multiple - and even that is thinner than the walk-forward excess in Part
+VIII because a single path is one draw, not a distribution.
+
+And it required sitting through a **-66% drawdown**, with drawdowns worse than
+-35% in **20 of the 26 years**.
