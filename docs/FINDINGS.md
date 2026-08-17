@@ -1351,6 +1351,71 @@ training window contains 2009-2014, the era that punished this rule hardest
 (Result 24), while the test slices all sit after it. It is a regime artefact of
 expanding windows, and reading it as evidence of robustness would be a mistake.
 
+## Result 28 — why it loses, in three numbers
+
+The results above say *that* it loses. This says *why*, and the arithmetic
+closes almost exactly, which means there is no fourth explanation hiding.
+
+**1. The signal barely distinguishes good days from bad ones.** Take each
+stock's own daily total return and split it by whether the rule was holding
+that day:
+
+| | |
+|---|---|
+| median daily return **while held** | **+9.32 bp** |
+| median daily return **while flat** | **+8.47 bp** |
+| median daily return, all days | +9.18 bp |
+| names where held-days beat flat-days | **56%** |
+
+The days it chose to own the stock were better than the days it sat out by
+**0.85 basis points**, and it got the sign right on 56% of names — a coin flip
+with a slight lean. The signal is not inverted, which would at least be
+exploitable backwards. It is close to uninformative.
+
+**2. The loss is almost entirely the cost of being absent.** For the median
+name, annualised:
+
+| | |
+|---|---|
+| buy-and-hold | **+11.76%** |
+| x time in market (18%) | +2.08% |
+| forgone drift from sitting out 82% of the time | **-9.68%** |
+| trading costs (6.0 trades/yr x 0.60%) | **-3.60%** |
+| **predicted** | **-1.53%** |
+| **actual** | **-1.02%** |
+| residual, i.e. all the timing skill there is | **+0.51%** |
+
+Two terms explain the entire result. IDX large caps drifted up at 11.76% a
+year; a rule that owns them 18% of the time forgoes roughly 9.7 points of that
+before it does anything at all, then pays 3.6 more in commissions. Timing skill
+contributes **+0.51%/yr** — real, positive, and an order of magnitude too small
+to pay for the seat.
+
+**3. The exit fires long before the trend it is filtering for.** Across 10,591
+trades:
+
+| | |
+|---|---|
+| median holding period | **5 bars** |
+| trades lasting <= 5 bars | **51%**, averaging **-2.87%** |
+| trades lasting > 20 bars | 4%, averaging **+20.59%** |
+| win rate / avg win / avg loss | 35% / +9.69% / -4.12% |
+
+A Hull 55 band is looking for a trend measured in months. A 1-ATR(10) trailing
+stop exits on an ordinary pullback inside a healthy one. So half the trades are
+killed inside a week at a mean loss, and the 4% allowed to run return +20.6%.
+The per-trade expectancy is positive (+0.70% after costs) — the trades are
+fine. There are simply only six of them a year, and six times 0.70% does not
+approach 11.76%.
+
+**The general lesson, which is not about this indicator.** In a market with
+strong positive drift, *time out of the market is the dominant cost of any
+timing rule*, and it is charged before the signal is even consulted. To beat
+buy-and-hold from 18% exposure, a signal must be right by roughly 9.7 points a
+year. This one is right by 0.5. That is why Result 24 found it working only in
+eras when buy-and-hold returned nothing — those are the windows where being
+absent was free.
+
 ## What to do with this
 
 The rule is not broken and it is not a scam. It does what a trailing stop plus
