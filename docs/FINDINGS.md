@@ -1451,3 +1451,166 @@ idxbot hullut BBCA                          # one name, against its own buy-and-
 idxbot hullut --universe bluechip           # the cohort table
 python3 scripts/hullut_study.py baseline costs eras grid walk broad
 ```
+
+---
+
+# Part VIII — What actually works on IDX
+
+Part VII ended with a mechanism, not just a verdict: **in a market that drifts
+up, time out of the market is charged before the signal is consulted.** Every
+design decision below follows from that, and the results are the strongest in
+this repository.
+
+## Result 29 — the core engine: pick stocks, never pick moments
+
+Rank liquid IDX names *within each date*, own the top few, hold, repeat. Always
+invested. No take-profit, because Part III measured that a +5% cap turns a
++9.27% hold into +0.02%. Non-overlapping rebalances. Rp5bn/day turnover floor,
+computed point-in-time. 0.6% round trip per rebalance.
+
+**Walk-forward, configuration re-selected from scratch in every fold:**
+
+| fold | chosen | in-sample | out-of-sample | equal-weight | excess |
+|---|---|---|---|---|---|
+| 1 | rel_strength 20d top3 | +36.6% | +25.1% | +9.4% | +15.7% |
+| 2 | rel_strength 20d top3 | +25.4% | +11.9% | +5.6% | +6.3% |
+| 3 | momentum 20d top5 | +22.4% | +9.6% | **-11.4%** | +21.0% |
+| 4 | momentum 20d top3 | +24.9% | +51.6% | +19.3% | +32.3% |
+| 5 | momentum 20d top3 | +33.5% | +60.2% | +3.4% | +56.7% |
+
+| | |
+|---|---|
+| mean out-of-sample CAGR | **+31.67%** |
+| mean equal-weight, same windows | +5.27% |
+| **mean excess** | **+26.40%** |
+| folds beating equal-weight | **5 of 5** |
+| in-sample to out-of-sample decay | only -3.12% |
+
+Fold 3 is the one to look at: the universe *lost 11.4%* and the book still made
++9.6%. Every fold independently converged on a 20-day horizon and 3-5 names.
+
+A single split agrees. Selecting on 2001-2021 and applying to the untouched
+2021-2026: **+23.5% against an equal-weight universe that returned -2.0%.**
+Across all 360 configurations the train-to-holdout CAGR rank correlation is
+**+0.545** — the ranking genuinely transfers.
+
+The mirror image confirms the mechanism rather than the fit: the `contrarian`
+weighting returns **-35% CAGR**, exactly as Part I's inverted-accumulation
+result predicts. This is one signal read forwards and backwards, not a search.
+
+## Result 30 — concentration has a floor, and it is not one or two names
+
+Holdout CAGR by book size, same weights and horizon throughout:
+
+| names held | 1 | 2 | **3** | 4 | 5 | 8 | 10 | 15 | 20 | 30 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| holdout CAGR | **-30.7%** | **-10.5%** | **+23.5%** | +18.9% | +12.4% | +16.3% | +14.6% | +10.6% | +2.8% | +0.2% |
+
+Below three names idiosyncratic risk swamps the signal and the book blows up;
+above fifteen the selection is diluted back to the index. **The usable region is
+3 to 10 names**, and it is a plateau rather than a point — which matters,
+because top-3 being the exact maximum on both halves is partly luck.
+
+## Result 31 — what preceded an IDX 3-bagger
+
+Every liquid IDX name since 2001, labelled by whether it returned +200% over the
+following three years, bucketed by trailing features ranked within each date:
+
+| feature | bottom quintile 3x rate | top quintile | direction that wins |
+|---|---|---|---|
+| **share price** | **11.2%** | 2.8% | **cheap**, 4.0x lift |
+| **turnover (size)** | **9.0%** | 3.1% | **small**, 2.9x lift |
+| drawdown from all-time high | **9.3%** | 4.9% | **beaten down**, 1.9x |
+| distance below 3-year high | **10.1%** | 5.5% | **far below**, 1.8x |
+| 12-month momentum | **8.6%** | 6.6% | **low** momentum, 1.3x |
+| realised volatility | 4.8% | **8.0%** | high, 1.7x |
+| volume vs 1-year normal | 5.3% | **9.0%** | surging, 1.7x |
+
+**The multibagger profile is the exact inverse of the blue-chip profile.**
+Momentum selection wants the winners near their highs; 3-baggers came from the
+cheap, small, beaten-down names with *low* momentum. That is why one score over
+one universe cannot serve both objectives, and why a two-sleeve book can.
+
+## Result 32 — lifting the odds of a 3x is not the same as raising returns
+
+Volatility and volume-surge were the two features that looked best on 3x
+*probability*. Both **cost money** when actually traded:
+
+| factor set | sleeve CAGR | change |
+|---|---|---|
+| price alone | **+23.4%** | +8.9% |
+| all five factors | +14.6% | — |
+| without volume-surge | +20.1% | **+5.6%** |
+| without volatility | +18.3% | **+3.7%** |
+| volume-surge alone | +7.9% | -6.7% |
+| volatility alone | **+2.7%** | -11.9% |
+
+Not a contradiction. **Volatility raises the chance of a 3x and raises the
+chance of a wipeout by more.** A screen built from a probability table without
+checking the return table buys lottery tickets above fair value. Both factors
+are excluded, and kept in the code as a named `REJECTED_FACTORS` so the reason
+survives.
+
+## Result 33 — the 50/50 book: same return, half the bad years
+
+Blue-chip sleeve: momentum, 60-day hold, 5 names, always invested. Holdout
++23.8% against +5.6% equal-weight, and **97% of 30 configurations had positive
+holdout excess** — the family works even though the specific ordering does not
+transfer (rank correlation +0.075), so take a robust member, not the argmax.
+
+Multibagger sleeve: cheap, small, far below its old high, held three years,
+laddered a third at a time so capital is not committed on one date.
+
+| allocation | CAGR | growth | worst year | max drawdown |
+|---|---|---|---|---|
+| 100% blue chip | **+18.7%** | 13.2x | **-27%** | -27% |
+| **50/50, rebalanced yearly** | **+18.3%** | 12.4x | **-14%** | **-21%** |
+| 50/50, never rebalanced | +17.4% | 11.1x | -15% | -21% |
+| 100% multibagger | +15.9% | 9.1x | -7% | -19% |
+
+**The 50/50 gives up 0.4 points of CAGR and halves the worst year.** The sleeves
+are weakly correlated because they are driven by opposite factors, so the
+constant-mix rebalance systematically sells whichever ran. And the allocation is
+insensitive — every split from 30/70 to 70/30 lands between +17.6% and +18.7%,
+so the choice of exactly 50 is not load-bearing.
+
+## Result 34 — the limit that no amount of work removes
+
+**The multibagger sleeve rests on six independent observations.** Six
+non-overlapping three-year windows exist in twenty-one years of IDX history:
+2004, 2008, 2011, 2015, 2018, 2022. That is a property of the calendar, not of
+the screen, and **no three-year strategy on IDX can be validated on IDX data.**
+
+Two further things must be said about that sleeve:
+
+* Its picks have a median share price of **Rp139**. Mean three-year return
+  +94.5% against +50.4% for owning everything — but the **median pick returns
+  +7.1%**. The mean is a handful of names; the typical holding does nothing.
+* **Survivorship falls almost entirely here.** "Cheap, small, beaten-down" is
+  also the exact profile of a company about to delist. The winners are all in
+  the panel and an unknown share of the losers are not, so 14% of picks losing
+  more than half is a floor, not an estimate.
+
+The blue-chip sleeve carries none of that weakness: 77 rebalances, five
+walk-forward folds, large liquid names that rarely vanish. **Treat the two
+halves as carrying very different evidential weight, because they do.**
+
+## What to actually run
+
+```bash
+python3 scripts/multibagger_study.py     # rebuild the 3-year pattern panel
+idxbot book                              # today's picks for both sleeves
+```
+
+| | evidence | expectation |
+|---|---|---|
+| blue-chip sleeve | walk-forward, 5 folds, 5/5 positive | strong |
+| concentration 3-10 names | plateau on both halves | strong |
+| always invested, no take-profit | Result 28 + Part III | strong |
+| multibagger sleeve | 6 windows, survivorship-exposed | **weak** |
+| the 50/50 split itself | insensitive across 30-70% | moderate |
+
+**The honest headline: the blue-chip engine is the result. The multibagger
+sleeve is a defensible way to spend half the book on a lottery whose ticket
+price the data cannot confirm.** Every absolute figure above is inflated by
+survivorship; the *excess over equal-weight* is the number that survives it.

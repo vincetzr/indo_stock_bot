@@ -523,6 +523,71 @@ def cmd_macro(args) -> int:
     return 0
 
 
+def cmd_book(args) -> int:
+    """The two-sleeve book: blue-chip compounding plus a multibagger sleeve.
+
+    Prints today's picks for each sleeve and the record each was validated on.
+    Everything here is cross-sectional and always invested, because Result 28
+    priced what sitting in cash costs in a market that drifts up.
+    """
+    from . import maxprofit as mp
+    from . import twosleeve as ts
+    from .walkforward import WEIGHT_CANDIDATES
+
+    engine = _engine(args)
+    cfg = engine.cfg
+    if not os.path.exists(args.observations):
+        print(f"No observations at {args.observations}. Run: idxbot backtest --all")
+        return 2
+    obs = pd.read_csv(args.observations, parse_dates=["date"])
+
+    blue_names = set(cfg.universe("bluechip")) | set(cfg.universe("lq45"))
+    blue_obs = obs[obs["ticker"].isin(blue_names)]
+    weights = WEIGHT_CANDIDATES[args.blue_weights]
+
+    print("\n" + "=" * 78)
+    print(" BLUE-CHIP SLEEVE — cross-sectional momentum, always invested")
+    print("=" * 78)
+    book = mp.run_book(blue_obs, weights, horizon=args.blue_horizon,
+                       top_n=args.blue_top, min_names=15, min_turnover=1e10)
+    bench = mp.equal_weight_benchmark(blue_obs, horizon=args.blue_horizon,
+                                      min_names=15, min_turnover=1e10)
+    if book is None:
+        print(" not enough history in the observation panel")
+        return 1
+    print(mp.render(book, bench))
+
+    latest = blue_obs[blue_obs["date"] == blue_obs["date"].max()].copy()
+    latest = mp.eligible(latest, min_turnover=1e10)
+    if not latest.empty:
+        from .walkforward import blend
+        latest["_s"] = blend(latest, weights)
+        picks = latest.nlargest(args.blue_top, "_s")
+        print(f"\n picks as of {blue_obs['date'].max():%Y-%m-%d}:")
+        for _, r in picks.iterrows():
+            print(f"   {r['ticker']:<6} score {r['_s']:.3f}   "
+                  f"close {r['close']:>10,.0f}   turnover "
+                  f"{format_idr(r['vt'])}")
+
+    if args.bagger_panel and os.path.exists(args.bagger_panel):
+        panel = pd.read_csv(args.bagger_panel, parse_dates=["date"])
+        print("\n" + "=" * 78)
+        print(" MULTIBAGGER SLEEVE — cheap, small, far below its old high")
+        print("=" * 78)
+        sleeve = ts.run_bagger_sleeve(panel, top_n=args.bagger_top)
+        base = ts.bagger_benchmark(panel)
+        if sleeve is not None:
+            print(ts.render_sleeve(sleeve, base))
+            print(f"\n ! this rests on {int(sleeve.stats['rebalances'])} independent"
+                  f" three-year windows. That is far too few to")
+            print("   confirm an edge, and survivorship hits this sleeve hardest:")
+            print("   companies that went to zero are not in the panel at all.")
+    else:
+        print("\n (multibagger sleeve needs reports/multibagger_panel.csv -")
+        print("  build it with: python3 scripts/multibagger_study.py)")
+    return 0
+
+
 def cmd_hullut(args) -> int:
     """Hull Suite + UT Bot on one name, or scored across a universe.
 
@@ -1325,6 +1390,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--quiet", action="store_true")
     p.add_argument("--out", help="write macro features to this CSV")
     p.set_defaults(func=cmd_macro)
+
+    p = sub.add_parser("book",
+                       help="the two-sleeve book: blue-chip momentum + multibagger")
+    p.add_argument("--observations", default="reports/obs_full_clean.csv")
+    p.add_argument("--bagger-panel", default="reports/multibagger_panel.csv")
+    p.add_argument("--blue-weights", default="momentum only")
+    p.add_argument("--blue-horizon", type=int, default=60)
+    p.add_argument("--blue-top", type=int, default=5)
+    p.add_argument("--bagger-top", type=int, default=10)
+    p.add_argument("--providers", default="none")
+    p.add_argument("--profile")
+    p.add_argument("--quiet", action="store_true")
+    p.set_defaults(func=cmd_book)
 
     p = sub.add_parser("hullut",
                        help="Hull Suite + UT Bot, scored against buy-and-hold")

@@ -27,6 +27,8 @@ PYTHONPATH=src python3 -m idxbot.cli dashboard --universe lq45
 | `momentum` profile predicts forward returns | ⚠️ **Holds, but most of the apparent edge was survivorship** — see below |
 | **How J.P. Morgan / UBS / CLSA actually trade** | ❌ **not verified — no real broker-summary data was obtainable** |
 | Fundamental ratios predict returns | ❌ **cannot be tested** — only a current snapshot exists, so any historical join is look-ahead. Used as a present-tense exclusion filter only |
+| **Cross-sectional momentum book beats the universe** | ✅ **VALIDATED. Walk-forward, 5 folds, 5/5 positive.** Mean out-of-sample CAGR +31.7% vs +5.3% equal-weight (+26.4% excess), decay only -3.1%. Single-split holdout +23.5% while the universe returned -2.0%. See `docs/FINDINGS.md` Part VIII |
+| Multibagger screen (cheap/small/beaten-down) | ⚠️ **Pattern is real, evidence is thin.** Cheapest quintile 3x'd at 11.2% vs 2.8% dearest. But only **6 independent 3-year windows exist in IDX history**, and survivorship hits this screen hardest. Median pick returns +7.1%; the mean is a handful of names |
 | Hull Suite + UT Bot beats buy-and-hold | ❌ **REFUTED on 413 IDX names over 25 years.** Loses by 9.3%/yr. 0 of 240 configurations beat B&H even with full in-sample hindsight; walk-forward tuning genuinely helped (+4.19%/yr, 5 folds of 5) and still finished 5.2 points behind. It *does* cut catastrophic losers (+12.9%/yr, 90% hit rate, in the 5% of names that collapse) — the only defensible use. **Hull alone beats the pair.** See `docs/FINDINGS.md` Part VII |
 
 ### Two results on 55,699 real observations (66 tickers, 2001–2026)
@@ -317,6 +319,7 @@ signals and turned it slightly positive — on n=3, which is not evidence.
 
 | Command | What it does |
 |---|---|
+| `book` | The two-sleeve book: blue-chip momentum + multibagger, with today's picks |
 | `hullut` | Hull Suite + UT Bot on a name or a universe, always scored against buy-and-hold |
 | `verify` | Acceptance test: can this broker data support the analysis? Run it first |
 | `reverse` | Institutional plan: who leads, do they coordinate, when to join |
