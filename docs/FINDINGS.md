@@ -2085,3 +2085,43 @@ on the bar after it?*
 
 Every one of those is a question about *methodology*, not about the market, and
 each can be answered in a sentence by anyone who actually ran the backtest.
+
+## Result 49 — every added layer of sophistication made it worse
+
+The final optimisation pass combined three techniques not previously stacked:
+ensembling four independent trend rules, volatility-targeted position sizing, and
+gating on the validated cross-sectional rank. Walk-forward, five folds:
+
+| variant | mean OOS | buy & hold | excess | folds ahead |
+|---|---|---|---|---|
+| single best rule (Donchian 20/100) | +19.8% | +23.4% | **-3.6%** | 1/5 |
+| ensemble of 4 rules | +14.6% | +23.4% | -8.8% | 1/5 |
+| ensemble + volatility targeting | +11.2% | +23.4% | -12.2% | 2/5 |
+| ensemble + cross-sectional gate | +7.3% | +23.4% | -16.2% | **0/5** |
+| ensemble + vol target + gate | +5.7% | +23.4% | **-17.7%** | **0/5** |
+
+**The ordering is monotone and it points the wrong way.** Every layer added
+subtracts about five points a year. The mechanism is Result 28 for the last
+time: each technique is a form of risk reduction, risk reduction means less
+exposure, and less exposure to an asset compounding at 12% a year costs more
+than the timing saves. Ensembling four rules means all four must agree, which
+means being in the market less. Volatility targeting cuts exposure exactly when
+ADRO is moving, which is when it makes its money. The cross-sectional gate is
+the strictest filter of all and produces the worst result.
+
+This is the end of the search. Ranked by how much they were expected to help,
+against how much they did:
+
+| | full-sample growth | walk-forward excess |
+|---|---|---|
+| perfect foresight, 18 trades | **198,161x** | — |
+| best single rule | 30.2x | -3.6% |
+| ADRO buy & hold | 7.8x | 0 by definition |
+| ensemble + vol target + gate | 2.1x | -17.7% |
+
+**Nothing tested on this stock beat holding it out of sample.** The honest
+maximum for ADRO-specific capital is the buy-and-hold 7.8x, or roughly 16x from
+a single trend rule if you accept that its walk-forward record is a coin flip
+(1 fold of 5). The 145x - and the hundredfold the whole exercise was aimed at -
+lives in cross-sectional selection across the whole market, and nowhere else
+that twelve distinct approaches could find.
