@@ -1753,3 +1753,156 @@ thing in this repository validated in five out of five walk-forward folds:
 rotating cross-sectionally into whatever is strongest, always invested, never
 predicting a turning point. Timing a single name — even a violently cyclical one
 with a 198,000x hindsight ceiling — did not beat holding it.
+
+---
+
+# Part X — Solving for the perfect trades, and what killed the answer
+
+This part chased one question as far as the data allows: **can you buy the low
+and sell the peak?** The method was to stop guessing rules and instead solve for
+the optimal trades, look at what they looked like beforehand, and build from
+that. It ends with a large result being deleted, which is the most useful thing
+in it.
+
+## Result 40 — the optimal trades are at extremes, and they are held for a year
+
+Dynamic programming over ADRO's whole history, 18 round trips (one a year),
+returns **198,161x**. Reconstructing *which* trades those were and measuring the
+features at each one:
+
+| feature | at optimal BUYS | at optimal SELLS | separation |
+|---|---|---|---|
+| RSI(14) | 26.6 — **3rd percentile** | 66.3 — **90th percentile** | 86% |
+| z-score(60) | -2.04 — 5th pct | +2.14 — 92nd pct | **87%** |
+| drawdown from 1y high | **-49%** — 10th pct | -1% — 95th pct | 85% |
+| 12-month momentum | -37% | +36% | 61% |
+
+**The turning points are exactly where the folklore says they are.** Every large
+winner was bought at a deep drawdown and held **220 to 550 days**:
+
+| | bought | sold | gain | days |
+|---|---|---|---|---|
+| best | 2008-11 at 88 | 2010-04 at 430 | **+386%** | 514 |
+| 2nd | 2016-01 at 100 | 2017-04 at 459 | **+359%** | 440 |
+| 3rd | 2021-04 at 346 | 2022-06 at 1291 | **+273%** | 420 |
+
+This explains why every mean-reversion test in Part IX failed. Those rules
+exited at z=0 — **selling the first bounce**, three months into a move that ran
+for a year and a half. Re-testing with wide bands and long holds on ADRO gives
+**30.0x against 7.8x for buy-and-hold**, and the best rule captures 27.9% of the
+theoretical log-ceiling against buy-and-hold's 16.8%.
+
+So the shape of the answer is real: *enter deep, exit at a new high, hold through
+the middle*. The next section is what happened when it was tested properly.
+
+## Result 41 — the 195x was data corruption, and finding it is the point
+
+Applied across all 654 liquid IDX names from 2000 as a portfolio — buy anything
+more than 60% below its one-year high, sell when it makes a new high — the first
+run returned **195.0x (+22.1% CAGR)**, against an equal-weight universe that
+appeared to return 34,589,778x.
+
+**A 34-million-times benchmark is not a benchmark, it is a bug.** IDX enforces
+auto-rejection limits of roughly 20-35% a session, so no daily return can exceed
+that. Checking every daily return in the panel:
+
+| | |
+|---|---|
+| moves beyond +/-35% | 1,080 of 2,471,418 days (**0.044%**) |
+| of those, in illiquid names (<Rp1bn/day) | **91%** |
+| largest single-day "return" recorded | **KOPI, +10,915,284%**, on zero turnover |
+
+Capping daily returns at the physically possible +/-35% and applying the same
+liquidity filter to the benchmark:
+
+| | before the fix | after |
+|---|---|---|
+| deep-value rule | **195.0x** | **4.4x** |
+| equal-weight universe | 34,589,778x | 5.9x |
+| verdict | "3.9x better" | **loses by 1.1%/yr** |
+
+**The entire result was a few dozen corrupt prints compounding in a
+daily-rebalanced book.** Roughly one day in 2,300 was impossible, and that was
+enough to manufacture a 195x. This is the mechanism behind a very large share of
+spectacular backtest claims, and it does not require any dishonesty — just an
+uncapped `pct_change()` on an unfiltered universe.
+
+## Result 42 — the transactions, and why stops do not save it
+
+977 transactions, median hold 196 days:
+
+| | |
+|---|---|
+| win rate | 48% |
+| **median trade** | **-0.6%** |
+| mean trade | +12.1% |
+| trades losing more than half | 13% |
+| worst | SLIS -99% held 1,436 days; SULI -95% held **3,039 days** |
+
+The distribution is the whole story: 53% of trades lose money, and the 21% that
+gain more than 50% contribute +228 against a total of +118. **The median deep
+value trade is dead money.**
+
+Entries cluster in crises exactly as the design implies — 50 in 2008, 83 in
+2020, 71 in 2022 — which is the strategy working as intended, not a flaw.
+
+The obvious fix fails. Cutting the losers that sit for years makes it **worse**:
+
+| variant | growth | CAGR |
+|---|---|---|
+| plain: exit only at a new high | 4.4x | +5.81% |
+| + 500-day time stop | 2.8x | +3.99% |
+| + 250-day time stop | 0.4x | **-3.87%** |
+| + 30% stop-loss | 0.8x | -0.83% |
+
+Stops cut the positions that were going to recover. In a strategy whose entire
+return lives in the right tail, anything that truncates the tail destroys it —
+the same lesson as Part III's take-profit result, arriving from the other side.
+
+And survivorship sits on top of all of it: a stock 60% below its high either
+recovers or delists, and only the survivors are in the panel. Every figure above
+is an upper bound.
+
+## Result 43 — the cross-sectional book survives the same audit
+
+Having deleted one result for outlier contamination, the honest next step was to
+put the headline result through the identical test. Re-running the five-fold
+walk-forward with forward returns capped:
+
+| treatment | mean OOS | equal-weight | excess | folds positive |
+|---|---|---|---|---|
+| as reported | +31.7% | +5.3% | +26.4% | **5/5** |
+| capped at +300% | +31.7% | +5.3% | +26.4% | **5/5** |
+| capped at +100% | +27.6% | +4.5% | +23.2% | **5/5** |
+| **winsorised at the 99th percentile** | **+19.9%** | +3.2% | **+16.8%** | **4/5** |
+
+**It survives, and the honest number is a range rather than the headline.**
+Capping at +300% changes nothing at all. Capping at +100% — far below what a
+real 20-day move can be — still leaves +23.2% excess with five folds of five.
+Clipping the top 1% of every forward return, which is harsher than anything a
+real book would experience, drops it to +16.8% excess with four folds of five.
+
+So roughly **a third of the excess lives in the right tail**, and two thirds do
+not. That is worth stating plainly, because it changes what to expect: over
+eighteen years the book compounds to **145x at the reported rate and about 26x
+under the harshest winsorisation.** Both are far above owning the universe;
+neither is the same number, and quoting only the first would be the same
+mistake this part just caught elsewhere.
+
+The deep-value result did not survive this test. This one did, and now that has
+been checked rather than assumed.
+
+## What this part settles
+
+* **Buying the low and selling the peak is the right shape.** The optimal trades
+  really do sit at the 3rd and 90th percentiles of ordinary indicators, and the
+  winners are held for a year or more.
+* **Identifying those points in advance is the part that does not work.** Deep
+  drawdowns are common; deep drawdowns that recover to a new high are not, and
+  nothing tested separates them ex ante. Across all of IDX the rule returns 4.4x
+  against 5.9x for owning the universe.
+* **A spectacular backtest number is a bug until proven otherwise.** The
+  distance between 195x and 4.4x was one line capping returns at what the
+  exchange physically permits. The same audit applied to the cross-sectional
+  book left it standing at +16.8% to +26.4% excess depending on how hard the
+  tail is clipped — which is what a real result looks like when you attack it.
