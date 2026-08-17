@@ -2393,3 +2393,102 @@ edge if October 2008 is the only thing you are right about.
 
 This is the sixteenth distinct approach and the last. **The ceiling for ADRO
 timing stands at 38.1x.**
+
+---
+
+# Part XIII — What is verified to work, across the whole exchange
+
+## Result 58 — ADRO was special, and that matters
+
+The 38.1x achieved by timing ADRO (Part IX-XII) does **not** generalise. The
+same Donchian rule applied to all 55 blue chips with 1,500+ bars:
+
+| rule | median CAGR | median buy & hold | median excess | names beating B&H |
+|---|---|---|---|---|
+| donchian 20/100 | +11.1% | +12.5% | **-1.4%** | **40%** |
+| donchian 20/55 | +10.2% | +12.5% | -2.4% | 29% |
+| ma_cross 20/100 | +9.9% | +12.5% | -2.4% | 33% |
+| momentum 120d | +5.8% | +12.5% | -8.9% | 9% |
+
+**ADRO ranked 3rd of 55** on timing excess (+8.7%). TKIM (+11.6%) and TINS
+(+10.8%) were better; HMSP (-14.1%) and MAPI (-14.0%) were disasters. The
+correlation between a name's buy-and-hold return and its timing excess is
+-0.015 - essentially zero, meaning there is no way to know in advance which
+names timing will help.
+
+Optimising a timing rule on one stock and reporting the result is therefore
+close to meaningless. It was the right instinct to ask whether it generalised.
+
+## Result 59 — what does generalise: selection plus a trend overlay
+
+120 combinations of score weighting, horizon, concentration and a per-name trend
+filter, walk-forwarded with the combination **re-selected from scratch in every
+fold**:
+
+| fold | test to | chosen | in-sample | out-of-sample | equal-weight | excess |
+|---|---|---|---|---|---|---|
+| 1 | 2013-10 | rel_strength 20d top3, no filter | +21.0% | +25.1% | +9.4% | +15.7% |
+| 2 | 2016-12 | momentum 60d top5, up200 | +19.4% | **-8.9%** | +6.0% | **-14.9%** |
+| 3 | 2020-03 | shipped momentum 20d top5, up100 | +17.5% | +21.2% | -11.4% | +32.6% |
+| 4 | 2023-05 | shipped momentum 20d top3, up100 | +22.3% | +89.7% | +19.3% | +70.4% |
+| 5 | 2026-08 | shipped momentum 20d top3, up100 | +30.1% | +67.4% | +3.4% | +64.0% |
+
+| | re-selected each fold | **fixed default** |
+|---|---|---|
+| mean OOS CAGR | +38.90% | +20.79% |
+| **median OOS CAGR** | **+25.08%** | **+21.06%** |
+| worst fold | **-8.87%** | **+11.44%** |
+| folds beating equal-weight | 4 of 5 | **5 of 5** |
+
+**The fixed default wins the argument that matters.** `shipped momentum, 20-day,
+top 5, held only while above the 200-day average` beat equal-weight in **five
+folds out of five**, never had a losing fold, and its median (+21.1%) is close
+to its mean (+20.8%) - the signature of a result that is not one lucky window.
+
+Re-selecting each fold has a higher mean (+38.9%) and is worse advice: it
+produced the only negative fold in the study, and its mean is inflated by two
+outliers.
+
+## Result 60 — where the big folds actually came from
+
+Fold 4 returned +89.7%. Verified against raw prices - every forward return
+recomputes exactly, no period beyond +/-60%, no artifacts. It is real. But
+reading the 37 rebalances one by one:
+
+| | |
+|---|---|
+| total | 7.14x over 3.2 years |
+| mean rebalance | +6.60% |
+| **median rebalance** | **-1.17%** |
+| when it was earned | **2020-10 to 2021-07** |
+
+The entire 7.14x came from nine months. After July 2021 the median rebalance
+lost money for two straight years. And the picks in the winning stretch - DMMX,
+SAME, TFAS, YELO, ARTO, BBHI - are the 2021 Indonesian small-cap mania.
+
+**Momentum harvests bubbles. It does not manufacture returns in ordinary
+markets.** That is not a criticism of the method; it is a description of what
+the method is, and it should change what you expect from it between manias.
+
+## The verified answer
+
+**Best method verified to work across the exchange, not one stock:**
+
+```
+rank all liquid IDX names on the momentum composite within each date
+hold the top 5, equal-weight
+only while the name trades above its 200-day average
+rebalance every 20 days, no take-profit, always invested
+```
+
+| | |
+|---|---|
+| out-of-sample CAGR | **+20.8% mean, +21.1% median** |
+| equal-weight benchmark | +5.4% |
+| **excess** | **+15.4%** |
+| folds beating benchmark | **5 of 5** |
+| worst fold | +11.4% |
+
+Every absolute figure carries survivorship (Part XII measured IHSG at 10.9x
+against 295.2x for the same panel's blue chips). **The excess over equal-weight,
+which is measured inside the same biased panel, is the number that survives.**
