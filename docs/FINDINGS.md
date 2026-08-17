@@ -2034,3 +2034,54 @@ last door closing.
 turning points raise the theoretical ceiling and do nothing for the achievable
 result, because the difficulty was never the number of opportunities. It was
 always telling, in advance, which local minimum is *the* minimum.
+
+## Result 48 — how a "100x on ADRO" is manufactured
+
+Rather than only proving the number cannot be earned, this reverse-engineers
+where it comes from. Taking the best honest rule on ADRO (Donchian 20/100,
+next-bar fills, IDX costs, compounded = **30.2x**) and changing one methodology
+choice at a time:
+
+| methodology | result | inflation |
+|---|---|---|
+| **honest**: next-bar fill, costs, compounded | **30.2x** | 1.0x |
+| **same-bar fill** (signal and fill on one bar) | **230.9x** | **7.6x** |
+| no fees or slippage | 36.7x | 1.2x |
+| sum of all trade returns, not compounded | 7.6x | 0.3x |
+| sum of *winning* trades only | 9.2x | 0.3x |
+| 3x leverage | 17.7x | 0.6x |
+| 5x leverage | **0.0x** | wiped out |
+| cherry-picked start date | 30.2x | 1.0x |
+| **same-bar + no costs + 3x leverage** | **7,333x** | **243x** |
+
+**One line does it.** Filling at the close of the bar that generated the signal,
+instead of the next bar's open, takes 30.2x to 230.9x. It is the single most
+common error in backtesting, it requires no dishonesty, and on ADRO it alone
+lands squarely in the range being claimed.
+
+What does *not* explain it: summing trade returns instead of compounding
+actually makes the number *smaller* (7.6x), leverage beyond 3x wipes the account
+out entirely, and ADRO's own start date is already the best available so
+cherry-picking gains nothing.
+
+So there are exactly four ways to see a hundredfold on this stock: **same-bar
+execution, stacked leverage with no margin model, uncapped corrupt prints, or
+hindsight.** The first is by far the most likely, and it is testable in one
+question: *does the entry price equal a price that existed on the signal bar, or
+on the bar after it?*
+
+### The test to apply to any vendor claim
+
+1. **Ask for timestamped entries and exits.** Signal date and fill date must
+   differ. If they are the same bar, the number is a one-line artifact.
+2. **Ask what the fill price was.** A fill at the signal bar's close or, worse,
+   its low, is hindsight.
+3. **Ask for the equity curve, not a list of wins.** Summing winners is not a
+   return; on ADRO it is 9.2x against a compounded 30.2x.
+4. **Ask whether returns were capped.** 0.044% of IDX daily prints are
+   physically impossible and they compound into anything you like.
+5. **Ask for the benchmark over the identical window.** ADRO returned +31.6% a
+   year over 2019-2026; a strategy showing +30% there underperformed.
+
+Every one of those is a question about *methodology*, not about the market, and
+each can be answered in a sentence by anyone who actually ran the backtest.
