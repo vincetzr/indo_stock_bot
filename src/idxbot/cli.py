@@ -523,6 +523,99 @@ def cmd_macro(args) -> int:
     return 0
 
 
+def cmd_hullut(args) -> int:
+    """Hull Suite + UT Bot on one name, or scored across a universe.
+
+    Prints the current state and the trade history, always beside the
+    buy-and-hold it has to beat. A trend rule that made money while the stock
+    made more is not a strategy, it is an expensive way to own less of it.
+    """
+    from . import hullut as hu
+    from .data.cache import Cache
+    from .data.ohlcv import YahooOHLCV
+
+    engine = _engine(args)
+    loader = YahooOHLCV(engine.cfg, Cache(engine.cfg.path("data.cache_dir",
+                                                          "data/cache")))
+    params = hu.Params(hull_length=args.hull_length, hull_mode=args.hull_mode,
+                       ut_key=args.ut_key, ut_atr=args.ut_atr,
+                       entry=args.entry, exit=args.exit).validate()
+
+    if args.universe:
+        tickers = engine.cfg.universe(args.universe)
+        panel = {t: hu.prepare(d) for t, d in
+                 loader.get_many(tickers, max_age=86400, verbose=False).items()
+                 if len(d) >= 2500}
+        per_name = hu.run_universe(panel, params, start=args.start, end=args.end)
+        if per_name.empty:
+            print("No names with enough history.")
+            return 1
+        stats = hu.aggregate(per_name)
+        print(f"\n {params.label()}  —  {args.universe}, {len(per_name)} names")
+        print(f" {'':<10}{'strategy':>12}{'buy & hold':>13}{'excess':>10}")
+        print(f" {'median CAGR':<10}{stats['median_cagr']:>12.2%}"
+              f"{stats['median_buy_hold_cagr']:>13.2%}"
+              f"{stats['median_excess_cagr']:>10.2%}")
+        print(f"\n names beating buy-and-hold : {stats['beat_buy_hold']:.0%}")
+        print(f" median win rate            : {stats['median_win_rate']:.0%}")
+        print(f" median time in market      : {stats['median_time_in_market']:.0%}")
+        cols = ["ticker", "trades", "cagr", "buy_hold_cagr", "excess_cagr",
+                "win_rate", "max_drawdown"]
+        ranked = per_name.sort_values("excess_cagr", ascending=False)
+        print("\n best 5 by excess CAGR:")
+        print(ranked[cols].head(5).to_string(index=False))
+        print("\n worst 5:")
+        print(ranked[cols].tail(5).to_string(index=False))
+        if args.out:
+            per_name.to_csv(args.out, index=False)
+            print(f"\n -> {args.out}")
+        return 0
+
+    ticker = (args.ticker or "BBCA").upper()
+    bars = loader.get(ticker, max_age=3600)
+    if bars.empty:
+        print(f"No price history for {ticker}.")
+        return 1
+    prepared = hu.prepare(bars)
+    trades, curve = hu.simulate(prepared, params, ticker=ticker)
+    stats = hu.summarise(trades, curve, prepared)
+    sig = hu.signals(prepared, params)
+    last = sig.iloc[-1]
+
+    print(f"\n {ticker}  —  {params.label()}")
+    print(f" {len(prepared)} bars, {prepared['date'].iloc[0]:%Y-%m-%d} -> "
+          f"{prepared['date'].iloc[-1]:%Y-%m-%d}")
+    # `is True` fails on numpy.bool_, which silently rendered every band as
+    # "unknown". Test for missingness first, then coerce.
+    colour = ("unknown" if pd.isna(last["hull_green"])
+              else "green" if bool(last["hull_green"]) else "red")
+    side = ("above" if bool(last["close"] > last["ut_stop"]) else "below")
+    print(f"\n TODAY  hull band {colour}   price {side} the UT stop "
+          f"({last['ut_stop']:,.0f})")
+    print(f"        the rule says: {'HOLD/BUY' if colour == 'green' and side == 'above' else 'STAY OUT'}")
+
+    print(f"\n {'':<14}{'strategy':>12}{'buy & hold':>13}")
+    print(f" {'CAGR':<14}{stats['cagr']:>12.2%}{stats['buy_hold_cagr']:>13.2%}")
+    print(f" {'total return':<14}{stats['total_return']:>12.1%}"
+          f"{stats['buy_hold']:>13.1%}")
+    print(f" {'max drawdown':<14}{stats['max_drawdown']:>12.1%}")
+    print(f"\n trades {int(stats['trades'])}  win rate {stats['win_rate']:.0%}  "
+          f"PF {stats['profit_factor']:.2f}  avg hold {stats['avg_bars_held']:.0f} bars  "
+          f"in market {stats['time_in_market']:.0%}")
+    verdict = ("BEATS" if stats["excess_cagr"] > 0 else "LOSES TO")
+    print(f"\n Over this history the rule {verdict} buy-and-hold by "
+          f"{abs(stats['excess_cagr']):.2%}/yr.")
+
+    if trades and not args.quiet:
+        print("\n last 10 trades:")
+        print(f"   {'entry':<12}{'exit':<12}{'bars':>6}{'net':>9}")
+        for t in trades[-10:]:
+            out = t.exit_date.strftime("%Y-%m-%d") if t.exit_date else "OPEN"
+            print(f"   {t.entry_date:%Y-%m-%d}  {out:<12}{t.bars_held:>6}"
+                  f"{t.net_return:>9.2%}")
+    return 0
+
+
 def cmd_barrier(args) -> int:
     """What a target-and-stop trade actually returns, path by path."""
     from . import barrier as barrier_mod
@@ -1232,6 +1325,25 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--quiet", action="store_true")
     p.add_argument("--out", help="write macro features to this CSV")
     p.set_defaults(func=cmd_macro)
+
+    p = sub.add_parser("hullut",
+                       help="Hull Suite + UT Bot, scored against buy-and-hold")
+    p.add_argument("ticker", nargs="?", help="one IDX code, e.g. BBCA")
+    p.add_argument("--universe", help="score a whole universe instead of one name")
+    p.add_argument("--hull-length", type=int, default=55)
+    p.add_argument("--hull-mode", default="hma", choices=["hma", "ehma", "thma"])
+    p.add_argument("--ut-key", type=float, default=1.0)
+    p.add_argument("--ut-atr", type=int, default=10)
+    p.add_argument("--entry", default="confluence",
+                   choices=["confluence", "ut", "hull"])
+    p.add_argument("--exit", default="either", choices=["either", "ut", "hull"])
+    p.add_argument("--start")
+    p.add_argument("--end")
+    p.add_argument("--out", help="write the per-name table to this CSV")
+    p.add_argument("--providers", default="none")
+    p.add_argument("--profile")
+    p.add_argument("--quiet", action="store_true")
+    p.set_defaults(func=cmd_hullut)
 
     p = sub.add_parser("barrier",
                        help="target/stop exits: real hit rate and expectancy")

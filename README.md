@@ -27,6 +27,7 @@ PYTHONPATH=src python3 -m idxbot.cli dashboard --universe lq45
 | `momentum` profile predicts forward returns | ⚠️ **Holds, but most of the apparent edge was survivorship** — see below |
 | **How J.P. Morgan / UBS / CLSA actually trade** | ❌ **not verified — no real broker-summary data was obtainable** |
 | Fundamental ratios predict returns | ❌ **cannot be tested** — only a current snapshot exists, so any historical join is look-ahead. Used as a present-tense exclusion filter only |
+| Hull Suite + UT Bot beats buy-and-hold | ❌ **REFUTED on 413 IDX names over 25 years.** Loses by 9.3%/yr; 0 of 240 tuned configurations beat it even in-sample. It *does* cut catastrophic losers (+12.9%/yr in the 5% of names that collapse) and that is the only defensible use. See `docs/FINDINGS.md` Part VII |
 
 ### Two results on 55,699 real observations (66 tickers, 2001–2026)
 
@@ -316,6 +317,7 @@ signals and turned it slightly positive — on n=3, which is not evidence.
 
 | Command | What it does |
 |---|---|
+| `hullut` | Hull Suite + UT Bot on a name or a universe, always scored against buy-and-hold |
 | `verify` | Acceptance test: can this broker data support the analysis? Run it first |
 | `reverse` | Institutional plan: who leads, do they coordinate, when to join |
 | `daytrade` | Intraday momentum scan + timed entry/exit execution plan |

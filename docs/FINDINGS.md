@@ -1078,3 +1078,237 @@ work, not the end of it.
 idxbot analyze BBCA                  # real broker flow, no configuration
 python3 -m pytest tests/test_ipot.py # 49 tests, all offline against real captures
 ```
+
+---
+
+# Part VII — Hull Suite + UT Bot on IDX large caps
+
+The method as usually described: **buy when UT Bot prints a buy and the Hull
+band is green; sell when it prints a sell and the band turns red.** Both halves
+are ported faithfully from their published Pine sources rather than
+approximated, and each is also tested alone, because a combination that is not
+compared against its parts is untestable by construction.
+
+## How it was tested
+
+| | |
+|---|---|
+| Universe | 84 IDX names with 10+ years of history: LQ45, large caps, and conglomerate-controlled listings |
+| History | to 2000, median 5,472 bars per name |
+| Execution | signal read at the close of bar *t*, filled at the **open of bar t+1** |
+| Costs | 0.15% buy, 0.25% sell (the extra 0.1% is the sale tax), 0.10% slippage each way |
+| Auto-rejection | a bar locked limit-up cannot be bought, limit-down cannot be sold |
+| Dividends | accrue **only while the position is open** |
+| Benchmark | buy-and-hold **the same stock over the same window**, total return |
+
+The last two matter more than they look. A timing rule is out of the market
+most of the time and forgoes the dividends paid while it is out; on IDX blue
+chips at 3-6% yields, comparing a price-return strategy against a price-return
+benchmark would hide most of the gap. And the benchmark has to be the stock
+itself — beating IHSG while losing to ASII is a stock-picking result wearing a
+timing costume.
+
+Before any of it, the ports were checked against independent naive
+implementations (agreement to 1e-14) and, more importantly, **against
+truncation**: cut the series at bar *t*, recompute, and every value at or
+before *t* must be unchanged. That is the only test that can catch look-ahead,
+and this repo has shipped a look-ahead bug before (Part III). Wilder's RMA was
+confirmed to be exactly `EMA(2n-1)` asymptotically, which pins the ATR down as
+Wilder's rather than a simple mean — the most common way a Pine port silently
+drifts.
+
+## Result 22 — at published defaults it loses to owning the stock, everywhere
+
+Hull 55/HMA, UT key 1.0 / ATR 10. Nothing fitted.
+
+| variant | CAGR | buy & hold | excess | names beating B&H |
+|---|---|---|---|---|
+| UT Bot alone | -5.68% | +11.76% | **-16.44%** | 13% |
+| Hull alone | +6.93% | +11.76% | **-3.09%** | 36% |
+| **confluence (the method)** | **-1.02%** | +11.76% | **-10.25%** | **18%** |
+| confluence, Hull exit only | +4.31% | +11.76% | -5.70% | 27% |
+
+Blue chips and conglomerate-controlled names give the same answer (-11.37% and
+-10.25% excess). On blue chips **2 of 54 names** beat buy-and-hold.
+
+The confluence filter does help — adding the Hull green filter to a bare UT Bot
+recovers 6.2 points of excess (-16.44% to -10.25%) by blocking the worst
+entries. It just does not recover enough to reach zero, and the combination is
+**7.2 points worse than the Hull half used alone**. Both readings point the same
+way: the UT Bot is the component destroying the result, and bolting it onto the
+Hull filter subtracts value rather than confirming it.
+
+## Result 23 — it is not a cost problem
+
+| costs | CAGR | excess vs buy & hold |
+|---|---|---|
+| frictionless (impossible) | +2.65% | **-6.52%** |
+| fees only, no slippage | +0.20% | -9.10% |
+| realistic | -1.02% | -10.25% |
+| wide spread | -2.57% | -11.92% |
+
+Costs are worth about 3.7 points a year and are the difference between a small
+profit and a small loss. But **with zero costs it still loses to buy-and-hold
+by 6.5 points a year.** The rule is not a good rule being eaten by friction; it
+is a rule that is worse than not trading, made worse by friction.
+
+Per trade on ASII: gross +0.58%, net +0.18%, with 0.40% going to costs.
+Compounded over 25.8 years that is 2.24x gross and **0.96x net** — costs
+consume the entire edge and the strategy ends below where it started.
+
+## Result 24 — it worked once, in the era that suited it
+
+| era | Hull alone | buy & hold | excess | names beating B&H |
+|---|---|---|---|---|
+| 2001-2008 | +13.36% | +10.00% | **+4.25%** | **61%** |
+| 2009-2014 | +9.43% | +31.61% | -19.52% | 17% |
+| 2015-2020 | +0.39% | +0.94% | +0.44% | 51% |
+| 2021-2026 | -1.77% | +2.50% | -3.49% | 37% |
+
+The pattern is not random and it is not decay — it is a mechanical property of
+trend following. **The Hull filter adds value exactly when buy-and-hold returns
+are near zero and destroys value in strong bull markets.** 2001-2008 and
+2015-2020 are the two windows where sitting out cost nothing; 2009-2014, when
+IDX large caps compounded at 31.6%, is where a rule that is in the market half
+the time gave up two thirds of the move.
+
+That is a real and honest description of what the indicator does. It is a
+volatility-avoidance tool, not a return-generation tool, and Indonesian blue
+chips have spent most of the last 25 years rewarding exposure rather than
+timing.
+
+## Result 25 — strip out survivorship and the benchmark still wins
+
+Every cohort above is *today's* index membership, so buy-and-hold is measured
+only on the names that survived. Re-running on all 413 IDX names with 10+ years
+of history instead of the winners' list:
+
+| | curated 84 | broad 413 |
+|---|---|---|
+| buy-and-hold median CAGR | +11.76% | **+4.94%** |
+| confluence median CAGR | -1.02% | -2.77% |
+| excess | -10.25% | **-9.34%** |
+
+Survivorship was worth about 6.8 points a year to the benchmark — a large
+effect, and confirmation that the curated result was flattering buy-and-hold.
+**The strategy still loses by 9.3 points.**
+
+And here the picture finally turns, in the one place the method is supposed to
+earn its keep. Splitting the 413 names by what buy-and-hold actually did:
+
+| what buy-and-hold did | names | strategy | buy & hold | excess | beat B&H |
+|---|---|---|---|---|---|
+| **fell > 10%/yr** | **20** | **-1.53%** | **-13.92%** | **+12.94%** | **90%** |
+| fell 0-10%/yr | 97 | -6.62% | -3.85% | -2.41% | 41% |
+| gained 0-15%/yr | 226 | -2.78% | +6.31% | -10.18% | 12% |
+| gained > 15%/yr | 70 | +0.13% | +19.11% | **-19.30%** | **0%** |
+
+**The insurance works, and it is expensive.** In the 20 names that genuinely
+collapsed, the rule saved 12.9 points a year and beat buy-and-hold in 18 of
+them. That is not noise and it is exactly what a trailing stop is for. But
+those 20 names are **5% of the exchange**, you cannot know in advance which 5%,
+and the premium for that cover is 10 to 19 points a year on the other 95% —
+including **zero wins out of 70** among the stocks that compounded above 15%.
+
+A coarser bucketing of this table showed the falling cohort as a coin flip,
+which was wrong: merging a -13.9%/yr collapse with a -3.9%/yr drift hid the
+one thing the method does well. Worth stating plainly, because the corrected
+version is the strongest argument *for* the indicator anywhere in this study.
+
+### The conglomerate cohort makes the mechanism concrete
+
+**27% of conglomerate-controlled names beat buy-and-hold, against 4% of blue
+chips** — not because the rule works better on them, but because that cohort
+contains more value destroyers for it to protect against.
+
+| helped most | B&H CAGR | excess | | hurt most | B&H CAGR | excess |
+|---|---|---|---|---|---|---|
+| ACST (Astra) | **-18.8%** | +17.7% | | AMRT (Alfamart) | +23.9% | -30.4% |
+| ELTY (Bakrie) | **-6.4%** | +16.0% | | BBCA (Djarum) | +20.9% | -25.0% |
+| TKIM (Sinar Mas) | +11.5% | +11.7% | | MDKA (Merdeka) | +18.8% | -24.9% |
+| LPPF (Lippo) | **-13.7%** | +11.4% | | UNTR (Astra) | +21.3% | -24.0% |
+| INDY (Indika) | +1.8% | +10.0% | | MIDI (Alfamart) | +14.8% | -23.1% |
+
+Four of the five names it helped were falling; all five it hurt were
+compounding at 15-24% a year. The rule did not distinguish between a Bakrie
+property vehicle and BBCA — it simply cut both, which rescued one and ruined
+the other. **The indicator has no view on business quality, and on IDX that is
+the only variable that mattered.**
+
+## Result 26 — 240 configurations, none of them beat buy-and-hold
+
+A grid over hull length (21/34/55/89/144), hull mode (HMA/EHMA/THMA), UT key
+(0.5/1/2/3) and ATR period (5/10/14/21) — 240 configurations, scored **in
+sample over the whole 25 years**, which is the most generous test that can be
+constructed. It is hindsight with no holdout, and it still fails:
+
+| | median CAGR | buy & hold | excess |
+|---|---|---|---|
+| best of 240 (`ehma55, key 3.0, ATR 10`) | +3.99% | +11.76% | **-6.10%** |
+| worst of 240 (`hma144, key 0.5, ATR 14`) | -4.74% | +11.76% | -16.32% |
+
+**Configurations beating buy-and-hold at the median: 0 of 240.**
+
+The surface is not noise, and its shape is the most informative thing in this
+study. Every one of the top ten runs `ut_key = 3.0`, the widest stop tested.
+Every one of the bottom five runs `ut_key = 0.5`, the tightest. The gradient is
+monotone in one parameter: **the less the UT Bot is allowed to do, the better
+the system performs.** Extrapolating that gradient to its limit — a stop so
+wide it never fires — lands on Hull alone, at -3.09% excess, better than the
+best confluence configuration found anywhere in the grid.
+
+Marginalising the grid over each parameter separates a component that matters
+from one that does not:
+
+| UT key (stop width) | median excess | | ATR period | median excess |
+|---|---|---|---|---|
+| 0.5 (tightest) | **-14.61%** | | 5 | -10.55% |
+| 1.0 (published) | -10.99% | | 10 | -10.31% |
+| 2.0 | -8.53% | | 14 | -10.41% |
+| 3.0 (widest) | **-7.88%** | | 21 | -10.78% |
+
+| Hull length | median excess | | Hull mode | median excess |
+|---|---|---|---|---|
+| 21 | -12.38% | | EHMA | -9.96% |
+| **55 (published)** | **-9.25%** | | HMA | -10.66% |
+| 89 | -9.92% | | THMA | -11.36% |
+| 144 | -10.01% | | | |
+
+Three of the four parameters are flat — ATR period spans 0.5 points across its
+whole range, hull mode 1.4. **Only the stop width has a gradient, and it is
+monotone: every widening of the stop improves the result.** Meanwhile the
+published Hull length of 55 turns out to be the best of the five tested, so the
+Hull half was already well chosen by whoever picked it.
+
+So the optimiser, given complete hindsight over 240 configurations, spends its
+freedom doing one thing: trying to switch the UT Bot off. That is not a
+parameter that wants tuning. It is a component that wants removing. And the
+whole surface, from -16.32% to -6.10%, sits underwater — there is no spike to
+mistake for a discovery and no plateau to believe in.
+
+## What to do with this
+
+The rule is not broken and it is not a scam. It does what a trailing stop plus
+a slope filter does: it cuts catastrophic losses and it pays for that by
+missing compounding. On Indonesian large caps over 25 years, the second effect
+is several times larger than the first.
+
+**If you want to use it, the defensible uses are narrow:**
+
+* **As a risk overlay on a position you already hold**, not as a signal to
+  build one. The `fell > 10%/yr` row is the whole case for it.
+* **Hull alone, not the pair.** The UT Bot half subtracts value at every
+  horizon tested: it turns Hull's -3.09% excess into -10.25%. If you take one
+  thing from this study, take that the confluence is worse than half of it.
+* **Never on the compounders.** Zero of 70 names growing above 15%/yr were
+  improved by it.
+
+**What would change the conclusion:** a filter that identifies in advance which
+names are in the 5% that collapse. That is a different research problem, and
+nothing in this repo solves it.
+
+```bash
+idxbot hullut BBCA                          # one name, against its own buy-and-hold
+idxbot hullut --universe bluechip           # the cohort table
+python3 scripts/hullut_study.py baseline costs eras grid walk broad
+```

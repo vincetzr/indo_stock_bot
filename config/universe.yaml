@@ -117,6 +117,43 @@ universes:
     - SPRE, TNCA, LRNA, CSMI, GRPH, RUNS, FLMC, BRRC, KICI, PCAR
     - RICY, AEGS, WIDI, HADE, PLAN, BMBL, PRDL, EMMI
 
+  # Conglomerate-controlled listings, grouped by the family/group widely
+  # associated with control. Attribution is by public association and is used
+  # ONLY for grouping and reporting - nothing in any signal reads it, and a
+  # wrong label changes a row heading, never a number. Stakes change; re-check
+  # before drawing conclusions about a specific group.
+  conglomerate:
+    - INDF, ICBP, SIMP, LSIP, DNET, PANI          # Salim
+    - ASII, UNTR, AALI, AUTO, ASGR, ACST          # Astra / Jardine
+    - BRPT, TPIA, CUAN, BREN, PTRO                # Barito / Prajogo Pangestu
+    - INKP, TKIM, SMAR, DSSA, BSDE, DUTI, GEMS    # Sinar Mas / Widjaja
+    - BBCA, TOWR, SUPR                            # Djarum / Hartono
+    - LPKR, LPCK, LPPF, MPPA, SILO                # Lippo / Riady
+    - BUMI, BRMS, ENRG, DEWA, ELTY                # Bakrie
+    - ADRO, ADMR, AADI                            # Adaro / Thohir
+    - MDKA, MBMA                                  # Merdeka
+    - BMTR, MNCN, BHIT, MSIN                      # MNC / Hary Tanoe
+    - EMTK, SCMA, BUKA                            # Emtek / Sariaatmadja
+    - PNBN, PNLF, PNIN                            # Panin / Gunawan
+    - AMRT, MIDI                                  # Alfamart / Djoko Susanto
+    - GGRM, HMSP                                  # Gudang Garam, Sampoerna
+    - CTRA, PWON, SMRA                            # Ciputra, Pakuwon, Summarecon
+    - MYOR, SIDO, KLBF                            # Mayora, Sido Muncul, Kalbe
+    - MEDC, INDY, NCKL, AMMN                      # Medco, Indika, Harita, Amman
+
+  # The blue-chip cohort: LQ45 plus large caps that are not always in it.
+  bluechip:
+    - BBCA, BBRI, BMRI, BBNI, BBTN, BRIS, ARTO
+    - TLKM, ASII, UNTR, ASGR
+    - UNVR, ICBP, INDF, MYOR, GGRM, HMSP, SIDO, KLBF, AMRT
+    - PGAS, PGEO, ADRO, PTBA, ITMG, MEDC, HRUM
+    - ANTM, INCO, MDKA, TINS, AMMN, NCKL
+    - SMGR, INTP, CPIN, JPFA, AKRA, ESSA, BRPT, TPIA
+    - EXCL, ISAT, TOWR, MTEL, TBIG
+    - JSMR, MAPI, ACES, ERAA, MIKA, SIDO
+    - BSDE, CTRA, PWON, SMRA
+    - GOTO, BUKA, EMTK, SCMA, INKP, TKIM
+
 indices:
   composite: "^JKSE"    # IHSG / Jakarta Composite Index - daily data from 1990-04
   lq45_index: "^JKLQ45"
