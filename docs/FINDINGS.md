@@ -2786,3 +2786,150 @@ enormously, *if* the turns can be called. What the data says is:
 The open problem is not detecting that a stock is going up. That is nearly
 solved - 94%. The open problem is **acting at the turn instead of a month
 after it**, and nothing in this repository does that.
+
+# Part XVII — Acting at the turn
+
+Result 69 ended with an accusation rather than an answer: the moving average is
+right about direction 94% of the time and loses money because it acts a month
+after the turn, and *nothing in this repository does better*. This part builds
+the rule that acts at the turn and finds out.
+
+The instrument is the **causal reversal filter** - a state machine that sells
+when the close falls a set distance below its high since entry, and buys when it
+rises a set distance above its low since exit. It is the causal twin of the
+zigzag in Result 68: the zigzag marks a turn with hindsight, this marks it once
+the market has moved far enough to prove it. Its lag is **bounded by its own
+threshold**, which is the property a moving average does not have - an MA's lag
+depends on the window and on the path, and can be arbitrarily long.
+
+`scripts/turn_trader.py`, `scripts/turn_book.py`, `tests/test_turn_trader.py`.
+The look-ahead test that matters is truncation: removing the future must not
+change any past state, asserted at three cut points.
+
+## Result 70 — capture is fixed, and it is still not enough
+
+On ADRO weekly, the same series the annotated chart was drawn on:
+
+| threshold | growth | CAGR | vs B&H | trades | up captured | dn absorbed | flips |
+|---|---|---|---|---|---|---|---|
+| 6% | 0.5x | -3.6% | -16.0% | 173 | 25% | -21.1% | 173 |
+| 10% | 5.3x | +9.7% | -2.6% | 103 | 37% | -16.6% | 103 |
+| 15% | 13.2x | +15.4% | +3.0% | 55 | 55% | -19.3% | 55 |
+| 20% | 15.3x | +16.3% | +4.0% | 31 | 61% | -20.8% | 31 |
+| **25%** | **27.3x** | **+20.1%** | **+7.7%** | **19** | **69%** | -21.8% | 19 |
+| 30% | 15.5x | +16.4% | +4.0% | 17 | 67% | -21.6% | 17 |
+| buy & hold | 8.2x | +12.3% | — | 1 | 100% | -100% | 0 |
+
+Compare the capture column to Result 69's moving average: **31% → 69%**, and
+569 flips → 19 trades. The diagnosis was right and the fix works. On ADRO the
+filter turns 8.2x into 27.3x.
+
+**Then it dies out of sample.** Choosing the threshold pair on 50 names before
+2013 and applying it untouched to 86 names after:
+
+| | |
+|---|---|
+| chosen in sample (buy 20% off the low, sell 30% off the high) | **+2.76%/yr** median excess |
+| the same pair, out of sample | **-1.92%/yr** median excess |
+| names where it beat holding, out of sample | **35% of 86** |
+| the *best* pair out of sample, chosen with hindsight | **-0.12%/yr** |
+
+The last line is the one that settles it. Not "the tuning did not transfer" -
+**no threshold pair beat buy-and-hold out of sample, including the one picked
+with full knowledge of the answer.** There was nothing to transfer.
+
+And it fails in the place it was supposed to earn its keep:
+
+| out-of-sample group | n | median B&H | median filtered | median excess | % beat |
+|---|---|---|---|---|---|
+| stock rose | 50 | +8.7% | +8.0% | **-2.84%** | 28% |
+| **stock fell** | 36 | -4.6% | **-8.0%** | **-0.63%** | 44% |
+
+A rule whose entire purpose is to be out of the down legs made the names that
+fell *worse*. Sitting out costs the rebound, and the rebound arrives before the
+20% re-entry trigger does.
+
+The arithmetic of why is visible in the ADRO table. A 25% filter on a -37%
+average down leg exits at 0.75 of the peak and re-enters at 1.25 of the trough
+= 0.78 of the peak. You avoid a 37% fall to buy back 3% lower. The down leg has
+to be much deeper than the round trip is wide before avoidance pays, and on IDX
+most are not.
+
+## Result 71 — the same rule works, as a gate, on a book
+
+The single-name test asks the filter to do two jobs: find the up leg and hold
+it. Inside a portfolio it only has to do the second - momentum ranking finds the
+names. So the whole Part XV book was re-run with nothing changed but the gate.
+
+Out of sample, five expanding walk-forward folds, every gate on every window:
+
+| gate | 2009-04 | 2012-09 | 2016-03 | 2019-07 | 2023-01 | mean | worst | beats ungated |
+|---|---|---|---|---|---|---|---|---|
+| none | +38.7% | +3.8% | +60.9% | +30.8% | -12.3% | +24.4% | -12.3% | — |
+| **ma20** | +31.5% | +9.2% | +62.3% | **+70.0%** | +14.3% | **+37.5%** | **+9.2%** | **4/5** |
+| rev 15%/15% | +39.1% | +4.2% | +52.9% | +55.4% | +20.1% | +34.3% | +4.2% | 4/5 |
+| rev 12%/12% | +37.5% | +4.1% | +56.5% | +58.0% | +16.4% | +34.5% | +4.1% | 3/5 |
+| rev 20%/12% | +35.5% | +3.0% | +55.3% | +50.7% | +20.3% | +33.0% | +3.0% | 2/5 |
+| ma200 | +34.7% | +2.5% | +48.0% | +37.4% | -10.2% | +22.5% | -10.2% | 2/5 |
+
+Mean out-of-sample drawdown: ungated **-47%**, ma20 **-28%**, rev 15/15 -38%,
+ma200 -45%. The ma20 gate is better in **5 folds of 5** on drawdown.
+
+**The moving average - the rule that loses 5.5% a year on its own - is the best
+gate available.** That is the reconciliation Result 69 was missing. Capture
+fraction governs a rule that has to *choose what to own*. A gate never chooses:
+momentum hands it eight names and it only decides when to stop holding each one.
+Entering 40% late costs nothing when something else did the entering.
+
+The bounded-lag filter is a close second and needs a threshold; the moving
+average needs none. There is no case for swapping.
+
+## Result 72 — the Part XIII/XV contradiction, resolved
+
+Part XIII found the trend filter improved walk-forward folds; Part XIV found it
+turned 359.8x into 110.4x on the full path. Both were correctly measured and
+they disagreed, and it was left standing as a contradiction.
+
+It is not one. The walk-forward begins at the 35% mark, April 2009. Run the
+segment it never tests:
+
+| 2000-03 to 2009-04 | CAGR | growth | maxDD |
+|---|---|---|---|
+| ungated | **+41.4%** | **22.8x** | -55% |
+| ma20 | +24.6% | 7.3x | -39% |
+| rev 15%/15% | +28.0% | 9.3x | -59% |
+
+**The ungated book's entire full-path advantage is earned before 2009 and
+nowhere else.** Over the whole record the two are a coin flip (1,296x vs
+1,231x); across the five tested windows since 2009 the gate wins four and cuts
+drawdown in all five.
+
+Which side of 2009 deserves the weight is not a close call. The pre-2009 slice
+is the most survivorship-contaminated data here - it is the set of names that
+existed in 2000 *and* still trade today, and the ones that went to zero in
+between are simply absent. A +41% ungated CAGR measured on survivors is not a
+finding, it is a selection effect. **The gate stays.**
+
+One more thing worth recording, because it nearly went the other way. An in-fold
+selector scoring gates by training-window CAGR-per-ulcer chose `none` in all
+five folds and delivered +24.4% against ma20's +37.5%. Had the walk-forward been
+reported the usual way - "the selector chose X, X returned Y" - this part would
+have concluded that gating does not help. Printing every gate on every window is
+what made the answer visible.
+
+## Where this leaves the question the chart asked
+
+The chart asked for a trader who sells the circled highs and buys the circled
+lows on a weekly chart. Result 68 priced that at **+45.4% a year** if the turns
+are called 80% right, with break-even against holding at about 62%.
+
+This part tried to build it and got a clean negative: a bounded-lag turn rule on
+a single name **cannot** be tuned into an edge on IDX - not badly, not
+marginally, but with the best hindsight-chosen setting still at -0.12%/yr. Turn
+timing on one stock is not where the money is.
+
+Where it is: the same mechanism applied across the exchange, deciding *which*
+eight names to own rather than *when* to own one. That book's five out-of-sample
+windows average **+37.5%** with a -28% mean drawdown. It is not the +45.4% the
+chart implies, and it does not get there by calling turns - it gets there by
+never holding anything that is not already working.
