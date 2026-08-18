@@ -3685,3 +3685,105 @@ re-evaluating constantly means buying every dip back and selling every wobble.
 of names and it is the wrong thing to maximise. The number that had to clear 62%
 was accuracy *at full capture* - one decision per leg, held from turn to turn -
 and no causal rule tested over eight parts of this work gets near it.
+
+# Part XXV — Anatomy of the gap
+
+Six methods have failed to close the distance between what a causal rule earns
+(27.3x on ADRO) and what the circles are worth (33,339x). Before a seventh,
+`scripts/gap_anatomy.py` measures where the distance actually goes, so the next
+attempt aims at the part that can move.
+
+## Result 92 — the gap is 126x arithmetic and 9.7x skill
+
+A causal rule confirms a turn by waiting for price to move against the old
+direction, so its band must be wider than the pullbacks that happen *inside* a
+leg. Otherwise it exits on the pullback and re-enters higher. Measured on ADRO's
+32 legs:
+
+| | worst move against the leg, before it ended |
+|---|---|
+| 25% of legs | at least 3.6% |
+| **50% of legs** | **at least 11.1%** |
+| 75% of legs | at least 15.8% |
+| 90% of legs | at least 18.5% |
+
+A band of `b` gives up roughly `b` at entry and `b` at exit, so the best any
+causal band could possibly do - perfect turn identification, still late by the
+band - collapses as the band widens:
+
+| band | best possible | CAGR | cost per leg |
+|---|---|---|---|
+| 5% | 6,722x | +62.8% | 10% |
+| **10%** | **1,344x** | **+49.0%** | 20% |
+| **15%** | **264x** | **+36.2%** | 30% |
+| 20% | 50.8x | +24.3% | 40% |
+| **25%** | **9.4x** | **+13.2%** | 50% |
+| 30% | 1.7x | +2.9% | 60% |
+
+Splitting the 1,219x total gap:
+
+* **126x is structural** - the price of waiting for confirmation wide enough to
+  survive the pullbacks the legs actually contain. No rule beats this while it
+  confirms with price.
+* **9.7x is execution** - imperfect turn identification, the part a better
+  signal could still win.
+
+**The important number is not either of those. It is that the median pullback is
+11% while the best rule built uses a 25% band** - more than twice as wide as the
+noise requires. The band is that wide only because narrow ones whipsaw in
+practice. Fixing that whipsaw is worth the difference between 9.4x and 264x.
+
+## Result 93 — 71% of exits are false, and nothing tested changes that
+
+`scripts/shakeout.py` runs a 15% band on 49 blue chips and vetoes its exits five
+different ways. A false exit is defined operationally: the price was more than 5%
+higher within 13 weeks of selling.
+
+| veto | false exits | exits | median excess | beats hold |
+|---|---|---|---|---|
+| market still up | **71%** | 21 | +0.47% | 53% |
+| trend (above 30w) | 70% | 25 | -0.81% | 47% |
+| none | 71% | 27 | -0.99% | 41% |
+| trend AND market | 70% | 26 | -1.26% | 47% |
+| age (hold 13 weeks) | 71% | 25 | -1.99% | 41% |
+| quiet pullback | 75% | 19 | -3.04% | 22% |
+
+**The false-exit rate is 70-75% regardless of the veto.** Not one of them moves
+it. Whatever distinguishes a shakeout from a real turn is not in the price, not
+in the volume, not in the stock's own trend, and not in the market's trend -
+because all four were asked and all four gave the same answer.
+
+## Result 94 — and the one that looked promising was period-specific
+
+"Market still up" produced the first positive median excess for single-name
+timing in this project: **+0.47%/yr**, beating buy-and-hold on 53% of names. It
+was also chosen as the best of six on the full sample, which is the selection
+error Results 75 and 79 both documented. Split by time:
+
+| veto | before 2013 | from 2013 |
+|---|---|---|
+| none | -2.48% | -2.83% |
+| **market still up** | **-2.00%** | **+0.26%** |
+| trend (above 30w) | -0.80% | -0.03% |
+| trend AND market | -1.70% | -0.89% |
+
+It is negative in the half it was not selected from. The +0.47% was the
+post-2013 half showing through a full-sample average. **The veto does not
+survive.**
+
+## What this leaves, stated precisely
+
+The remaining target is no longer vague. It is:
+
+> Reduce the 71% false-exit rate on a 15% band, using information that is not
+> price, volume, the stock's trend, or the market's trend.
+
+Everything on that exclusion list has now been tested and returned the same 70%.
+The candidates that remain outside it are order-flow data - who is accumulating
+into the pullback and who is distributing - which is the original premise of this
+repository and for which 92 days of history exist, for one name.
+
+That is a data boundary, not a method boundary, and it is worth stating exactly:
+if the false-exit rate could be cut from 71% to 30%, the 15% band's ceiling of
+264x becomes reachable rather than theoretical, and the answer to the annotated
+chart changes from "no" to "most of the way".
