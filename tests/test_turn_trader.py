@@ -31,7 +31,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir, "scripts")
 
 from swing_accuracy import zigzag, legs                                # noqa: E402
 from turn_trader import (capture, clean_weekly, reversal_state, run,    # noqa: E402
-                         score, DAILY_CAP)
+                         score, vol_reversal_state, DAILY_CAP)
 
 
 # --------------------------------------------------------------------------- #
@@ -260,3 +260,44 @@ def test_filter_scores_a_real_series_without_error():
     assert c["legs"] == len(lg)
     assert 0.0 < c["direction_acc"] <= 1.0
     assert np.isfinite(c["up_fraction"])
+
+
+# --------------------------------------------------------------------------- #
+# volatility-scaled thresholds
+# --------------------------------------------------------------------------- #
+def test_vol_filter_is_flat_before_it_can_measure_volatility():
+    """No sigma, no trade. Guessing during warmup would be a free parameter."""
+    px = 1000.0 * np.cumprod(np.full(60, 1.02))
+    st = vol_reversal_state(px, 2.0, 2.0, window=52)
+    assert st[:52].sum() == 0
+
+
+@pytest.mark.parametrize("cut", [80, 150, 260])
+def test_vol_filter_has_no_look_ahead(cut):
+    """The sigma used at bar i must come from returns strictly before it."""
+    rng = np.random.default_rng(23)
+    px = 1000.0 * np.cumprod(1.0 + rng.normal(0.001, 0.03, 300))
+    full = vol_reversal_state(px, 2.0, 3.0, window=52)
+    part = vol_reversal_state(px[:cut], 2.0, 3.0, window=52)
+    assert np.array_equal(full[:cut], part)
+
+
+def test_vol_thresholds_are_clamped():
+    """A dead name must not produce a threshold so small it trades every bar."""
+    # 52 weeks of nearly zero movement, then a small wiggle
+    px = np.concatenate([1000.0 + np.arange(60) * 1e-9,
+                         np.array([1000.0, 1000.5, 1000.0, 1000.5] * 10)])
+    st = vol_reversal_state(px, 2.0, 2.0, window=52)
+    # the clamp floor is 3%, and nothing here moves 3%, so it never buys
+    assert st.sum() == 0
+
+
+def test_vol_filter_scales_with_volatility():
+    """The same k must produce a wider band on a wilder series."""
+    rng = np.random.default_rng(31)
+    quiet = 1000.0 * np.cumprod(1.0 + rng.normal(0.0, 0.01, 400))
+    wild = 1000.0 * np.cumprod(1.0 + rng.normal(0.0, 0.06, 400))
+    q = int(np.abs(np.diff(vol_reversal_state(quiet, 2.0, 2.0))).sum())
+    w = int(np.abs(np.diff(vol_reversal_state(wild, 2.0, 2.0))).sum())
+    # a wider band on the wild series means it does NOT flip proportionally more
+    assert w <= q * 3

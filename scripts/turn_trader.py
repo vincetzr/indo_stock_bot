@@ -160,6 +160,56 @@ def reversal_state(prices: np.ndarray, entry_thr: float, exit_thr: float,
     return state
 
 
+def vol_reversal_state(prices: np.ndarray, k_entry: float, k_exit: float,
+                       window: int = 52) -> np.ndarray:
+    """Reversal filter whose thresholds are multiples of the name's own volatility.
+
+    The fixed-percentage filter failed out of sample, and the obvious suspect is
+    the parameter itself: 25% is an enormous move for BBCA and a quiet week for a
+    coal name, and ADRO's own weekly volatility in 2008 is nothing like its 2016.
+    A threshold expressed in sigmas has no scale to mis-transfer, which is the one
+    structural reason a percentage grid could have failed for reasons that are
+    fixable rather than fundamental.
+
+    Sigma is the trailing standard deviation of weekly log returns over
+    ``window`` bars, known at the bar it is used on. Before there are enough bars
+    to measure it the filter stays flat rather than guessing.
+    """
+    n = len(prices)
+    lr = np.zeros(n)
+    lr[1:] = np.log(prices[1:] / prices[:-1])
+    sig = pd.Series(lr).rolling(window, min_periods=window).std().shift(1).to_numpy()
+
+    state = np.zeros(n, dtype=np.int8)
+    long = False
+    extreme = prices[0]
+    for i in range(n):
+        p = prices[i]
+        s = sig[i]
+        if not np.isfinite(s) or s <= 0:
+            extreme = min(extreme, p) if not long else max(extreme, p)
+            state[i] = 1 if long else 0
+            continue
+        # k weekly sigmas, clamped so a dead or a berserk name cannot produce a
+        # threshold that is either never crossed or crossed every bar
+        entry_thr = float(np.clip(k_entry * s, 0.03, 0.60))
+        exit_thr = float(np.clip(k_exit * s, 0.03, 0.60))
+        if long:
+            if p > extreme:
+                extreme = p
+            elif 1.0 - p / extreme >= exit_thr:
+                long = False
+                extreme = p
+        else:
+            if p < extreme:
+                extreme = p
+            elif p / extreme - 1.0 >= entry_thr:
+                long = True
+                extreme = p
+        state[i] = 1 if long else 0
+    return state
+
+
 def run(prices: np.ndarray, state: np.ndarray, cost: float = ROUND_TRIP
         ) -> Tuple[np.ndarray, int]:
     """Equity from holding ``state`` with a one-bar delay. Returns curve + trades.
@@ -248,6 +298,7 @@ def score(prices: np.ndarray, index: pd.DatetimeIndex, entry_thr: float,
 # reports
 # --------------------------------------------------------------------------- #
 GRID = (0.06, 0.08, 0.10, 0.12, 0.15, 0.20, 0.25, 0.30)
+VOL_GRID = (1.0, 1.5, 2.0, 3.0, 4.0, 6.0)       # thresholds in weekly sigmas
 
 
 def single(ticker: str, w: pd.Series, threshold: float) -> pd.DataFrame:
@@ -308,6 +359,28 @@ def universe(weeks: Dict[str, pd.Series], split: str, threshold: float) -> pd.Da
     tr = {t: s for t, s in tr.items() if len(s) >= MIN_WEEKS}
     te = {t: s for t, s in te.items() if len(s) >= MIN_WEEKS}
     print(f"\n train: {len(tr)} names before {split};  test: {len(te)} names after")
+
+    def sweep_vol(book: Dict[str, pd.Series], label: str) -> pd.DataFrame:
+        """Same walk, thresholds in sigmas instead of percent."""
+        rows = []
+        for ke in VOL_GRID:
+            for kx in VOL_GRID:
+                ex, beat = [], []
+                for s in book.values():
+                    px = s.to_numpy(float)
+                    st = vol_reversal_state(px, ke, kx)
+                    eq, _ = run(px, st)
+                    yrs = (s.index[-1] - s.index[0]).days / 365.25
+                    if yrs <= 0:
+                        continue
+                    c = float(eq[-1]) ** (1 / yrs) - 1
+                    b = (px[-1] / px[0]) ** (1 / yrs) - 1
+                    ex.append(c - b)
+                    beat.append(c > b)
+                rows.append({"slice": label, "k_entry": ke, "k_exit": kx,
+                             "median_excess": float(np.median(ex)),
+                             "pct_beat": float(np.mean(beat)), "n": len(ex)})
+        return pd.DataFrame(rows)
 
     def sweep(book: Dict[str, pd.Series], label: str) -> pd.DataFrame:
         # The hindsight legs depend only on the price series, so they are built
@@ -398,6 +471,26 @@ def universe(weeks: Dict[str, pd.Series], split: str, threshold: float) -> pd.Da
         print(f"   {r['ticker']:<8}{r['excess']:>+8.1%}/yr   "
               f"(B&H {r['bh_cagr']:+.1%} -> {r['cagr']:+.1%})")
     D.to_csv("reports/turn_trader_oos_names.csv", index=False)
+
+    # --- does expressing the threshold in sigmas rescue it? --- #
+    VT, VS = sweep_vol(tr, "train"), sweep_vol(te, "test")
+    vbest = VT.sort_values("median_excess", ascending=False).iloc[0]
+    vchosen = VS[(VS["k_entry"] == vbest["k_entry"])
+                 & (VS["k_exit"] == vbest["k_exit"])].iloc[0]
+    vtop = VS.sort_values("median_excess", ascending=False).iloc[0]
+    print(f"\n{'-' * 96}\n VOLATILITY-SCALED THRESHOLDS — the same walk, in sigmas"
+          f"\n{'-' * 96}")
+    print(f" {'':30}{'buy':>6}{'sell':>7}{'median excess':>16}{'% beating B&H':>16}")
+    print(f" {'best in sample':<30}{vbest['k_entry']:>5.1f}s{vbest['k_exit']:>6.1f}s"
+          f"{vbest['median_excess']:>+16.2%}{vbest['pct_beat']:>16.0%}")
+    print(f" {'  applied out of sample':<30}{vchosen['k_entry']:>5.1f}s"
+          f"{vchosen['k_exit']:>6.1f}s{vchosen['median_excess']:>+16.2%}"
+          f"{vchosen['pct_beat']:>16.0%}")
+    print(f" {'best out of sample (ceiling)':<30}{vtop['k_entry']:>5.1f}s"
+          f"{vtop['k_exit']:>6.1f}s{vtop['median_excess']:>+16.2%}"
+          f"{vtop['pct_beat']:>16.0%}")
+    pd.concat([VT, VS], ignore_index=True).to_csv(
+        "reports/turn_trader_vol.csv", index=False)
 
     out = pd.concat([T, S], ignore_index=True)
     out.to_csv("reports/turn_trader_universe.csv", index=False)
