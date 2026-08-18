@@ -3787,3 +3787,91 @@ That is a data boundary, not a method boundary, and it is worth stating exactly:
 if the false-exit rate could be cut from 71% to 30%, the 15% band's ceiling of
 264x becomes reachable rather than theoretical, and the answer to the annotated
 chart changes from "no" to "most of the way".
+
+# Part XXVI — Order flow, tested properly, and the end of the list
+
+Result 93 left one candidate. Price, volume, the stock's own trend and the
+market's trend all leave the false-exit rate at 70-75%, so whatever separates a
+shakeout from a real turn had to be something else - and order flow was both the
+obvious candidate and the premise this repository was built on.
+
+## Result 95 — the broker-summary history is reachable after all
+
+Every previous statement in this project that broker flow "has no history" was
+based on the 92 cached daily files. That was wrong about the source, not just
+about the cache. IndoPremier's module takes `start` and `end` and **returns the
+whole window aggregated in one request**, with history back to at least 2010
+(tested 2010-03 and 2012-05, both populated).
+
+That changes the cost of the experiment by a factor of 36. The 1,728 pullback
+windows across 49 blue chips need **63,830** requests day-by-day and **1,728** by
+range - one per research event, 1.3s apart, cached permanently. Range queries
+abbreviate their totals, which costs nothing here because every feature computed
+is a ratio, and `idxbot.data.ipot` already records that directional metrics
+survive that rounding.
+
+A flaw caught in the smoke test would have invalidated the whole thing: building
+broker classes from one live page classifies 11 codes, because a page shows only
+the top 10 of each side. Using the repository's 66-broker registry instead gives
+**100% classified, zero disagreements** with the live flags.
+
+## Result 96 — a pilot signal that did not survive its own replication
+
+**Pilot, 300 events.** Six features against two outcome labels:
+
+| feature | difference | Cohen d | t | p |
+|---|---|---|---|---|
+| **foreign_net** (bounced) | **+0.0206** | **0.257** | **+2.00** | **0.047** |
+| bumn_net (bounced) | -0.0133 | -0.233 | -1.60 | 0.112 |
+| foreign_net (recovered) | +0.0044 | 0.054 | +0.40 | 0.690 |
+| all others | — | <0.17 | — | >0.18 |
+
+Foreign money net buying into the pullback, on pullbacks that bounced - the
+direction bandarmology predicts. And 12 tests were run, so the Bonferroni
+threshold is 0.05/12 = 0.0042. It was a candidate, not a result.
+
+**Replication, pre-registered and committed before the outcome was known.** One
+hypothesis, one feature, one-sided, alpha 0.05, on 600 events the pilot never
+touched, powered to d = 0.23:
+
+| | n | mean foreign_net |
+|---|---|---|
+| bounced | 439 | -0.0302 |
+| did not | 161 | -0.0304 |
+| **difference** | | **+0.0002** |
+
+**Cohen d = 0.002. One-sided p = 0.4894.**
+
+Not a smaller effect than the pilot's - **no effect at all**, to three decimal
+places, on an adequately powered sample. The pilot's p = 0.047 was the one test
+in twenty that comes up positive by construction, and the pre-registered check
+is what caught it.
+
+## Where this leaves the chase
+
+The exclusion list is now complete for everything this data can express:
+
+| information | false-exit rate it explains |
+|---|---|
+| price band alone | 71% |
+| the stock's own trend | 70% |
+| market trend | 71% |
+| position age | 71% |
+| volume on the pullback | 75% |
+| **foreign order flow** | **no effect, d = 0.002** |
+
+Six sources, one answer. **Whether a 15% pullback recovers or continues down is
+not predictable from anything measurable in this dataset**, and that is why the
+band has to be 25% wide, and why the ceiling is 9.4x instead of 264x.
+
+That is a statement about IDX daily/weekly data and top-10 broker aggregates. It
+is not a proof of impossibility - order flow at the *tick* level, options
+positioning, or the full member-by-member tape rather than the top ten might
+carry it. None of those are reachable from here, and the honest position is that
+the gap between 27x and 844x remains open with no candidate left that this
+project can test.
+
+**What is delivered instead is the thing that did survive every test**: the
+blue-chip book at +13.5% with a -28% drawdown against -54%, better on every
+column than holding it always-on, because the cash it holds while waiting earns
+more than the timing costs.
