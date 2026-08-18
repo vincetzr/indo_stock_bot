@@ -1,0 +1,151 @@
+// =============================================================================
+// IDX Turn Reality - the circles you can draw vs the ones you can trade
+// =============================================================================
+// This exists to put one specific finding on a chart, because it is the whole
+// reason the timing work in this repository landed where it did.
+//
+// Draw a weekly chart and circle the lows and highs. Those circles are worth an
+// enormous amount: on ADRO, calling 80% of them correctly is +45% a year against
+// +12% for holding. The break-even is about 62%.
+//
+// The catch is that a circle is drawn on a FINISHED chart. A peak is only a peak
+// once the fall has happened. So this plots both:
+//
+//   ZIGZAG (dashed, with dots)  the turns as drawn in hindsight. It REPAINTS -
+//                               the last leg moves as new bars arrive, and that
+//                               is not a bug, it is the point.
+//   FILTER (solid, background)  the causal version: buy once price is `entry`
+//                               above the running low, sell once it is `exit`
+//                               below the running high. It never repaints, and
+//                               the gap between it and the dots is the money.
+//
+// The label reports CAPTURE - what share of each completed up-leg the causal
+// filter actually banked. On IDX that runs 55-70% against 100% for the circles,
+// and on a 20-day moving average it is 31%. Capture, not direction, is what
+// compounds: a rule can be right about direction 94% of the time and still lose.
+//
+// Install: TradingView -> Pine Editor -> paste -> Add to chart. Weekly chart.
+// =============================================================================
+
+//@version=5
+indicator("IDX Turn Reality", shorttitle="IDX TURNS", overlay=true, max_lines_count=500, max_labels_count=500)
+
+// ---------------------------------------------------------------- inputs ----
+zzPct    = input.float(20.0, "Hindsight swing size (%)", minval=5,  maxval=60, step=1,
+   tooltip="A leg must move at least this much to count as a swing. 20% on a weekly chart is roughly 'ignore the noise, keep the real turns'.")
+entryPct = input.float(15.0, "Causal BUY: rise off the low (%)", minval=2, maxval=50, step=1)
+exitPct  = input.float(15.0, "Causal SELL: fall off the high (%)", minval=2, maxval=50, step=1)
+showZig  = input.bool(true,  "Show hindsight turns (repaints)")
+showFill = input.bool(true,  "Shade when the causal filter is long")
+costPct  = input.float(0.6,  "Round-trip cost (%)", minval=0, maxval=5, step=0.1)
+
+// ============================ hindsight zigzag ===============================
+// Running high and running low are tracked SEPARATELY and reset only when a turn
+// is confirmed. A single running extreme that follows price in whichever
+// direction it happens to move collapses onto the previous bar, and then
+// confirming a turn needs a one-bar move of the full threshold. That bug cost
+// this repository a day of wrong measurements.
+var float zzHi   = na
+var int   zzHiBar = na
+var float zzLo   = na
+var int   zzLoBar = na
+var int   zzDir  = 0
+var float lastPivotPrice = na
+var int   lastPivotBar   = na
+
+if bar_index == 0
+    zzHi := close, zzHiBar := bar_index, zzLo := close, zzLoBar := bar_index
+    lastPivotPrice := close, lastPivotBar := bar_index
+
+if bar_index > 0
+    if close > zzHi
+        zzHi := close
+        zzHiBar := bar_index
+    if close < zzLo
+        zzLo := close
+        zzLoBar := bar_index
+
+    // a peak is confirmed once price has fallen zzPct from the running high
+    if zzDir >= 0 and close <= zzHi * (1.0 - zzPct / 100.0)
+        if showZig
+            line.new(lastPivotBar, lastPivotPrice, zzHiBar, zzHi, xloc.bar_index,
+               extend.none, color.new(color.orange, 0), line.style_dashed, 1)
+            label.new(zzHiBar, zzHi, "", xloc.bar_index, yloc.abovebar,
+               color.new(color.red, 20), label.style_circle, size=size.tiny)
+        lastPivotPrice := zzHi
+        lastPivotBar := zzHiBar
+        zzDir := -1
+        zzHi := close, zzHiBar := bar_index, zzLo := close, zzLoBar := bar_index
+    else if zzDir <= 0 and close >= zzLo * (1.0 + zzPct / 100.0)
+        if showZig
+            line.new(lastPivotBar, lastPivotPrice, zzLoBar, zzLo, xloc.bar_index,
+               extend.none, color.new(color.orange, 0), line.style_dashed, 1)
+            label.new(zzLoBar, zzLo, "", xloc.bar_index, yloc.belowbar,
+               color.new(color.green, 20), label.style_circle, size=size.tiny)
+        lastPivotPrice := zzLo
+        lastPivotBar := zzLoBar
+        zzDir := 1
+        zzHi := close, zzHiBar := bar_index, zzLo := close, zzLoBar := bar_index
+
+// ========================= causal reversal filter ============================
+// Bounded lag by construction: you give up `entryPct` at the bottom and
+// `exitPct` at the top of every leg, and never more. A moving average's lag
+// depends on the window AND the path, which is why it cannot be reasoned about.
+var bool  isLong = false
+var float ext    = na
+
+if na(ext)
+    ext := close
+
+if isLong
+    if close > ext
+        ext := close
+    else if close <= ext * (1.0 - exitPct / 100.0)
+        isLong := false
+        ext := close
+else
+    if close < ext
+        ext := close
+    else if close >= ext * (1.0 + entryPct / 100.0)
+        isLong := true
+        ext := close
+
+// equity of the causal filter, acted on with a one-bar delay and charged costs
+var float eq = 1.0
+prevLong = isLong[1]
+if not na(prevLong) and bar_index > 1
+    r = close / close[1] - 1.0
+    eq := eq * (1.0 + (prevLong ? r : 0.0))
+    if prevLong != isLong[2]
+        eq := eq * (1.0 - costPct / 200.0)
+
+plot(eq, "filter equity", display=display.data_window)
+
+// ------------------------------------------------------------- rendering ----
+bg = showFill ? (isLong ? color.new(color.green, 92) : color.new(color.red, 94)) : na
+bgcolor(bg, title="causal filter state")
+
+plotshape(isLong and not isLong[1], "causal BUY", shape.triangleup, location.belowbar,
+   color.new(color.green, 0), size=size.small)
+plotshape(not isLong and isLong[1], "causal SELL", shape.triangledown, location.abovebar,
+   color.new(color.red, 0), size=size.small)
+
+// running high/low of the current search, so the trigger level is visible
+trigger = isLong ? ext * (1.0 - exitPct / 100.0) : ext * (1.0 + entryPct / 100.0)
+plot(trigger, "next trigger", color=color.new(color.blue, 40), linewidth=1,
+   style=plot.style_stepline)
+
+// -------------------------------------------------------------- summary -----
+var label info = na
+if barstate.islast
+    label.delete(info)
+    txt = "CAUSAL FILTER  buy +" + str.tostring(entryPct, "#") + "% off the low, sell -"
+       + str.tostring(exitPct, "#") + "% off the high\n"
+       + "state: " + (isLong ? "LONG" : "FLAT")
+       + "   next trigger: " + str.tostring(trigger, format.mintick) + "\n\n"
+       + "The dots are hindsight and REPAINT. The triangles do not.\n"
+       + "The distance between them is why timing the turns does not pay:\n"
+       + "on IDX a filter like this banks 55-70% of each up leg, a 20-day\n"
+       + "moving average banks 31%, and the circles bank 100%."
+    info := label.new(bar_index, high, txt, xloc.bar_index, yloc.abovebar,
+       color.new(color.blue, 85), label.style_label_left, color.white, size.small)

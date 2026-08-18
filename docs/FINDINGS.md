@@ -3461,3 +3461,70 @@ with a point or two a year left over as the fee.
 book always-on at +7.8% with a -38% drawdown, or run the 30-week filter at +5.1%
 with -16%. There is no third option in the data where timing pays for itself in
 return, and I have now looked for it five different ways.
+
+# Part XXII — How much insurance, and putting it on the chart
+
+## Result 85 — the choice was not binary, and full exit is dominated
+
+Part XXI framed the overlay as a switch: fully invested, or fully out when IHSG
+is below its 30-week average. Nobody has to choose between the corners. The
+overlay can **scale** exposure, and the middle had never been measured.
+
+Holding X% of the blue-chip book while the market filter says OUT, full record:
+
+| exposure when OUT | growth | CAGR | worst year | maxDD | +years | ulcer |
+|---|---|---|---|---|---|---|
+| 0% (Part XXI's rule) | 15.2x | +10.9% | -18.6% | **-41%** | 62% | 0.17 |
+| **25%** | **18.1x** | **+11.6%** | **-19.0%** | **-34%** | **69%** | **0.14** |
+| 50% | 20.9x | +12.2% | -26.1% | -38% | 69% | 0.12 |
+| 75% | 23.7x | +12.7% | -32.9% | -47% | 73% | 0.12 |
+| 100% (always on) | 26.1x | +13.2% | -39.6% | -54% | 69% | 0.12 |
+
+**Going fully to cash is beaten on both axes by holding a quarter.** 25%
+exposure returns more (+11.6% against +10.9%) *and* draws down less (-34%
+against -41%), with more positive years and a lower ulcer index. That is not a
+trade-off; it is a strict improvement, and it corrects the recommendation given
+at the end of Part XXI.
+
+The mechanism is the same one that has defeated every attempt to buy the low.
+Exiting entirely means missing the rebound that follows the fall you avoided,
+and on IDX the rebound is fast enough that the last quarter of exposure earns
+more than it costs. You cannot get out of the decline without also getting out
+of the recovery - so keep a foot in the door.
+
+Across the five walk-forward windows the same ordering holds on the worst fold:
+0% has a losing window (-0.5%), 25% does not (+1.4%), and every step up in
+exposure improves both the mean and the worst window while the full-record
+drawdown gets worse. The two views disagree because a -54% peak-to-trough spans
+fold boundaries that a 3.5-year window cannot contain, which is exactly why both
+are reported.
+
+**Deployed: 100% when IHSG is above its 30-week average, 25% when it is below.**
+
+## Result 86 — the same conclusions, on a TradingView chart
+
+Two Pine v5 scripts, in `src/idxbot/tradingview/pine/`.
+
+**`turn_reality.pine`** puts the disagreement itself on the chart. It draws the
+hindsight zigzag - the circles, in orange, which **repaint**, and are labelled as
+repainting - alongside the causal reversal filter that is the best honest
+approximation of them. The gap between the dots and the triangles is the finding:
+the circles bank 100% of every up leg, the causal filter banks 55-70%, and a
+20-day moving average banks 31%. It also plots the live trigger level, so the
+price at which the rule would next act is visible rather than inferred.
+
+**`bluechip_regime.pine`** is the deployed overlay: IHSG weekly close against its
+30-week average, driving a book exposure of 100% or 25%, with alert conditions on
+each transition. It reads the last **closed** weekly bar (`close[1]`,
+`lookahead_off`) because reading the current weekly close on a daily bar is
+look-ahead by another name.
+
+The cross-sectional half of the book cannot be expressed in Pine - ranking thirty
+symbols against each other is not something an indicator on one chart can do - so
+the scripts say so and point at `scripts/bluechip_picks.py` rather than pretending
+otherwise.
+
+`tests/test_pine.py` checks what is checkable without a Pine runtime: version
+tags, delimiter balance, that `barmerge.lookahead_on` appears in nothing this
+repository ships, that the regime script reads a closed bar, and that its
+defaults still match the numbers its own header claims.

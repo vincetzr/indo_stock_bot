@@ -1,0 +1,102 @@
+// =============================================================================
+// IDX Blue-Chip Regime - the exposure overlay that survived the sweeps
+// =============================================================================
+// The blue-chip book itself is cross-sectional and cannot live on one chart: it
+// ranks the point-in-time large caps on 250-day momentum and holds the top 12,
+// rebalanced quarterly. Pine cannot rank thirty symbols against each other, so
+// that part stays in the CLI (`scripts/bluechip_picks.py`).
+//
+// What DOES belong on a chart is the overlay, because it is one decision for the
+// whole book and it is the only timing result in the project that held up under
+// a full robustness sweep:
+//
+//   IHSG above its 30-week average  ->  hold the book at 100%
+//   IHSG below it                   ->  hold the book at 25%
+//
+// Across 36 settings the market timer removed a median 22 points of drawdown and
+// was better than holding in 36 of 36. It has NO return edge - median -1.0% a
+// year - so this is insurance, priced and bought deliberately.
+//
+// 25% rather than 0% is not a compromise, it is the measured optimum: going
+// fully to cash returned +10.9% with a -41% drawdown while holding a quarter
+// returned +11.6% with -34%. Full exit is beaten on BOTH axes, because being
+// entirely out misses the rebound that follows the fall you avoided.
+//
+// Put this on IDX:COMPOSITE to drive the whole book, or on any holding to see
+// the same regime behind its own price.
+//
+// Install: TradingView -> Pine Editor -> paste -> Add to chart.
+// =============================================================================
+
+//@version=5
+indicator("IDX Blue-Chip Regime", shorttitle="IDX REGIME", overlay=true, max_bars_back=600)
+
+// ---------------------------------------------------------------- inputs ----
+idxSym    = input.symbol("IDX:COMPOSITE", "Market index driving the regime")
+maWeeks   = input.int(30, "Regime average (weeks)", minval=5, maxval=60,
+   tooltip="30 weeks was the best of the rules tested and has nothing fitted to it. 40 weeks behaves almost identically.")
+outExp    = input.float(25.0, "Exposure when OUT (%)", minval=0, maxval=100, step=5,
+   tooltip="Measured optimum is 25%. Zero is beaten on BOTH return and drawdown.")
+showMom   = input.bool(true, "Show this symbol's 250-day momentum")
+momDays   = input.int(250, "Momentum lookback (days)", minval=20, maxval=500)
+
+// ------------------------------------------------------- the regime call ----
+// Weekly closes of the index, and its own N-week average. Requested on the
+// weekly timeframe with lookahead OFF, so a daily bar never sees a weekly close
+// that has not printed. `[1]` takes the last CLOSED weekly bar.
+idxW = request.security(idxSym, "W", close[1], lookahead=barmerge.lookahead_off)
+maW  = request.security(idxSym, "W", ta.sma(close, maWeeks)[1], lookahead=barmerge.lookahead_off)
+
+regimeOn = not na(idxW) and not na(maW) and idxW > maW
+exposure = regimeOn ? 1.0 : outExp / 100.0
+
+bgcolor(regimeOn ? color.new(color.green, 90) : color.new(color.orange, 88),
+   title="regime")
+
+plotshape(regimeOn and not regimeOn[1], "RISK ON", shape.labelup, location.bottom,
+   color.new(color.green, 0), text="FULL", textcolor=color.white, size=size.small)
+plotshape(not regimeOn and regimeOn[1], "RISK OFF", shape.labeldown, location.top,
+   color.new(color.orange, 0), text="TRIM", textcolor=color.white, size=size.small)
+
+// -------------------------------------------- this symbol's own momentum ----
+// ta.roc handles the history requirement itself; a raw close[momDays] with an
+// input-driven offset is the usual way a Pine script dies on a long chart.
+mom = showMom ? ta.roc(close, momDays) / 100.0 : na
+plot(mom, "250d momentum", display=display.data_window)
+
+// ---------------------------------------------------------------- table -----
+var table t = table.new(position.top_right, 2, 6, border_width=1)
+if barstate.islast
+    table.cell(t, 0, 0, "IDX BLUE-CHIP REGIME", text_color=color.white,
+       bgcolor=color.new(color.blue, 30), text_size=size.small)
+    table.cell(t, 1, 0, regimeOn ? "RISK ON" : "RISK OFF", text_color=color.white,
+       bgcolor=regimeOn ? color.new(color.green, 20) : color.new(color.orange, 10),
+       text_size=size.small)
+
+    table.cell(t, 0, 1, "index / " + str.tostring(maWeeks) + "w avg",
+       text_color=color.gray, text_size=size.tiny)
+    table.cell(t, 1, 1, str.tostring(idxW, format.mintick) + " / "
+       + str.tostring(maW, format.mintick), text_size=size.tiny)
+
+    table.cell(t, 0, 2, "distance", text_color=color.gray, text_size=size.tiny)
+    table.cell(t, 1, 2, str.tostring((idxW / maW - 1.0) * 100.0, "#.#") + "%",
+       text_color=regimeOn ? color.green : color.red, text_size=size.tiny)
+
+    table.cell(t, 0, 3, "book exposure", text_color=color.gray, text_size=size.tiny)
+    table.cell(t, 1, 3, str.tostring(exposure * 100.0, "#") + "%",
+       text_color=color.white, bgcolor=color.new(color.blue, 60), text_size=size.tiny)
+
+    table.cell(t, 0, 4, str.tostring(momDays) + "d momentum", text_color=color.gray,
+       text_size=size.tiny)
+    table.cell(t, 1, 4, na(mom) ? "n/a" : str.tostring(mom * 100.0, "#.#") + "%",
+       text_color=na(mom) ? color.gray : (mom > 0 ? color.green : color.red),
+       text_size=size.tiny)
+
+    table.cell(t, 0, 5, "insurance costs", text_color=color.gray, text_size=size.tiny)
+    table.cell(t, 1, 5, "-1.6%/yr for +20pt DD", text_color=color.gray,
+       text_size=size.tiny)
+
+alertcondition(regimeOn and not regimeOn[1], "IDX regime RISK ON",
+   "IHSG closed above its 30-week average - blue-chip book to full exposure")
+alertcondition(not regimeOn and regimeOn[1], "IDX regime RISK OFF",
+   "IHSG closed below its 30-week average - blue-chip book to 25% exposure")
