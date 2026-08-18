@@ -3049,3 +3049,188 @@ Every caveat from Part XV still applies and none of them got smaller: the
 universe is survivor-only, the fold-4 numbers (+118%, +157%) are the 2020-21
 mania and will not repeat on demand, and a three-name book means one delisting
 is a third of the sleeve.
+
+# Part XIX — The blue-chip algorithm
+
+The book Part XVIII produced holds JGLE at Rp89 and KOTA at Rp177. Whatever
+those are, they are not blue chips. This part restricts the same machinery to
+large caps, and almost every conclusion reverses.
+
+`scripts/bluechip.py`, `scripts/bluechip_ew.py`, `scripts/bluechip_picks.py`,
+`tests/test_bluechip.py`.
+
+## Result 76 — a blue-chip universe cannot be a list
+
+The obvious universe is the 63 names under `bluechip` and `lq45` in
+`config/universe.yaml`. Running that list back to 2000 buys BBCA in 2003 because
+of what it became, and never buys the names that were giants then and are not
+now. Measured against a universe rebuilt from data available at the time:
+
+| equal-weight benchmark | 2009-04 | 2012-09 | 2016-03 | 2019-07 | 2023-01 | mean | full |
+|---|---|---|---|---|---|---|---|
+| point-in-time | +47.3% | +6.7% | +4.6% | +0.8% | -0.2% | +11.8% | **+10.5%** |
+| today's list | +71.7% | +8.5% | +24.5% | +17.4% | +5.6% | +25.5% | **+24.1%** |
+
+**The fixed list overstates the blue-chip benchmark by +13.5% a year.** Not a
+detail - it is larger than the entire return of the honest version. Any claim of
+the form "blue chips returned X" built on a current roster is roughly doubled.
+
+Ranking on turnover instead is causal but is not a blue-chip screen, and today
+it proves it: the top 40 IDX names by turnover include **BUMI, DEWA, BRMS, ENRG
+and INET** - penny stocks in a speculative run, each churning more value per day
+than ICBP. A universe built that way silently becomes a momentum-junk universe
+in precisely the period it would be quoted from.
+
+Market capitalisation would settle it. The only capitalisation data here is a
+present-day snapshot for 59 names, and using today's share count to build a 2004
+universe is the same look-ahead again. So membership uses three things knowable
+at the time:
+
+* trailing 250-day median turnover in the top `3 x size`, above an absolute floor
+* at least 750 sessions of trading behind it
+* 250-day realised volatility in the **calmer half of that liquid pool**
+
+That last line is what separates a large cap from a penny stock having a year.
+The result reads correctly at every date - BBCA, BBNI, BBRI, BMRI, TLKM, UNTR,
+INTP, ISAT in 2008; the LQ45 core in 2014 and 2020; ASII, BBCA, BBRI, BMRI,
+ICBP, INDF, KLBF, TLKM, UNTR, UNVR today - and it is tested by truncation, so
+removing the future cannot change who was a member in the past.
+
+## Result 77 — on blue chips, every lever points the other way
+
+432 configurations: 4 gates x 9 ranking signals x 4 position counts x 3
+rebalance intervals, each on five out-of-sample windows. Aggregated over
+everything else:
+
+| gate | median OOS mean | median worst fold |
+|---|---|---|
+| **none** | **+10.3%** | **-2.6%** |
+| rev15 | +7.9% | -4.9% |
+| both | +0.4% | -8.7% |
+| ma20 | -0.2% | -9.8% |
+
+| names held | median OOS mean | median worst fold |
+|---|---|---|
+| 3 | +2.8% | -8.7% |
+| 5 | +2.5% | -5.8% |
+| 8 | +3.2% | -4.6% |
+| **12** | **+4.3%** | **-3.2%** |
+
+| ranking signal | median OOS mean |
+|---|---|
+| **250-day momentum** | **+6.2%** |
+| low volatility | +5.1% |
+| 120-day momentum | +4.9% |
+| distance below 1y high | +3.8% |
+| buy the laggards (rev120/250/60) | +2.3% to +2.8% |
+
+Set against Part XVIII, where the whole exchange said **gate hard, concentrate
+hard**:
+
+| | whole exchange | blue chips |
+|---|---|---|
+| gating | mandatory (ungated worst fold -8.5%) | **harmful** (ma20 worst fold -9.8%) |
+| concentration | monotone better, top 3 best | **monotone worse**, top 12 best |
+| signal | 120-day momentum | **250-day** momentum |
+
+The gate result has a mechanism, and it is arithmetic rather than mystery. A
+20-day trend gate applied to thirty large caps independently flips each name
+roughly twenty times a year. Thirty names x twenty flips x a 0.4% round trip on
+a thirtieth of the book is about **ten points a year in fees**, and no large-cap
+trend edge covers that. The whole-exchange book pays the same toll and can
+afford it because the ranking edge there is worth 30 points; here it is worth
+three or four.
+
+The concentration result has the same shape. Concentration pays when the ranking
+is strong enough that the top 3 really are better than the top 12. On blue chips
+it is not, so concentration buys nothing and sells diversification.
+
+And the direction matters: **buying the laggards is the worst signal in the
+table.** "Sell the peak, buy the low" as a cross-sectional rule on blue chips -
+own whichever large cap has fallen most - is worse than owning all of them.
+
+## Result 78 — what the blue-chip algorithm is
+
+Choosing the configuration the three lever tables agree on, rather than the
+corner of the grid with the best number: **no gate, 250-day momentum, hold 12,
+rebalance quarterly.**
+
+| | 2009-04 | 2012-09 | 2016-03 | 2019-07 | 2023-01 | mean | worst | maxDD |
+|---|---|---|---|---|---|---|---|---|
+| own them all (no costs) | +47.3% | +6.7% | +4.6% | +0.8% | -0.2% | +11.8% | -0.2% | — |
+| **250d / top 12 / reb 60** | +40.6% | +11.7% | +10.0% | +7.9% | +2.6% | **+14.6%** | **+2.6%** | **-24%** |
+| best in the grid (lowvol/top5/reb60) | +42.7% | +17.8% | +17.5% | -3.6% | +6.3% | +16.1% | -3.6% | -23% |
+
+The recommended line pays full fees; the benchmark line does not, so the +2.7%
+gap is if anything understated. **Every one of the five windows is positive**,
+the worst is +2.6%, and the drawdown is -24% against -60% for owning the
+universe outright.
+
+That -24% is the number worth noticing. The whole-exchange book earns +37.5% and
+puts you through -28% to -47%; this earns +14.6% and puts you through -24%. They
+are not competing products, and the 50/50 split exists precisely because they
+are not.
+
+## What the gated equal-weight version says, since it was the obvious idea
+
+Holding *every* large cap whose trend gate is on - no ranking at all, the
+portfolio form of the annotated chart - was tested separately with realistic
+trading (positions drift; only names that actually enter or leave are traded):
+
+| gate | mean OOS | worst fold | full record | maxDD |
+|---|---|---|---|---|
+| **none (own them all)** | **+10.5%** | **-2.7%** | +10.8% | -60% |
+| reversal 15% | +7.7% | -7.3% | +6.6% | -54% |
+| reversal 25% | +7.3% | -7.8% | +9.1% | -63% |
+| 200-day average | +2.0% | -6.9% | +5.5% | -70% |
+| 20-day average | -10.6% | -20.0% | -6.4% | -95% |
+
+Nothing beats owning them all. The 20-day gate turns a +10.8% book into -6.4%.
+
+One methodology note, because it changed a result: the first version of this
+recomputed exact equal weights daily, which charges a fee on the whole book every
+session - adding one name changes all thirty weights - and produced a -100%
+drawdown that was entirely the implementation. The numbers above are from the
+version that lets positions drift.
+
+## Result 79 — the search loses here too, for the second time
+
+Result 75 found that nested selection on the whole exchange underperformed
+simply leaving the configuration alone. The blue-chip grid reproduces it, on a
+different universe with a different signal set:
+
+| | growth | CAGR | mean fold | worst fold | mean maxDD |
+|---|---|---|---|---|---|
+| nested selector, expanding window | 2.9x | +6.4% | +6.7% | -4.5% | -24% |
+| nested selector, trailing 5 years | 2.9x | +6.3% | +7.3% | -6.7% | -34% |
+| own the large caps, equally | 5.7x | +10.5% | +11.8% | -0.2% | — |
+| fixed low-vol / top 8 / quarterly | 8.1x | +12.8% | +13.7% | +1.0% | -25% |
+| **fixed 250-day / top 12 / quarterly** | **9.4x** | **+13.8%** | **+14.6%** | **+2.6%** | **-24%** |
+| fixed low-vol / top 5 / quarterly | 11.3x | +15.1% | +16.1% | -3.6% | -23% |
+
+**Both selectors lose to doing nothing at all.** Not merely to the best fixed
+configuration - to owning the universe equally weighted, which requires no
+search, no signal and no rebalancing rule.
+
+Two independent universes, two independent grids, the same answer: the search is
+useful for finding *which levers matter* and worthless for *picking a
+configuration*. Every deployed setting in this repository is therefore chosen
+from lever agreement, never from the top row of a sorted table.
+
+## The blue-chip book, as deployed
+
+`scripts/bluechip_picks.py` rebuilds the universe on the latest bar and sizes
+the book in whole lots, capped at 10% of each name's daily turnover.
+
+    python3 scripts/bluechip_picks.py --capital 25000000 --signal mom250 --top 12
+
+Held quarterly, no gate, no stop. The trend columns are printed because they are
+worth seeing; acting on them made every version tested worse.
+
+**Caveats specific to this part.** Fold 1 (April 2009 onward) carries +40% to
++47% for every configuration including the benchmark - it is the rebound off the
+2008 low, and it flatters all of them equally. Strip it and the remaining four
+windows for the deployed line are +11.7%, +10.0%, +7.9%, +2.6%: still positive
+in all four, still above the benchmark, but nothing like the headline. The
+universe is also missing delisted names entirely, so even the point-in-time
+screen inherits whatever survivorship the price archive itself carries.
