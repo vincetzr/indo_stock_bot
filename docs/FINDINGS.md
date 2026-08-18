@@ -2699,3 +2699,90 @@ combined. An annual grid cannot see a fall and recovery inside one year:
 Both are arithmetically correct. **Only the daily figure is what holding it
 feels like**, and the -19% on the 50/50 row should be read as "shallower than
 the alternatives on the same grid", not as the worst it can get.
+
+---
+
+# Part XVI — What weekly-swing accuracy is actually worth
+
+The chart question: *mark the major turns on a weekly chart, ignore the noise,
+and if you get them right 80% of the time, what is the CAGR?*
+
+It is fully computable, and the answer arrives with a sting.
+
+## Result 68 — the accuracy ladder on ADRO
+
+Weekly bars, zigzag of alternating turns with every leg at least 20% - the
+formal version of "circle the big swings". **33 legs in 18 years: one decision
+every 6.6 months.** 16 up legs averaging +116.9%, 17 down legs averaging -37.4%.
+
+Monte Carlo, 4,000 trials per row, costs charged on every leg traded:
+
+| accuracy | median growth | CAGR | beats buy & hold |
+|---|---|---|---|
+| 100% (hindsight) | **33,339x** | +77.9% | 100% |
+| 90% | 6,042x | +61.9% | 100% |
+| **80%** | **864.6x** | **+45.4%** | **100%** |
+| 70% | 117.4x | +30.2% | 92% |
+| 60% | 18.9x | +17.7% | 66% |
+| 50% (coin flip) | 2.6x | +5.4% | 28% |
+| *buy & hold* | *8.2x* | *+12.3%* | — |
+
+**So yes: 80% accuracy on weekly swings is worth +45.4% a year, 864x over
+eighteen years.** The intuition is correct and the arithmetic supports it. You
+need roughly **60-65%** just to beat holding the stock.
+
+## Result 69 — directional accuracy is not the accuracy that pays
+
+Scoring the mechanical rules against those same 33 legs - was the rule
+positioned correctly for most of each leg?
+
+| rule | legs right | accuracy |
+|---|---|---|
+| **above the 20-day MA** | **31/33** | **94%** |
+| ma_cross 20/100 | 23/33 | 70% |
+| donchian 20/55 | 22/33 | 67% |
+| donchian 20/100 | 21/33 | 64% |
+| ma_cross 50/200 | 17/33 | 52% |
+
+A 94% hit rate. The Monte Carlo says 94% should return something past 5,000x.
+
+**It returns 0.4x. Minus 5.5% a year.**
+
+The reconciliation, leg by leg:
+
+| | |
+|---|---|
+| mean up leg | **+116.9%** |
+| mean captured by the rule | **+40.5%** |
+| **share of the up move captured** | **31%** |
+| mean down leg | -37.4% |
+| mean still absorbed | **-16.7%** (0% would be perfect avoidance) |
+| **position flips across all legs** | **569** |
+| fees alone | **170.7% of capital** |
+
+A moving average is right about *direction* and wrong about *timing*. It enters
+after the turn, exits after the turn, and between the two turns it flips 569
+times on noise inside the leg. Being on the correct side of a +117% move while
+capturing +40% of it is not 94% accuracy in any sense that compounds.
+
+**The Monte Carlo assumed a correct call captures the leg from turn to turn.
+That assumption is doing all the work.** No rule tested here captures more than
+about a third of an up leg, and that difference between a third and all of it is
+worth roughly a thousand-fold over eighteen years.
+
+## What this settles
+
+The disagreement was never about whether swing trading beats holding. It does,
+enormously, *if* the turns can be called. What the data says is:
+
+* **80% turn-accuracy pays +45.4% a year.** The target is real.
+* **~62% is break-even against buy-and-hold.** Below that, holding wins.
+* **The mechanical rules score 52-70% on direction** - already near the
+  break-even band, which is why they land at +22% rather than +45%.
+* **And directional accuracy overstates them badly**, because capture fraction,
+  not direction, is what compounds. On the one rule that scores 94%, capture is
+  31% and the net result is a loss.
+
+The open problem is not detecting that a stock is going up. That is nearly
+solved - 94%. The open problem is **acting at the turn instead of a month
+after it**, and nothing in this repository does that.
