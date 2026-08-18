@@ -39,6 +39,8 @@ from idxbot import twosleeve as ts             # noqa: E402
 from idxbot.config import load_config          # noqa: E402
 from idxbot.data.cache import Cache            # noqa: E402
 from idxbot.data.ohlcv import YahooOHLCV       # noqa: E402
+from bluechip_picks import select_and_size, universe_table   # noqa: E402
+from optimize_consistent import load_wide                    # noqa: E402
 
 def reversal_long(close: np.ndarray, entry: float, exit_: float) -> bool:
     """Is the bounded-lag reversal state currently long? (Part XVII's filter.)
@@ -170,11 +172,20 @@ def main() -> int:
     ap.add_argument("--mom-top", type=int, default=8)
     ap.add_argument("--bagger-top", type=int, default=10)
     ap.add_argument("--conc-top", type=int, default=3)
+    ap.add_argument("--bluechip-top", type=int, default=12)
+    ap.add_argument("--bluechip-size", type=int, default=30)
     args = ap.parse_args()
     os.makedirs("reports", exist_ok=True)
 
     df = build()
     half = args.capital / 2.0
+
+    # The blue-chip half, built the way Part XIX validated it: a universe
+    # defined as of today by turnover, listing age and volatility, ranked on
+    # 250-day momentum, top 12, held quarterly, no gate.
+    W = load_wide(verbose=False)
+    bc_all = universe_table(W, args.bluechip_size)
+    bc_picks, bc_dropped = select_and_size(bc_all, half, "mom250", args.bluechip_top)
 
     # Only buy what is pointing up: the daily direction filter, applied here at
     # the moment of selection exactly as it is applied every day in the book.
@@ -201,7 +212,28 @@ def main() -> int:
     bag_picks = size(bag_pool.nlargest(args.bagger_top, "_score"), half / 3.0)
 
     print(f"\n{'=' * 92}\n CURRENT PICKS — 50/50 BOOK, Rp{args.capital:,.0f}\n{'=' * 92}")
-    render(f"MOMENTUM SLEEVE (50% = Rp{half:,.0f}) — rebalance every 10 sessions, "
+    print("\n" + "=" * 92)
+    print(f" BLUE-CHIP SLEEVE (50% = Rp{half:,.0f}) — 250-day momentum, top "
+          f"{args.bluechip_top} of the point-in-time large caps, rebalance quarterly, "
+          f"no stop")
+    print("=" * 92)
+    print(f" {'#':<3}{'ticker':<8}{'price':>9}{'lots':>9}{'cost':>18}"
+          f"{'turnover/day':>16}{'250d mom':>10}{'250d vol':>10}")
+    for i, (_, r) in enumerate(bc_picks.sort_values("mom250", ascending=False)
+                               .iterrows(), 1):
+        line = (f" {i:<3}{r['ticker']:<8}{r['price']:>9,.0f}{r['lots']:>9,}"
+                f"Rp{r['cost']:>16,.0f}Rp{r['turnover']/1e9:>13,.1f}bn"
+                f"{r['mom250']:>10.1%}{r['vol_250']:>10.1%}")
+        if r["capped"]:
+            line += "  <- capped by turnover"
+        print(line)
+    print(f" {'':<11}{'':<9}{'':<9}{'TOTAL':>9}Rp{bc_picks['cost'].sum():>16,.0f}")
+    if bc_dropped:
+        print(f" dropped, one lot exceeds an equal share here: "
+              f"{', '.join(sorted(bc_dropped))}")
+
+    render(f"AGGRESSIVE ALTERNATIVE TO THE BLUE-CHIP HALF — whole-exchange "
+           f"momentum (50% = Rp{half:,.0f}), rebalance every 10 sessions, "
            f"sell any name that closes below its 20-day average",
            mom_picks, ["mom_120", "ma20"])
     render(f"MOMENTUM SLEEVE, CONCENTRATED ALTERNATIVE (50% = Rp{half:,.0f}) — "
@@ -216,7 +248,17 @@ def main() -> int:
           f"({deployed/args.capital:.0%}); the rest is the two multibagger "
           f"tranches held back for the next two years, plus lot rounding.")
 
-    print(f"\n{'=' * 92}\n CHOOSING BETWEEN THE TWO MOMENTUM SLEEVES\n{'=' * 92}")
+    print(f"\n{'=' * 92}\n WHICH HALF TO PUT THE FIRST 50% IN\n{'=' * 92}")
+    print(" Across five out-of-sample windows, chained:")
+    print("   blue chip, 250d momentum top 12, quarterly   +13.8%/yr, worst window")
+    print("     +2.6%, deepest drawdown -24%, all five windows positive")
+    print("   whole exchange, 120d momentum top 8, 20d gate  +37.5% mean/yr, worst")
+    print("     window +9.2%, deepest drawdown -28%")
+    print(" The exchange-wide book earns far more and holds names like JGLE and KOTA")
+    print(" to do it. The blue-chip book earns less and holds ASII and BBRI. That is")
+    print(" the trade, and no measurement here decides it for you.")
+
+    print(f"\n{'=' * 92}\n CHOOSING BETWEEN THE TWO EXCHANGE-WIDE SLEEVES\n{'=' * 92}")
     print(" Across all 315 configurations searched in Part XVIII, holding fewer names")
     print(" raised out-of-sample return monotonically and raised drawdown with it:")
     print("   top 3  +40.4% median OOS mean, -47% mean drawdown")
@@ -241,6 +283,7 @@ def main() -> int:
     print("\n This is a screen output, not advice. Verify every name is still")
     print(" trading and still liquid before acting on any line of it.")
 
+    bc_picks.assign(sleeve="bluechip").to_csv("reports/current_picks_bluechip.csv", index=False)
     mom_picks.assign(sleeve="momentum").to_csv("reports/current_picks_momentum.csv", index=False)
     conc_picks.assign(sleeve="concentrated").to_csv("reports/current_picks_concentrated.csv", index=False)
     bag_picks.assign(sleeve="multibagger").to_csv("reports/current_picks_multibagger.csv", index=False)

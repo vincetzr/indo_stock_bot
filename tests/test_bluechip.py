@@ -183,3 +183,55 @@ def test_universe_excludes_the_wild_half():
     assert m[800][cols.index("WILD2")] == 0
     assert m[800][cols.index("CALM1")] == 1
     assert m[800][cols.index("CALM2")] == 1
+
+
+# --------------------------------------------------------------------------- #
+# sizing the live book
+# --------------------------------------------------------------------------- #
+def _book(prices, turnover=1e12):
+    return pd.DataFrame({
+        "ticker": [f"T{i}" for i in range(len(prices))],
+        "price": [float(p) for p in prices],
+        "turnover": [turnover] * len(prices),
+        "mom250": list(np.linspace(0.9, 0.1, len(prices))),
+        "dd250": list(np.linspace(-0.05, -0.5, len(prices))),
+        "lowvol": list(np.linspace(-0.01, -0.05, len(prices))),
+        "vol_250": list(np.linspace(0.01, 0.05, len(prices))),
+    })
+
+
+def test_sizing_drops_what_one_lot_cannot_buy():
+    """A name is dropped, not shown with zero lots, and its share is spread."""
+    from bluechip_picks import select_and_size
+    picks, dropped = select_and_size(_book([100, 200, 50_000]), 1_000_000,
+                                     "mom250", 3)
+    assert dropped == ["T2"]
+    assert set(picks["ticker"]) == {"T0", "T1"}
+    assert (picks["lots"] > 0).all()
+
+
+def test_sizing_never_exceeds_the_capital():
+    from bluechip_picks import select_and_size
+    picks, _ = select_and_size(_book([100, 250, 1_000, 3_300]), 5_000_000,
+                               "mom250", 4)
+    assert picks["cost"].sum() <= 5_000_000 + 1e-6
+
+
+def test_sizing_respects_the_turnover_cap():
+    """A thin name is capped at a tenth of its daily turnover, and flagged."""
+    from bluechip_picks import select_and_size
+    df = _book([100, 100])
+    df.loc[1, "turnover"] = 1e6          # Rp1m/day: 10% of it is Rp100,000
+    picks, _ = select_and_size(df, 10_000_000, "mom250", 2)
+    thin = picks[picks["ticker"] == "T1"].iloc[0]
+    assert thin["capped"]
+    assert thin["cost"] <= 0.10 * 1e6
+
+
+def test_sizing_ranks_by_the_requested_signal():
+    from bluechip_picks import select_and_size
+    df = _book([100] * 5)
+    top, _ = select_and_size(df, 10_000_000, "mom250", 2)
+    assert top["ticker"].tolist() == ["T0", "T1"]          # highest momentum
+    beaten, _ = select_and_size(df, 10_000_000, "dd250", 2)
+    assert beaten["ticker"].tolist() == ["T4", "T3"]       # furthest below the high

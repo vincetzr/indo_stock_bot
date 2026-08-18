@@ -19,7 +19,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -35,20 +35,10 @@ FEE_BUY = 0.0015
 MAX_PARTICIPATION = 0.10
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--capital", type=float, default=25_000_000)
-    ap.add_argument("--size", type=int, default=30)
-    ap.add_argument("--top", type=int, default=0,
-                    help="hold only the best N by --signal; 0 holds the whole universe")
-    ap.add_argument("--signal", default="none",
-                    choices=("none", "mom120", "mom250", "dd250", "lowvol"))
-    args = ap.parse_args()
-    os.makedirs("reports", exist_ok=True)
-
-    W = load_wide()
+def universe_table(W: Dict, size: int) -> pd.DataFrame:
+    """One row per current blue-chip member, with every field the screens need."""
     close = W["close"]
-    mask = pit_universe(W, args.size)
+    mask = pit_universe(W, size)
     last = len(close) - 1
     cols = list(close.columns)
     members = [cols[j] for j in np.flatnonzero(mask[last])]
@@ -67,6 +57,7 @@ def main() -> int:
         c = close[t]
         rows.append({
             "ticker": t,
+            "date": close.index[last],
             "price": float(c.iloc[last]),
             "turnover": float(slow_tv[t].iloc[last]),
             "vol_250": float(vol[t].iloc[last]),
@@ -78,21 +69,28 @@ def main() -> int:
         })
     df = pd.DataFrame(rows)
     df["lowvol"] = -df["vol_250"]
-    if args.signal != "none" and args.top:
-        key = {"mom120": "mom120", "mom250": "mom250",
-               "dd250": "dd250", "lowvol": "lowvol"}[args.signal]
-        picks = df.nlargest(args.top, key) if args.signal != "dd250" \
-            else df.nsmallest(args.top, "dd250")
+    return df
+
+
+def select_and_size(df: pd.DataFrame, capital: float, signal: str = "mom250",
+                    top: int = 12) -> Tuple[pd.DataFrame, List[str]]:
+    """Rank, drop what cannot be bought in whole lots, and size the rest equally.
+
+    A name whose lot price exceeds an equal share cannot be held at all at this
+    capital. Showing it with zero lots would misreport the book, so it is dropped
+    and its share spread over the names that can actually be bought - and the
+    dropped names are returned so the caller can say so.
+    """
+    if signal != "none" and top:
+        picks = (df.nsmallest(top, "dd250") if signal == "dd250"
+                 else df.nlargest(top, signal))
     else:
         picks = df.copy()
 
-    # A name whose lot price exceeds an equal share cannot be held at all at this
-    # capital. Silently showing it with zero lots would misreport the book, so it
-    # is dropped and its share is spread over the names that CAN be bought.
     unaffordable: List[str] = []
     live = picks.copy()
     for _ in range(len(picks)):
-        budget = args.capital / max(len(live), 1)
+        budget = capital / max(len(live), 1)
         short = live[live["price"] * LOT * (1 + FEE_BUY) > budget]
         if short.empty:
             break
@@ -100,7 +98,7 @@ def main() -> int:
         live = live.drop(short.index)
     picks = live
 
-    budget = args.capital / max(len(picks), 1)
+    budget = capital / max(len(picks), 1)
     lots, cost, capped = [], [], []
     for _, r in picks.iterrows():
         cap_value = MAX_PARTICIPATION * r["turnover"]
@@ -109,7 +107,25 @@ def main() -> int:
         lots.append(n)
         cost.append(n * LOT * r["price"] * (1 + FEE_BUY))
         capped.append(cap_value < budget)
-    picks = picks.assign(lots=lots, cost=cost, capped=capped)
+    return picks.assign(lots=lots, cost=cost, capped=capped), unaffordable
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--capital", type=float, default=25_000_000)
+    ap.add_argument("--size", type=int, default=30)
+    ap.add_argument("--top", type=int, default=0,
+                    help="hold only the best N by --signal; 0 holds the whole universe")
+    ap.add_argument("--signal", default="none",
+                    choices=("none", "mom120", "mom250", "dd250", "lowvol"))
+    args = ap.parse_args()
+    os.makedirs("reports", exist_ok=True)
+
+    W = load_wide()
+    close = W["close"]
+    last = len(close) - 1
+    df = universe_table(W, args.size)
+    picks, unaffordable = select_and_size(df, args.capital, args.signal, args.top)
 
     print(f"\n{'=' * 100}\n TODAY'S BLUE-CHIP BOOK — Rp{args.capital:,.0f}, "
           f"{close.index[last]:%Y-%m-%d}\n{'=' * 100}")
