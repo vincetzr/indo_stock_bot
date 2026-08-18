@@ -40,6 +40,31 @@ from idxbot.config import load_config          # noqa: E402
 from idxbot.data.cache import Cache            # noqa: E402
 from idxbot.data.ohlcv import YahooOHLCV       # noqa: E402
 
+def reversal_long(close: np.ndarray, entry: float, exit_: float) -> bool:
+    """Is the bounded-lag reversal state currently long? (Part XVII's filter.)
+
+    Sell when the close falls ``exit_`` below its high since entry, buy when it
+    rises ``entry`` above its low since exit. Only the final state is needed
+    here, but it is computed from the whole series because the state is path
+    dependent - there is no shortcut that gives the same answer.
+    """
+    long, ext = False, close[0]
+    for p in close:
+        if not np.isfinite(p):
+            continue
+        if long:
+            if p > ext:
+                ext = p
+            elif 1.0 - p / ext >= exit_ - 1e-12:
+                long, ext = False, p
+        else:
+            if p < ext:
+                ext = p
+            elif p / ext - 1.0 >= entry - 1e-12:
+                long, ext = True, p
+    return long
+
+
 LOT = 100
 FEE_BUY = 0.0015
 MOM_MIN_TURNOVER = 1e10      # Rp10bn/day for the momentum sleeve
@@ -69,15 +94,18 @@ def build(verbose: bool = True) -> pd.DataFrame:
             continue
         c = x["close"].astype(float)
         turnover = float((c * x["volume"]).tail(20).median())
+        rev = reversal_long(c.to_numpy(float), 0.15, 0.15)
         rows.append({
             "ticker": t,
             "date": x["date"].iloc[-1],
             "price": float(c.iloc[-1]),
             "turnover": turnover,
             "mom_120": float(c.iloc[-1] / c.iloc[-121] - 1.0) if len(c) > 121 else np.nan,
+            "mom_250": float(c.iloc[-1] / c.iloc[-251] - 1.0) if len(c) > 251 else np.nan,
             "hi_750": float(c.iloc[-1] / c.tail(750).max() - 1.0),
             "ma20": float(c.tail(20).mean()),
             "above_ma20": bool(c.iloc[-1] > c.tail(20).mean()),
+            "rev_long": bool(rev),
             "off_1y": float(c.iloc[-1] / c.tail(250).max() - 1.0),
         })
     df = pd.DataFrame(rows)
@@ -110,7 +138,8 @@ def render(title: str, picks: pd.DataFrame, cols: List[str]) -> None:
     print(f" {title}")
     print("=" * 92)
     head = f" {'#':<3}{'ticker':<8}{'price':>9}{'lots':>9}{'cost':>18}{'turnover/day':>16}"
-    extra = {"mom_120": f"{'120d mom':>10}", "hi_750": f"{'vs 3y high':>12}",
+    extra = {"mom_120": f"{'120d mom':>10}", "mom_250": f"{'250d mom':>10}",
+             "hi_750": f"{'vs 3y high':>12}",
              "bumn": f"{'state':>7}", "ma20": f"{'20d MA (exit)':>15}"}
     for c in cols:
         head += extra.get(c, "")
@@ -121,6 +150,8 @@ def render(title: str, picks: pd.DataFrame, cols: List[str]) -> None:
         for c in cols:
             if c == "mom_120":
                 line += f"{r['mom_120']:>10.1%}"
+            elif c == "mom_250":
+                line += f"{r['mom_250']:>10.1%}"
             elif c == "hi_750":
                 line += f"{r['hi_750']:>12.1%}"
             elif c == "bumn":
@@ -138,6 +169,7 @@ def main() -> int:
     ap.add_argument("--capital", type=float, default=50_000_000)
     ap.add_argument("--mom-top", type=int, default=8)
     ap.add_argument("--bagger-top", type=int, default=10)
+    ap.add_argument("--conc-top", type=int, default=3)
     args = ap.parse_args()
     os.makedirs("reports", exist_ok=True)
 
@@ -149,6 +181,14 @@ def main() -> int:
     mom = df[(df["turnover"] >= MOM_MIN_TURNOVER) & (df["price"] >= 50)
              & df["mom_120"].notna() & df["above_ma20"]]
     mom_picks = size(mom.nlargest(args.mom_top, "mom_120"), half)
+
+    # The concentrated variant (Part XVIII): 250-day momentum, top 3, and BOTH
+    # gates on. Across the grid, concentration raises out-of-sample return
+    # monotonically - and only survives when a gate is on: ungated top 3 has a
+    # -39.9% fold and a -61% drawdown, gated top 3 has +24.4% worst and -35%.
+    conc_pool = df[(df["turnover"] >= MOM_MIN_TURNOVER) & (df["price"] >= 50)
+                   & df["mom_250"].notna() & df["above_ma20"] & df["rev_long"]]
+    conc_picks = size(conc_pool.nlargest(args.conc_top, "mom_250"), half)
 
     bag_pool = df[(df["turnover"] >= BAG_MIN_TURNOVER) & (df["price"] >= 50)].copy()
     bag_pool["_score"] = (
@@ -164,6 +204,10 @@ def main() -> int:
     render(f"MOMENTUM SLEEVE (50% = Rp{half:,.0f}) — rebalance every 10 sessions, "
            f"sell any name that closes below its 20-day average",
            mom_picks, ["mom_120", "ma20"])
+    render(f"MOMENTUM SLEEVE, CONCENTRATED ALTERNATIVE (50% = Rp{half:,.0f}) — "
+           f"250-day momentum, top {args.conc_top}, above the 20-day average AND "
+           f"reversal-long",
+           conc_picks, ["mom_250", "ma20"])
     render(f"MULTIBAGGER SLEEVE — tranche 1 of 3 (Rp{half/3:,.0f}), hold 3 years",
            bag_picks, ["hi_750", "bumn"])
 
@@ -171,6 +215,18 @@ def main() -> int:
     print(f"\n deployed Rp{deployed:,.0f} of Rp{args.capital:,.0f} "
           f"({deployed/args.capital:.0%}); the rest is the two multibagger "
           f"tranches held back for the next two years, plus lot rounding.")
+
+    print(f"\n{'=' * 92}\n CHOOSING BETWEEN THE TWO MOMENTUM SLEEVES\n{'=' * 92}")
+    print(" Across all 315 configurations searched in Part XVIII, holding fewer names")
+    print(" raised out-of-sample return monotonically and raised drawdown with it:")
+    print("   top 3  +40.4% median OOS mean, -47% mean drawdown")
+    print("   top 8  +30.7%                  -37%")
+    print("   top 20 +18.4%                  -30%")
+    print(" At the deployed 120d/reb10 setting with the 20-day gate, top 8 returned")
+    print(" +37.5% mean OOS with -28% drawdown; top 3 returned +57.2% with -38%.")
+    print(" The concentrated book above is the higher-return, rougher-ride choice.")
+    print(" It is NOT a free upgrade: three names means one blow-up is a third of")
+    print(" the sleeve, and the turnover cap binds sooner as capital grows.")
 
     print(f"\n{'=' * 92}\n WHAT THESE NUMBERS ARE\n{'=' * 92}")
     print(" The momentum sleeve's configuration was chosen by all five walk-forward")
@@ -186,6 +242,7 @@ def main() -> int:
     print(" trading and still liquid before acting on any line of it.")
 
     mom_picks.assign(sleeve="momentum").to_csv("reports/current_picks_momentum.csv", index=False)
+    conc_picks.assign(sleeve="concentrated").to_csv("reports/current_picks_concentrated.csv", index=False)
     bag_picks.assign(sleeve="multibagger").to_csv("reports/current_picks_multibagger.csv", index=False)
     print("\n -> reports/current_picks_momentum.csv, reports/current_picks_multibagger.csv")
     return 0

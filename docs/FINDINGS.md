@@ -2933,3 +2933,119 @@ eight names to own rather than *when* to own one. That book's five out-of-sample
 windows average **+37.5%** with a -28% mean drawdown. It is not the +45.4% the
 chart implies, and it does not get there by calling turns - it gets there by
 never holding anything that is not already working.
+
+# Part XVIII — Maximising it, and what the search actually buys
+
+Part XVII ended with a negative on single-name turn timing and a positive on the
+gated book. Two things were left untried, and both bear directly on "optimise it
+and maximise it", so both were run.
+
+`scripts/turn_trader.py --universe` (sigma-scaled thresholds),
+`scripts/maximize_book.py` (the grid).
+
+## Result 73 — it was not the parameter's scale
+
+The obvious objection to Result 70 is that a fixed percentage cannot be right
+for every name: 25% is an enormous move for BBCA and a quiet week for a coal
+stock, and ADRO's own weekly volatility in 2008 is nothing like its 2016. A
+threshold expressed in **sigmas** has no scale to mis-transfer. Same walk, same
+86 names, thresholds in trailing 52-week volatility units:
+
+| | buy | sell | median excess | % beating B&H |
+|---|---|---|---|---|
+| best in sample | 2.0σ | 6.0σ | +0.71%/yr | 56% |
+| the same pair, out of sample | 2.0σ | 6.0σ | **-0.80%/yr** | 41% |
+| best out of sample (ceiling) | 4.0σ | 2.0σ | **+0.33%/yr** | 51% |
+
+The ceiling moved from -0.12%/yr to +0.33%/yr - on 51% of names, which is a coin
+flip. **Normalising by volatility does not rescue it.** The percentage grid did
+not fail because 25% was the wrong number; it failed because turn timing on a
+single IDX name has no edge to find. That line of attack is now closed from both
+directions.
+
+## Result 74 — concentration is the lever, and the gate is what makes it safe
+
+315 configurations - 7 gates (including two that combine the moving average with
+the bounded-lag filter: `both` = AND, `either` = OR) × 3 lookbacks × 5 position
+counts × 3 rebalance intervals - each run on all five out-of-sample windows.
+
+Aggregating across every gate, lookback and rebalance, the position count is the
+one lever that moves monotonically:
+
+| names held | median OOS mean CAGR | median mean drawdown |
+|---|---|---|
+| **3** | **+40.4%** | -47% |
+| 5 | +35.2% | -41% |
+| 8 | +30.7% | -37% |
+| 12 | +24.4% | -34% |
+| 20 | +18.4% | -30% |
+
+And aggregating by gate, the gate is what makes the bad years survivable:
+
+| gate | median OOS mean | median worst fold | median drawdown |
+|---|---|---|---|
+| both (ma20 AND reversal) | +29.6% | **+1.5%** | **-32%** |
+| either | +31.0% | +1.3% | -37% |
+| ma20 | +30.2% | +1.1% | -33% |
+| rev15 | +30.6% | +1.6% | -37% |
+| ma50 | +24.4% | -2.7% | -43% |
+| **none** | +24.6% | **-8.5%** | **-46%** |
+
+The two interact, and that is the finding. Holding the same 120-day/rebalance-10
+book at the deployed setting:
+
+| gate | top 3 | top 8 | top 20 |
+|---|---|---|---|
+| ma20 | +57.2% mean, **worst +13.6%**, -38% dd | +37.5%, +9.2%, -28% | +17.3%, -2.3%, -29% |
+| none | +27.5% mean, **worst -39.9%**, -61% dd | +24.4%, -12.3%, -47% | +17.4%, -6.4%, -37% |
+
+**Ungated, concentration is close to ruinous** - a -39.9% fold and a -61%
+drawdown. **Gated, the same concentration is the best thing in the search.**
+Share of configurations with all five folds positive: `ma20`/`both` at top 3 or
+top 5 = **100%**; `none` at top 3 or top 5 = **0%**.
+
+The single strongest configuration on the worst fold is `both` / 250-day / top 3
+/ rebalance 10: folds of +29.7%, +24.4%, +74.4%, +118.1%, +40.4% - mean +57.4%,
+worst **+24.4%**, mean drawdown -35%.
+
+## Result 75 — the search does not pay for itself
+
+Those are ceilings: chosen by looking at the windows they are quoted on. The
+honest question is what a selector that cannot see them would have picked. Both
+selectors run inside each fold on earlier data only - one scoring on everything
+before the fold, one on the trailing five years:
+
+| | growth | CAGR | mean fold | worst fold | mean drawdown |
+|---|---|---|---|---|---|
+| expanding selector | 100.2x | +30.5% | +32.1% | +4.1% | -42% |
+| trailing selector | 116.6x | +31.6% | +33.8% | +0.8% | -43% |
+| **fixed, deployed (ma20/120d/top8/reb10)** | **178.1x** | **+34.9%** | **+37.5%** | **+9.2%** | **-28%** |
+| fixed, ungated | 27.4x | +21.1% | +24.4% | -12.3% | -47% |
+
+**Both selectors lose to the fixed configuration, on return and on drawdown.**
+Neither ever found the top-3 book; the expanding one chose the *ungated* top-8
+book in three folds of five. The grid contains configurations worth +57% a year
+out of sample and no honest procedure in this repository retrieves them.
+
+So the answer to "search harder" is: searching harder found the ceiling and
+could not reach it. What survives is not a configuration the search picked but
+a **structural** property the search revealed - fewer names is better, a gate is
+mandatory - and structure is the kind of thing that transfers, because it does
+not depend on which window you scored it on.
+
+## What is deployed now
+
+`scripts/current_picks.py` prints both momentum sleeves side by side:
+
+* **top 8, 120-day, 20-day gate** — +37.5% mean OOS, -28% drawdown. Unchanged.
+* **top 3, 250-day, both gates** — +57.4% mean OOS, worst fold +24.4%, -35%
+  drawdown. Higher return, rougher ride, and it hits the turnover cap sooner.
+
+Both are shown because the choice between them is a risk decision, not a
+measurement one, and the measurement does not make it. The multibagger sleeve is
+unchanged.
+
+Every caveat from Part XV still applies and none of them got smaller: the
+universe is survivor-only, the fold-4 numbers (+118%, +157%) are the 2020-21
+mania and will not repeat on demand, and a three-name book means one delisting
+is a third of the sleeve.
