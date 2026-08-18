@@ -68,23 +68,27 @@ def zigzag(prices: np.ndarray, threshold: float) -> List[int]:
     if len(prices) < 3:
         return []
     pivots = [0]
-    direction = 0            # +1 looking for a peak, -1 looking for a trough
-    extreme_i = 0
+    direction = 0            # +1 seeking a peak, -1 seeking a trough, 0 unknown
+    # The running high and low are tracked SEPARATELY and reset only when a turn
+    # is confirmed. A single running extreme that follows the price in whichever
+    # direction it happens to move collapses onto the previous bar, and then
+    # confirming a turn needs a one-bar move of the full threshold - which is why
+    # an earlier version of this returned two pivots for a clean saw-tooth.
+    hi_i = lo_i = 0
     for i in range(1, len(prices)):
         p = prices[i]
-        e = prices[extreme_i]
-        if direction >= 0 and p > e:
-            extreme_i = i
-        elif direction <= 0 and p < e:
-            extreme_i = i
-        if direction >= 0 and p <= e * (1 - threshold):
-            pivots.append(extreme_i)
+        if p > prices[hi_i]:
+            hi_i = i
+        if p < prices[lo_i]:
+            lo_i = i
+        if direction >= 0 and p <= prices[hi_i] * (1 - threshold):
+            pivots.append(hi_i)          # the high is confirmed as a peak
             direction = -1
-            extreme_i = i
-        elif direction <= 0 and p >= e * (1 + threshold):
-            pivots.append(extreme_i)
+            hi_i = lo_i = i
+        elif direction <= 0 and p >= prices[lo_i] * (1 + threshold):
+            pivots.append(lo_i)          # the low is confirmed as a trough
             direction = 1
-            extreme_i = i
+            hi_i = lo_i = i
     if pivots[-1] != len(prices) - 1:
         pivots.append(len(prices) - 1)
     return sorted(set(pivots))

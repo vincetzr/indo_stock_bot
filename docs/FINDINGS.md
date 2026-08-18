@@ -3234,3 +3234,133 @@ windows for the deployed line are +11.7%, +10.0%, +7.9%, +2.6%: still positive
 in all four, still above the benchmark, but nothing like the headline. The
 universe is also missing delisted names entirely, so even the point-in-time
 screen inherits whatever survivorship the price archive itself carries.
+
+# Part XX — Learning the turn, and a bug in the ruler
+
+The goal was to make the answer yes: buy the circled lows, sell the circled
+peaks. Every previous attempt used a rule I chose and only the name's own price.
+This part removes both limitations - and, on the way, finds that the instrument
+used to measure all of them was subtly broken.
+
+`scripts/turn_ml.py`, `tests/test_turn_ml.py`.
+
+## Result 80 — the zigzag was wrong, and it barely mattered
+
+Writing a regression test for the label generator exposed a bug in `zigzag`, the
+function that defines what a "turn" is and therefore underpins Results 68-73.
+Given a clean saw-tooth - 100 to 200 to 100 to 200 to 100 - it returned **two**
+pivots instead of four.
+
+The cause: while direction was still unknown, a single running extreme was
+updated whenever price moved *either* way, so it collapsed onto the previous bar
+and confirming a turn required a one-bar move of the full threshold. Fixed by
+tracking the running high and running low separately and resetting both only when
+a turn is confirmed.
+
+**The honest impact assessment**, because a broken ruler means every measurement
+taken with it is suspect:
+
+| | before the fix | after |
+|---|---|---|
+| ADRO legs at 20% | 33 | 32 |
+| 80% accuracy is worth | 864.6x, +45.4%/yr | **829.9x, +45.0%/yr** |
+| break-even accuracy vs holding | ~62% | **~62%** |
+| capture, 25% reversal band | 69% | **69%** |
+
+Almost nothing moved, and the reason is specific rather than lucky: ADRO's first
+weekly bar in the sample is the 2008 crash, a single-bar move large enough to set
+the direction immediately, after which the old code was correct. On a quiet
+series it would have failed badly. Results 68-73 stand; the ruler is now right
+for series that do not begin with a crash.
+
+## Result 81 — the turn does not learn, as a switch
+
+The label is the hindsight zigzag state - 1 in an up-leg, 0 in a down-leg -
+which is exactly what the circles are. Features: 20 per name (returns at 4/13/26
+/52 weeks, distance from 52- and 156-week highs and lows, volatility and its
+ratio, RSI, three moving-average distances, drawdown, weeks since the high,
+turnover trend, acceleration), 17 market-state series from the macro panel, and
+two cross-sectional ranks. Gradient boosting, 74,793 weekly rows, 86 names.
+
+The protocol is where this either holds or lies, so: **labels are rebuilt inside
+each training window** by recomputing the zigzag on `prices[:cut]` alone, and the
+unfinished final leg is left unlabelled because its direction is not knowable at
+the cut. No shuffled cross-validation. Predictions traded with a one-bar lag at
+0.6% per round trip. Entry and exit probabilities chosen on a validation slice at
+the end of the training window.
+
+| fold | median excess | beats B&H | turn accuracy | capture |
+|---|---|---|---|---|
+| 2012-03..2015-10 | -3.55% | 41% | 61% | 48% |
+| 2015-10..2019-05 | -3.88% | 35% | 62% | 50% |
+| 2019-05..2023-01 | **+2.42%** | 58% | 55% | 68% |
+| 2023-01..2026-08 | -3.81% | 36% | 60% | 54% |
+| **pooled** | **-2.37%/yr** | **43%** | **60%** | **55%** |
+
+Turn accuracy of **60%** against a break-even of about **62%**, and capture of
+55%. The model learns something real - 60% is not a coin flip - and it lands
+just below the line where calling turns starts to pay. Ranked against everything
+else tried:
+
+| method | median excess/yr | capture |
+|---|---|---|
+| 20-day moving average | -5.5% | 31% |
+| learned turn model | -2.37% | 55% |
+| reversal band, tuned honestly | -1.92% | 68% |
+| volatility-scaled band | -0.80% | — |
+| reversal band, best with hindsight | -0.12% | — |
+
+Four independent methods, four negatives, and the best of them is the one that
+was allowed to cheat.
+
+## Result 82 — the control that killed the good news
+
+Used cross-sectionally instead - hold the names with the highest P(up-leg) rather
+than switching one name on and off - the model finally looks like a success:
+
+| | fold 1 | fold 2 | fold 3 | fold 4 | mean | worst |
+|---|---|---|---|---|---|---|
+| model, top 5, quarterly | +13.5% | +46.9% | +31.1% | +3.5% | **+23.8%** | +3.5% |
+| model, top 10, quarterly | +15.4% | +22.5% | +22.4% | +9.3% | +17.4% | +9.3% |
+| equal weight, all names | +4.6% | +20.8% | +13.5% | +8.7% | +11.9% | +4.6% |
+
+Twice the benchmark. That is where this part would have ended if the control had
+not been run - and the model's own features include momentum, so beating equal
+weight proves nothing unless it also beats the momentum it was fed:
+
+| | mean | worst |
+|---|---|---|
+| **52-week momentum, top 10, quarterly** | **+26.1%** | **+11.1%** |
+| 52-week momentum, top 10, monthly | +24.0% | +12.4% |
+| model, best configuration | +23.8% | +3.5% |
+| 26-week momentum, top 10, quarterly | +22.7% | +9.6% |
+| 13-week momentum, top 10, quarterly | +23.4% | +6.8% |
+| equal weight | +11.9% | +4.6% |
+
+**Plain 52-week momentum beats the learned model on the mean and by three times
+on the worst fold.** Every raw momentum horizon beats it on the worst fold. The
+model was handed those columns and made them worse. It is not adding
+information; it is destroying it.
+
+## Where this leaves the question
+
+Asked whether the circled buys and sells can be executed, the answer is no, and
+it has now been tested four ways with four different failure modes:
+
+* a **fixed percentage** band - fails, hindsight-best -0.12%/yr
+* a **volatility-scaled** band - fails, hindsight-best +0.33%/yr on 51% of names
+* a **learned classifier as a switch** - fails, 60% accuracy against 62% break-even
+* a **learned classifier as a ranker** - fails, beaten by the momentum it was fed
+
+What consistently works is the thing that never tries to call a turn: rank on
+slow momentum, hold a basket, rebalance quarterly. On this weekly panel that is
++26.1% mean out-of-sample with a worst fold of +11.1%, which corroborates the
+daily-panel books in Parts XVIII and XIX from independent code.
+
+**The one avenue not tested is blocked by data, not by method.** Broker-summary
+flows - who is accumulating at the low and distributing at the peak - are the
+natural information source for turn detection and the original premise of this
+repository. There are 92 days of it here, for one name. IDX prohibits scraping
+and the IndoPremier module is a courtesy-access public page, so a 25-year
+history cannot be built from the sources available. That is a limit on what has
+been shown, not a demonstration that it would work.
