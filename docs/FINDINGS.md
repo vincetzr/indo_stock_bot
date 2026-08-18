@@ -3875,3 +3875,43 @@ project can test.
 blue-chip book at +13.5% with a -28% drawdown against -54%, better on every
 column than holding it always-on, because the cash it holds while waiting earns
 more than the timing costs.
+
+## Result 97 — and capitulation is not visible as a trajectory either
+
+Result 96's null had a real flaw: it averaged each pullback window into one
+number, and averaging erases sequence. The classic bottom is foreign money
+selling into the decline and then *turning* late as sellers exhaust - and the
+window average of a seller who becomes a buyer is approximately zero, which is
+exactly what that null looked like.
+
+So the pullback was split in half and the pre-registered question became whether
+foreign flow *improves* from the first half to the second. 400 events, 4+ weeks
+each, one-sided, powered to d = 0.27:
+
+| | n | early | late | **delta** |
+|---|---|---|---|---|
+| bounced | 282 | -0.0268 | -0.0364 | **-0.0096** |
+| did not | 118 | -0.0250 | -0.0340 | **-0.0090** |
+
+**Difference -0.0005. Cohen d -0.005. One-sided p 0.5185.**
+
+Nothing, again - and this time the interesting part is what both columns do.
+Foreign flow gets *more negative* through the second half of a pullback whether
+or not the pullback recovers. Foreign money sells into declines, uniformly, and
+at top-10 aggregate resolution there is no capitulation signature separating the
+falls that end from the falls that continue.
+
+Exploratory features (not corrected, reported for completeness): delta_bumn
+p 0.245, delta_imbalance p 0.128, delta_conc p 0.185, delta_local p 0.339.
+Nothing near significance.
+
+**Also settled by probing rather than assumption:** the endpoint hard-caps at
+top-10 brokers. `limit`, `top`, `rows`, `n`, `count`, `show`, `all` and `page`
+all return the same 11 codes. The full member-by-member tape is not reachable
+from this source, which bounds what any flow test here can see.
+
+**A correction to Result 96's closing claim.** It said the exclusion list was
+"complete". It was complete for *level-based* flow; trajectory was a separate
+hypothesis that had not been tested and was folded in without warrant. It has
+now been tested and also fails, but the claim was ahead of the evidence when it
+was made.
