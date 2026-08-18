@@ -3528,3 +3528,88 @@ otherwise.
 tags, delimiter balance, that `barmerge.lookahead_on` appears in nothing this
 repository ships, that the regime script reads a closed bar, and that its
 defaults still match the numbers its own header claims.
+
+# Part XXIII — The rate on idle cash was doing all the work
+
+## Result 87 — volatility targeting fails at the book level too
+
+Part X dismissed volatility targeting on ADRO, but that was one stock, whose
+volatility is mostly idiosyncratic noise. A portfolio's volatility is persistent,
+which is the property the rule needs, so it was worth testing properly:
+exposure = target / realised volatility, at three targets and three leverage
+caps, with margin interest charged at 9% because a leveraged backtest that
+ignores financing is a fiction.
+
+| rule | CAGR | vs always-on | maxDD | DD saved | avg exposure |
+|---|---|---|---|---|---|
+| always on | +13.2% | — | -54% | — | 100% |
+| voltarget 25%, cap 1.0 | +12.8% | -0.41% | -45% | +9pt | 96% |
+| voltarget 20%, cap 1.0 | +11.9% | -1.29% | -40% | +14pt | 92% |
+| voltarget 15%, cap 1.0 | +10.6% | -2.61% | -32% | +22pt | 83% |
+| voltarget 25%, cap 2.0 | +10.8% | -2.37% | **-61%** | **-7pt** | 151% |
+
+**Rules beating always-on on both return and drawdown: zero.** And leverage is
+strictly harmful - the 2.0 cap versions lose return *and* deepen the drawdown,
+because volatility targeting levers up into calm markets that are calm right
+before they stop being calm, and pays 9% for the privilege.
+
+## Result 88 — the overlay is free once cash earns the deposit rate
+
+Every previous statement about what market timing costs - Part XXI's "-2.7% a
+year", Result 85's "-1.57%" - assumed that money out of the market earns
+**nothing**. For Indonesia that is simply wrong. IDR deposit and money-market
+rates have sat between 3% and 6% across this record.
+
+The overlay spends about a quarter of its life out of the market, so the rate on
+that cash is not a rounding error:
+
+| deposit rate | out at 0% | | out at 25% | |
+|---|---|---|---|---|
+| | CAGR vs always-on | maxDD | CAGR vs always-on | maxDD |
+| 0% | -1.79% | -36% | -1.19% | -30% |
+| 3% | -0.62% | -32% | -0.31% | -29% |
+| **5%** | **+0.17%** | **-30%** | **+0.28%** | **-28%** |
+| 6% | +0.56% | -28% | +0.58% | -28% |
+
+**At 5% the overlay pays for itself.** Above about 4.5% it is free; below it, it
+is cheap insurance. Always-on is -54%.
+
+## Result 89 — the deployed book, and the first strict improvement in the project
+
+The blue-chip book with the regime overlay, cash at 5%:
+
+| | growth | CAGR | worst year | maxDD | +years | ulcer |
+|---|---|---|---|---|---|---|
+| book, always on | 26.1x | +13.2% | -39.6% | -54% | 69% | 0.12 |
+| **book + regime overlay** | **27.9x** | **+13.5%** | **-17.3%** | **-28%** | **81%** | **0.10** |
+
+Better on **every** column. More growth, more return, half the drawdown, less
+than half the worst year, more positive years, lower ulcer index. Nothing else
+in this repository does that - every other risk control traded return for safety.
+
+It works for the reason the rest of the timing work failed, inverted. Timing
+cannot beat holding on price alone, because you exit after the top and re-enter
+after the bottom and those two roughly cancel. But the cancellation is only
+"roughly", and the residual is about a point a year - which is smaller than the
+interest earned on the cash you are holding while you wait. **The edge is not in
+the timing. It is in being paid to wait.**
+
+## Comparing this to the annotated chart, on its own series
+
+ADRO weekly, 2008-2026, 32 swings of 20%+, one turn every 6.8 months:
+
+| | growth | CAGR | maxDD | |
+|---|---|---|---|---|
+| the circles, in hindsight | 33,339x | +77.9% | — | not attainable |
+| 80% of turns called right | 843.6x | +45.2% | — | what the chart asked for |
+| 62% of turns called right | 27.4x | +20.1% | — | break-even against holding |
+| causal filter, tuned with hindsight | 27.3x | +20.1% | -65% | best honest single-name rule |
+| regime overlay on this name | 13.6x | +15.5% | -74% | the deployed rule |
+| buy and hold | 8.2x | +12.3% | -80% | |
+
+The deployed rule beats holding ADRO by 3.2 points a year, and the best
+single-name rule that can be built - tuned with full hindsight, so an upper
+bound - reaches exactly the break-even accuracy of 62% and no further. The chart
+asked for 80%. The gap between rows two and five is not something more work
+closes; it is the difference between a chart that has already happened and one
+that has not.
