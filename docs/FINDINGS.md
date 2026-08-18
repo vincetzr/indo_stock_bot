@@ -3364,3 +3364,100 @@ repository. There are 92 days of it here, for one name. IDX prohibits scraping
 and the IndoPremier module is a courtesy-access public page, so a 25-year
 history cannot be built from the sources available. That is a limit on what has
 been shown, not a demonstration that it would work.
+
+# Part XXI — Timing the market instead of the stock
+
+Result 77 gave the per-name gate a specific cause of death: a 20-day filter
+applied to thirty large caps independently flips each about twenty times a year
+and costs roughly ten points a year in fees. The gate was not wrong about
+direction. It was applied thirty times over on names that are one correlated
+basket.
+
+That diagnosis points somewhere untested. A **market-level** call moves the whole
+book on one decision, so the same correct calls cost a thirtieth of the fees; an
+index averages away the single-name noise that made per-name turns unlearnable;
+and it can use information that does not exist for a single stock - **breadth**,
+the share of the market above its own trend, plus the macro panel. The circled
+turns on the annotated chart are mostly market events anyway: 2008, 2011, 2015,
+2020, 2025.
+
+`scripts/market_timing.py`, `tests/test_market_timing.py`. IHSG weekly from 1990,
+1,880 bars, 48 swings of 15%+ - one decision every nine months.
+
+## Result 83 — the return edge is a threshold artefact
+
+Scored on the index itself from 2006:
+
+| timer | growth | CAGR | vs holding | trades | in market | maxDD | turn acc | capture |
+|---|---|---|---|---|---|---|---|---|
+| hold | 4.56x | +7.9% | — | 0 | 100% | **-59%** | — | 100% |
+| above 30w MA | 3.93x | +7.1% | -0.8% | 82 | 66% | -34% | 88% | 56% |
+| above 40w MA | 4.37x | +7.6% | -0.2% | 62 | 68% | -29% | 81% | 59% |
+| breadth > 40% | 3.49x | +6.4% | -1.4% | 54 | 61% | -28% | 69% | 56% |
+| **learned** | **5.47x** | **+8.9%** | **+1.0%** | 47 | 78% | -37% | 50% | 74% |
+
+The learned timer beats holding by a point a year *and* removes 22 points of
+drawdown. It is the first positive return result in this entire line of work,
+and it does not survive being asked twice.
+
+Across **36 settings** - 4 zigzag thresholds x 3 hysteresis pairs x 3 fold counts:
+
+| | |
+|---|---|
+| median excess over holding | **-1.02%/yr** |
+| settings with a positive edge | **36%** |
+| range | -3.79% to +1.56% |
+
+The +1.0% headline is the 0.15 threshold, which is the only one of four with a
+positive median. Picking it was picking a corner. **There is no return edge.**
+
+## Result 84 — the drawdown edge is real, and it is the only robust timing result in this repository
+
+The same 36 settings, on the number nobody picked a threshold to optimise:
+
+| | |
+|---|---|
+| median drawdown | **-37%** against **-59%** holding |
+| median improvement | **+22 points** |
+| range of improvement | **+10 to +37 points** |
+| settings better than holding | **36 of 36 — 100%** |
+
+Every threshold, every hysteresis pair, every fold count. Nothing else tried
+across Parts XVII, XX and XXI is unanimous across its own robustness sweep.
+
+Applied to the blue-chip book (2012-2026, continuous):
+
+| timer | CAGR | worst year | maxDD | ulcer |
+|---|---|---|---|---|
+| always on | **+7.8%** | -13.8% | -38% | 0.11 |
+| **above 30w MA** | +5.1% | **-7.5%** | **-16%** | **0.09** |
+| learned | +5.5% | -18.7% | -28% | 0.13 |
+| breadth > 40% | +3.6% | -18.5% | -33% | 0.15 |
+
+**The trade, stated plainly: give up 2.7% a year, remove 22 points of drawdown
+and 6.3 points from the worst year.** And the rule that does it best is not the
+learned model - it is price above its own 30-week average, which costs nothing
+to compute and has no parameters to fit beyond the window.
+
+## What this finally settles about the circles
+
+The chart's two circles are not equally hard, and eight parts of work now say so
+in one line:
+
+* **The red circles - selling before the fall - are achievable.** Not at the
+  peak; a market timer exits well below it. But 22 points of drawdown removed in
+  36 of 36 settings is a real, repeatable, robust effect.
+* **The green circles - buying the low - are not.** Every attempt to add return
+  by re-entering near the bottom has failed: fixed bands, volatility-scaled
+  bands, learned classifiers per name, learned classifiers as rankers, and now
+  market-level timing. The re-entry is always late enough that the rebound pays
+  for the exit.
+
+Which is why timing costs return and buys safety. You get out before the worst of
+it and you get back in after the best of it, and on IDX those two roughly cancel
+with a point or two a year left over as the fee.
+
+**So the honest deliverable is a choice, not a discovery.** Own the blue-chip
+book always-on at +7.8% with a -38% drawdown, or run the 30-week filter at +5.1%
+with -16%. There is no third option in the data where timing pays for itself in
+return, and I have now looked for it five different ways.
