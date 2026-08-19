@@ -3915,3 +3915,92 @@ from this source, which bounds what any flow test here can see.
 hypothesis that had not been tested and was folded in without warrant. It has
 now been tested and also fails, but the claim was ahead of the evidence when it
 was made.
+
+# Part XXVII — Painting the legs, and what the paint is worth
+
+The request was to reproduce the hand-drawn green/red segmentation, then derive
+buy and sell signals from it, causally, across IDX big caps.
+
+## Result 98 — the picture reproduces above 90%, once two things are right
+
+**Unadjusted prices.** TradingView plots the raw close. ADRO's 2022-23 dividends
+were large enough that the adjusted series runs 517-2,540 where the chart runs
+1,645-4,140. Fitting the adjusted series paints a different picture than the one
+on screen, and every earlier part of this project used adjusted prices.
+
+**A 12% weekly swing** reproduces the hand-drawn count: 19-20 legs over the
+charted window against ~20 drawn.
+
+The target is a drawing on FINISHED data, so a live zigzag reproduces every
+closed leg exactly and repaints only the leg in progress. The measurement that
+matters is therefore how long a bar's colour takes to stop changing:
+
+| bar age | ADRO | across 59 large caps |
+|---|---|---|
+| 1 week | 77.1% | 70.9% |
+| 4 weeks | 93.9% | 87.0% |
+| **6 weeks** | **97.7%** | **92.4%** |
+| 8 weeks | 99.2% | 95.2% |
+| 13 weeks | 100% | 98.2% |
+| 26 weeks | 100% | 99.8% |
+
+**97.2% of all bars sit in a closed leg at any moment.** So the picture is
+reproduced above 90% for anything older than six weeks, on every big cap.
+`scripts/paint_chart.py` draws closed legs solid and the running leg dashed,
+because painting the live leg solid claims a certainty that does not exist.
+
+## Result 99 — the live leg, and a lesson about sample size
+
+Forecasting the colour of the *unfinished* leg is the real problem. The
+single-name model failed instructively: 59 features on 437 weekly rows reached
+**100% training accuracy and 49% test accuracy**, and collapsed to predicting
+"down" on 89% of out-of-sample bars. That is not a feature problem, it is a row
+problem.
+
+Pooling across all 59 big caps - training one model on 30,000 weekly bars and
+scoring it per name - fixed the collapse:
+
+| | model | 13-week average | lift |
+|---|---|---|---|
+| median | 68.8% | 67.1% | +1.7% |
+| mean | 69.3% | 66.4% | +2.9% |
+
+with the predicted up-share matching the actual one exactly (61% / 61%). Better
+than the baseline, and nowhere near the 92-100% of the closed legs, which is
+exactly as it should be: closed legs are history, the live leg is a forecast.
+
+## Result 100 — the signals do not beat holding, and one of them briefly appeared to
+
+Buy when a green leg opens, sell when a red one does. Across 40 big caps at
+Rp10T+, full history from 2012, costs charged:
+
+| band | median excess over holding | beats holding | median drawdown | holding |
+|---|---|---|---|---|
+| 12% | -1.85% | 42% | -64% | -76% |
+| 15% | -2.61% | 35% | -63% | -76% |
+| 20% | -2.00% | 30% | -66% | -76% |
+| 25% | -1.54% | 45% | -67% | -76% |
+
+And cross-sectionally - own the big caps whose leg is currently green:
+
+| book | CAGR | vs equal-weight |
+|---|---|---|
+| equal-weight all big caps | +9.8% | — |
+| all green, 25% band | +4.8% | -5.0% |
+| top 15 green, 25% band | +3.8% | -6.0% |
+| top 8 green, 25% band | +2.3% | -7.5% |
+
+**Every variant loses.** The painter is a description of what happened, not a
+signal about what will.
+
+**The near miss worth recording.** The first version of that cross-sectional
+test returned **+78% to +87% CAGR** across every band. It was a look-ahead: the
+holding state was lagged one week but the RANKING was not, so the book selected
+on the same bar's price and then collected that same bar's return - it picked
+whatever had just gone up. Lagging every input drops it to the table above.
+`tests/test_legpaint.py` now contains a regression test that builds a panel
+where the unlagged book must look impossibly good and the lagged one must not.
+
+**The rule this makes explicit: in a cross-sectional book, every input to the
+selection must be lagged, not merely the position state.** One unlagged input is
+enough to manufacture an 87% CAGR.
