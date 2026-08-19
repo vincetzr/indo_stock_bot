@@ -1,0 +1,111 @@
+{
+  "generated": "2026-08-19",
+  "provenance": "scripts/ research workflow, sources named per item. Layer 1 is CONTEXT, not a scored input: it has never been tested as a predictor in this repo because no point-in-time news dataset exists here. Every item carries a date and a confidence.",
+  "findings": [
+    {
+      "ticker": "IHSG",
+      "date": "2026-08-19",
+      "confidence": "high",
+      "claim": "IDX Composite 6,394 - peaked 9,134.70 on 2026-01-20, fell 41.5% to 5,342.14 on 2026-06-08, rebounded 18.6%, still 30.6% below the peak and 15.2% below its 200-day average. A bear-market rebound, not an uptrend.",
+      "source": "computed from data/cache/ohlcv/_JKSE.csv.gz; level cross-checked against TradingEconomics"
+    },
+    {
+      "ticker": "MACRO",
+      "date": "2026-08-19",
+      "confidence": "high",
+      "claim": "BI rate 5.75%, held for a second consecutive meeting, chaired by acting governor Destry Damayanti. The cycle is TIGHTENING: a 50bp hike on 2026-05-20 to defend the rupiah. Rupiah at a record-weak ~Rp17,850/USD.",
+      "source": "bi.go.id press release sp_2810726 (primary); Kompas/CNN Indonesia/ANTARA 2026-08-19"
+    },
+    {
+      "ticker": "MACRO",
+      "date": "2026-08-14",
+      "confidence": "medium",
+      "claim": "Commodities do not move as one factor: copper at an all-time high (US$6.46/lb, +46% yoy), gold US$4,339/oz, coal recovered ~22% off its January low to ~US$129/t, but nickel is falling (~US$16,760/t) on Indonesian supply expansion.",
+      "source": "multiple market data providers, dated"
+    },
+    {
+      "ticker": "IDX",
+      "date": "2026-06-01",
+      "confidence": "high",
+      "claim": "MSCI removed AMMN, BREN, TPIA, DSSA, CUAN and AMRT from the Global Standard Index on free-float grounds - announced 2026-05-13, effective 2026-06-01. All six bottomed BEFORE the effective date (21-29 May) and rallied into it, so a rule keyed to the event date would have been badly wrong.",
+      "source": "MSCI May 2026 index review; bottom dates computed from the local price cache"
+    },
+    {
+      "ticker": "IDX",
+      "date": "2026-08-03",
+      "confidence": "medium",
+      "claim": "IDX raised the minimum free float from 7.5% to 15% (Kep-00045/BEI/03-2026, effective 2026-03-31), with a 'P' notation flagging non-compliant issuers from 2026-08-03. CUAN sits at 14.9% and BREN at 12.3% - both non-compliant.",
+      "source": "IDX Keputusan Direksi; free-float figures as of 2026-03-31"
+    },
+    {
+      "ticker": "CUAN",
+      "date": "2026-08-12",
+      "confidence": "medium",
+      "claim": "H1 2026 revenue US$736.1mn (+59.3% yoy), net profit US$19.7mn against US$1.9mn a year earlier. Operationally improving while the stock is -64% YTD and -70% from its 2025-10-13 peak - it is +31% in the last month and +70% off its 2026-05-25 low.",
+      "source": "company H1 2026 report; price stats computed locally"
+    },
+    {
+      "ticker": "ADRO",
+      "date": "2026-08-14",
+      "confidence": "high",
+      "claim": "One of only two names in the researched set above its 200-day average: +39.0% YTD, -3.8% from its 2026-03-25 peak, +13.2% above the 200DMA. Q1 2026 net profit US$128.1mn, +67.1% yoy.",
+      "source": "Q1 2026 report; price stats computed locally"
+    },
+    {
+      "ticker": "AADI",
+      "date": "2026-05-23",
+      "confidence": "medium",
+      "claim": "Q1 2026 was WEAK despite share-price strength - revenue -10.3% yoy, net profit -27.0% - attributed to RKAB approval uncertainty. Approved a buyback of up to Rp5T over 12 months from 2026-05-23 and paid a US$200mn dividend in June (~5.5% yield).",
+      "source": "Q1 2026 report; AGM 2026-05-22"
+    },
+    {
+      "ticker": "BRPT",
+      "date": "2026-07-31",
+      "confidence": "medium",
+      "claim": "H1 2026 record revenue US$5.69bn (+76.1% yoy) but net profit attributable COLLAPSED 64.7% to US$190.5mn on higher production costs and finance charges.",
+      "source": "company H1 2026 report"
+    },
+    {
+      "ticker": "BBCA",
+      "date": "2026-07-28",
+      "confidence": "high",
+      "claim": "H1 2026 earnings have STALLED: net profit Rp29.5T, +1.8% yoy only, with net interest income DOWN 0.6% yoy.",
+      "source": "company H1 2026 report"
+    },
+    {
+      "ticker": "BMRI",
+      "date": "2026-07-23",
+      "confidence": "medium",
+      "claim": "H1 2026 net profit Rp30.4T, +24.4% yoy - the strongest of the big banks - but NIM is compressing and the stock fell after the results presentation.",
+      "source": "company H1 2026 report"
+    },
+    {
+      "ticker": "BBRI",
+      "date": "2026-07-31",
+      "confidence": "medium",
+      "claim": "RED FLAG: had NOT published H1 2026 statements as of end-July 2026, citing an audit 'in relation to corporate action plans'. Last confirmed hard numbers are Q1 2026: net profit Rp15.5-15.6T, +13.7% yoy.",
+      "source": "company disclosures"
+    },
+    {
+      "ticker": "ASII",
+      "date": "2026-07-30",
+      "confidence": "medium",
+      "claim": "H1 2026 DETERIORATED: net profit Rp12.53T, -19.2% yoy, on revenue -3% yoy. Automotive was the bright spot (+9%); the drag came from mining-related segments.",
+      "source": "company H1 2026 report"
+    },
+    {
+      "ticker": "AMMN",
+      "date": "2026-08-19",
+      "confidence": "medium",
+      "claim": "MAJOR DIVERGENCE: copper is at an all-time high and gold is US$4,339/oz, yet AMMN - a copper-gold miner - is -37.2% YTD and 23.3% below its 200-day average. Smelter repair shutdowns from mid-2025 are the stated operational cause.",
+      "source": "market data; company disclosures on smelter outage"
+    },
+    {
+      "ticker": "PRAJOGO-COMPLEX",
+      "date": "2026-08-14",
+      "confidence": "high",
+      "claim": "The high-concentration complex is in a different volatility regime from the rest of the market: 2026 YTD annualised volatility CUAN 108%, TPIA 107%, BRPT 105%, PTRO 102%, BREN 89% - versus ADRO 38%, BBCA 38%, BBRI 34%. Auto-reject limit-lock days are uncommon though (1-5% of sessions), not routine.",
+      "source": "computed from the local price cache"
+    }
+  ]
+}
