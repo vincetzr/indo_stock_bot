@@ -33,6 +33,7 @@ from idxbot.config import load_config        # noqa: E402
 from idxbot.data.cache import Cache          # noqa: E402
 from idxbot.data.ohlcv import YahooOHLCV     # noqa: E402
 from legpaint import unadjusted_weekly       # noqa: E402
+from paint_daily import unadjusted_daily     # noqa: E402
 from paint_live import band_state            # noqa: E402
 
 BG, FG, GRID = "#131722", "#d1d4dc", "#2a2e39"
@@ -95,6 +96,8 @@ def main() -> int:
     ap.add_argument("--fast", type=float, default=0.12)
     ap.add_argument("--slow", type=float, default=0.25)
     ap.add_argument("--start", default="2021-06-01")
+    ap.add_argument("--daily", action="store_true",
+                    help="daily bars; the band should be narrower than the weekly one")
     args = ap.parse_args()
     os.makedirs("reports", exist_ok=True)
 
@@ -102,7 +105,8 @@ def main() -> int:
     loader = YahooOHLCV(cfg, Cache(cfg.path("data.cache_dir", "data/cache")))
     series = []
     for t in args.tickers:
-        w = unadjusted_weekly(loader, t, start=args.start)
+        w = (unadjusted_daily(loader, t, start=args.start) if args.daily
+             else unadjusted_weekly(loader, t, start=args.start))
         if w is not None and len(w) > 60:
             series.append((t, w))
     if not series:
@@ -114,7 +118,8 @@ def main() -> int:
         axes = [axes]
     out = {}
     for ax, (t, w) in zip(axes, series):
-        out[t] = panel(ax, w, args.fast, args.slow, f"{t} weekly")
+        out[t] = panel(ax, w, args.fast, args.slow,
+                       f"{t} {'daily' if args.daily else 'weekly'}")
 
     fig.suptitle(
         f"IDX Leg Arrows — filled = both bands agree ({args.fast:.0%} and "

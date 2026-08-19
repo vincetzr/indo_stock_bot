@@ -4045,3 +4045,48 @@ PGAS (+4.1% to a buy), TLKM (+6.0%), ASII (+7.1%). ADRO sits in a green leg at
 certain; whether price reaches it is neither, and Result 100 measured what acting
 on these flips is worth - it loses to holding by 1.5-2.6% a year. The triggers
 tell you where the picture changes, not that changing with it pays.
+
+## Result 103 — daily bars keep the accuracy and reach it sooner
+
+The zigzag rule is scale-free, so moving from weekly to daily changes only how
+many bars a swing of a given size takes to resolve. What had to be re-measured is
+the settling time, in days, across 20 large caps with a median 2,860 sessions
+each.
+
+| band | legs | no-cheat | 5d | 10d | 20d | 30d | 45d | 65d |
+|---|---|---|---|---|---|---|---|---|
+| **8%** | 119 | **20/20** | 84% | **92%** | 97% | 99% | 100% | 100% |
+| **10%** | 85 | **20/20** | 80% | 88% | **96%** | 99% | 100% | 100% |
+| 12% | 65 | 20/20 | 76% | 84% | 93% | 97% | 99% | 100% |
+| 15% | 45 | 20/20 | 73% | 80% | 89% | 94% | 97% | 99% |
+| 20% | 28 | 20/20 | 72% | 77% | 83% | 88% | 93% | 97% |
+
+Where each band first clears 90%:
+
+| band | days | equivalent |
+|---|---|---|
+| 8% | **10** | 2 weeks |
+| 10% | 20 | 4 weeks |
+| 12% | 20 | 4 weeks |
+| 15% | 30 | 6 weeks |
+| 20% | 45 | 9 weeks |
+
+**Daily does not merely hold the weekly accuracy - it reaches it in half the
+calendar time.** The weekly 12% band needed six weeks (30 sessions) to clear
+90%; the daily 12% band clears it in 20 sessions and the daily 8% band in 10.
+Finer bars resolve a swing sooner because the confirming move is detected
+whenever it happens rather than only at a Friday close.
+
+The no-cheating check passes on every band and every name: painting the first
+half with only the first half reproduces the full-series painting of it exactly,
+20 of 20, at all five bands.
+
+**The cost is arrow count.** 119 legs at 8% against 28 at 20%, on the same
+history. Result 100 already measured what acting on flips is worth, and more
+flips means more of the whipsaw that made those numbers negative. For *reading*
+the chart the 8-10% daily band is the better instrument; for *trading* it, the
+extra resolution buys nothing this project has been able to measure.
+
+**Recommended daily settings:** 10% fast / 20% slow. That clears 90% in four
+weeks, gives 85 legs over eleven years, and keeps the fast/slow agreement
+meaningful. `scripts/show_arrows.py --daily --fast 0.10 --slow 0.20` renders it.
