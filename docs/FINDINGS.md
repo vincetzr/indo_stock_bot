@@ -4090,3 +4090,64 @@ extra resolution buys nothing this project has been able to measure.
 **Recommended daily settings:** 10% fast / 20% slow. That clears 90% in four
 weeks, gives 85 legs over eleven years, and keeps the fast/slow agreement
 meaningful. `scripts/show_arrows.py --daily --fast 0.10 --slow 0.20` renders it.
+
+## Result 104 — the daily/weekly hybrid does not exist, and the reason is a base rate
+
+Daily settles faster than weekly, so the natural idea is that daily should warn
+of a weekly turn before the weekly band confirms it. Two measurements, and the
+second cancels the first.
+
+**The lead looks total.** Across 25 large caps and 1,003 weekly flips, the daily
+8% band had already flipped the same way before **100%** of them, by a median of
+9 days.
+
+**The lead is vacuous.** The daily band flips 2,863 times to produce those 1,003
+anticipations. What matters is precision, against the right base rate:
+
+| | |
+|---|---|
+| P(weekly flips your way within 60d, **given a daily flip**) | **46.1%** (n=2,863) |
+| P(weekly flips that way within 60d, **any random week**) | **47.5%** (n=12,941) |
+| **lift** | **0.97x**, z = -1.4, p = 0.15 |
+
+**A daily flip carries no information about whether the weekly will follow.** It
+anticipates every weekly turn the way a stopped-often clock anticipates every
+hour. Reporting the 100% without the base rate - which this project did for one
+message - is the error the base rate exists to prevent.
+
+**And the naive hybrid fails for a separate, structural reason.** Running the
+weekly 12% threshold on daily closes scores a flat **67%** against the finished
+weekly picture at every age, from 1 week to 13. Accuracy that does not improve
+as data arrives is the signature of measuring the wrong object: a 12% band on
+daily closes tracks intra-week extremes the weekly picture never contains, so it
+is not reproducing the weekly chart sooner, it is drawing a different chart.
+
+| bar age | weekly only | naive hybrid |
+|---|---|---|
+| 1w | 74.8% | 67.4% |
+| 4w | 89.1% | 67.0% |
+| 6w | **92.9%** | 66.9% |
+| 13w | 98.8% | 67.7% |
+
+## Result 105 — what daily is actually for: CUAN side by side
+
+The two timeframes are not competing views of one thing. They are different
+instruments, and CUAN shows it cleanly:
+
+| | closed legs | settles to 90% | flips at |
+|---|---|---|---|
+| **weekly, 12% band** | 30 | 4 weeks (95%) | 726, -12.0% |
+| **daily, 8% band** | 74 | 5 days (94%) | 800, -3.0% |
+
+The daily painter reaches certainty in **5 days** where the weekly needs **4
+weeks**, and it does so on its own legs - 74 of them against 30. The weekly
+band's stop sits 12% away; the daily band's sits 3% away.
+
+So the choice is not accuracy, it is **which question you are asking**. If the
+position is a multi-month one, the weekly picture is the relevant one and the
+daily flips inside it are noise you have already been shown costs money to
+trade. If the position is a multi-week one, the daily picture settles four times
+faster and its stop is four times tighter.
+
+**Neither improves the other.** That is the finding, and it is the opposite of
+what the hybrid was built to show.
