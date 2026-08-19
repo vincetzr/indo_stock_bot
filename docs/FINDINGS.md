@@ -4151,3 +4151,47 @@ faster and its stop is four times tighter.
 
 **Neither improves the other.** That is the finding, and it is the opposite of
 what the hybrid was built to show.
+
+## Result 106 — the delay test, and why the single-name result is luck
+
+Real fee schedule applied: 0.28% one side, 0.18% plus the 0.10% sale tax on the
+other. Both readings of that give the same **0.56% round trip**, so the
+ambiguity does not change any answer.
+
+Then the honest question: nobody acts the instant the colour changes. Rp10m on
+CUAN's daily 8% arrows, with N extra sessions between signal and fill:
+
+| delay | 1 year | 2 years | 3 years |
+|---|---|---|---|
+| 0 days | -25.6% | +15.0% | +103.9% |
+| 1 day | -6.5% | +31.5% | +76.4% |
+| **2 days** | **+76.3%** | **+43.7%** | **+110.9%** |
+| **3 days** | **-32.9%** | **-13.7%** | +59.7% |
+| 5 days | +10.7% | +18.0% | +121.3% |
+| 10 days | -43.2% | -35.8% | -11.4% |
+| buy & hold | -49.5% | +0.3% | +60.3% |
+
+**Being two days late returns +76.3% over one year. Being three days late
+returns -32.9%.** Same rule, same stock, same fees - a 109-point swing from a
+single day of hesitation, and the ordering is not monotone in either direction.
+
+| window | best | worst | spread |
+|---|---|---|---|
+| 1 year | +76.3% | -43.2% | **119.5 points** |
+| 2 years | +43.7% | -35.8% | 79.5 points |
+| 3 years | +121.3% | -11.4% | 132.7 points |
+
+**This is not an edge being eroded by latency. It is an outcome dominated by
+which handful of trades you happen to catch.** A rule with a real edge degrades
+smoothly as execution slows; this one scatters. With 32 round trips over three
+years and a 41% win rate, a couple of caught-or-missed moves decide everything.
+
+The one monotone finding: **a 10-day delay is bad in every window** (-43%, -36%,
+-11%). Beyond about a week the signal is simply stale.
+
+**What this settles about single-name arrow trading.** Result 100 measured it
+losing to buy-and-hold by 1.5-2.6%/yr across 40 large caps. This explains the
+mechanism at the level of one account: the dispersion swamps the mean. Quoting
+any single number from the table above - including the flattering +121.3% - as
+"what the strategy returns" would be quoting a draw from a very wide
+distribution and calling it an expectation.

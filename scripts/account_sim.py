@@ -10,9 +10,16 @@ Everything that makes a paper backtest differ from a real one is included:
     lots          IDX trades in lots of 100. Cash that cannot buy a whole lot
                   stays in cash, so a Rp10m account in a Rp20,000 stock owns
                   five lots and Rp0 of the sixth.
-    fees          0.15% to buy, 0.25% to sell (the extra 0.1% is the sale tax).
+    fees          set with --fee-buy and --fee-sell. The default is the user's
+                  own schedule: 0.28% one side, 0.18% the other, plus the 0.1%
+                  sale tax. Both readings of that give the same 0.56% round
+                  trip, so which side is which does not change the answer.
     fills         the signal comes from a close, the fill is the NEXT session's
-                  open. Nothing is bought at the price that generated its signal.
+                  open, plus --delay extra sessions. Nothing is bought at the
+                  price that generated its signal.
+    delay         a real trader does not act the instant the colour changes.
+                  --delay adds N sessions between the signal and the fill, so
+                  the cost of being slow is measured rather than assumed.
     no shorting   a red arrow means sit in cash. There is no short leg.
     no leverage   the account never spends money it does not have.
     capacity      a position is capped at 10% of the name's 20-day median
@@ -44,7 +51,7 @@ from idxbot.data.ohlcv import YahooOHLCV       # noqa: E402
 from paint_live import band_state              # noqa: E402
 
 LOT = 100
-FEE_BUY, FEE_SELL = 0.0015, 0.0025
+FEE_BUY, FEE_SELL = 0.0028, 0.0028      # 0.28% buy; 0.18% sell + 0.10% tax
 
 
 def load_ohlc(loader: YahooOHLCV, ticker: str) -> Optional[pd.DataFrame]:
@@ -65,7 +72,8 @@ def load_ohlc(loader: YahooOHLCV, ticker: str) -> Optional[pd.DataFrame]:
 
 
 def run_account(df: pd.DataFrame, band: float, capital: float,
-                max_participation: float = 0.10
+                max_participation: float = 0.10, delay: int = 0,
+                fee_buy: float = FEE_BUY, fee_sell: float = FEE_SELL
                 ) -> Tuple[pd.Series, List[Dict]]:
     """Buy the green arrows, sell the red ones, in whole lots at the next open."""
     close = df["close"].to_numpy(float)
@@ -82,22 +90,22 @@ def run_account(df: pd.DataFrame, band: float, capital: float,
         # signal from bar i-1's close is acted on at bar i's open
         if i > 0 and state[i - 1] != state[i - 2 if i > 1 else 0] or (i == 1 and state[0] == 1):
             pass
-        if i > 0:
-            want = state[i - 1]
+        j = i - 1 - delay
+        if j >= 0:
+            want = state[j]
             have = 1 if lots > 0 else 0
             if want == 1 and have == 0 and np.isfinite(opn[i]) and opn[i] > 0:
-                cap = (max_participation * tv[i - 1]
-                       if np.isfinite(tv[i - 1]) else cash)
-                n = int(min(cash, cap) / (opn[i] * LOT * (1 + FEE_BUY)))
+                cap = (max_participation * tv[j] if np.isfinite(tv[j]) else cash)
+                n = int(min(cash, cap) / (opn[i] * LOT * (1 + fee_buy)))
                 if n > 0:
-                    cost = n * LOT * opn[i] * (1 + FEE_BUY)
+                    cost = n * LOT * opn[i] * (1 + fee_buy)
                     cash -= cost
                     lots = n
                     entry_px = opn[i]
                     trades.append({"date": idx[i], "side": "BUY", "px": opn[i],
                                    "lots": n, "value": cost})
             elif want == 0 and have == 1 and np.isfinite(opn[i]) and opn[i] > 0:
-                proceeds = lots * LOT * opn[i] * (1 - FEE_SELL)
+                proceeds = lots * LOT * opn[i] * (1 - fee_sell)
                 cash += proceeds
                 trades.append({"date": idx[i], "side": "SELL", "px": opn[i],
                                "lots": lots, "value": proceeds,
@@ -134,6 +142,10 @@ def main() -> int:
     ap.add_argument("--band", type=float, default=0.08)
     ap.add_argument("--participation", type=float, default=0.10,
                     help="max position as a share of 20-day median turnover")
+    ap.add_argument("--fee-buy", type=float, default=FEE_BUY)
+    ap.add_argument("--fee-sell", type=float, default=FEE_SELL)
+    ap.add_argument("--delays", type=int, nargs="+", default=[0, 1, 2, 3, 5, 10],
+                    help="extra sessions between the signal and the fill")
     args = ap.parse_args()
     os.makedirs("reports", exist_ok=True)
 
@@ -152,33 +164,67 @@ def main() -> int:
           f"{'GREEN (holding)' if st[-1] else 'RED (in cash)'}, "
           f"flips at {tr[-1]:,.0f} ({tr[-1]/df['close'].iloc[-1]-1:+.1%})\n")
 
-    rows = []
+    print(f"fees: {args.fee_buy:.2%} buy, {args.fee_sell:.2%} sell "
+          f"= {args.fee_buy + args.fee_sell:.2%} per round trip\n")
+
+    print(f"{'=' * 100}\n Rp{args.capital:,.0f} ON THE DAILY {args.band:.0%} ARROWS — "
+          f"how much does being SLOW cost?\n{'=' * 100}")
+    print(f" {'delay':<10}" + "".join(f"{w + ' window':>17}" for w in ("1y", "2y", "3y")))
+    grid = []
+    for delay in args.delays:
+        line = f" {str(delay) + ' sessions':<10}"
+        for years in (1, 2, 3):
+            start = last - pd.DateOffset(years=years)
+            sub = df[df.index >= start]
+            if len(sub) < 100:
+                line += f"{'-':>17}"
+                continue
+            eq, trades = run_account(sub, args.band, args.capital,
+                                     args.participation, delay,
+                                     args.fee_buy, args.fee_sell)
+            n0 = int(args.capital / (sub["open"].iloc[0] * LOT * (1 + args.fee_buy)))
+            hold = pd.Series(
+                args.capital - n0 * LOT * sub["open"].iloc[0] * (1 + args.fee_buy)
+                + n0 * LOT * sub["close"].to_numpy(float), index=sub.index)
+            sm = summarise(eq, trades, args.capital, hold)
+            grid.append({"delay": delay, "window": f"{years}y", **sm})
+            line += f"Rp{sm['final']:>15,.0f}"
+        print(line)
     for years in (1, 2, 3):
         start = last - pd.DateOffset(years=years)
         sub = df[df.index >= start]
         if len(sub) < 100:
             continue
-        eq, trades = run_account(sub, args.band, args.capital, args.participation)
-        n0 = int(args.capital / (sub["open"].iloc[0] * LOT * (1 + FEE_BUY)))
-        hold = pd.Series(
-            args.capital - n0 * LOT * sub["open"].iloc[0] * (1 + FEE_BUY)
-            + n0 * LOT * sub["close"].to_numpy(float), index=sub.index)
-        s = summarise(eq, trades, args.capital, hold)
-        rows.append({"window": f"{years}y", "start": sub.index[0], **s})
+        n0 = int(args.capital / (sub["open"].iloc[0] * LOT * (1 + args.fee_buy)))
+        hv = (args.capital - n0 * LOT * sub["open"].iloc[0] * (1 + args.fee_buy)
+              + n0 * LOT * sub["close"].iloc[-1])
+        if years == 1:
+            hl = f" {'buy & hold':<10}"
+        hl += f"Rp{hv:>15,.0f}"
+    print(hl)
+    G = pd.DataFrame(grid)
+    G.to_csv(f"reports/account_delay_{args.ticker}.csv", index=False)
 
-    print(f"{'=' * 96}\n Rp{args.capital:,.0f} TRADING THE DAILY {args.band:.0%} "
-          f"ARROWS — long only, whole lots, fees paid\n{'=' * 96}")
-    print(f" {'window':<8}{'from':<13}{'final':>16}{'CAGR':>9}{'buy&hold':>16}"
-          f"{'B&H CAGR':>10}{'trades':>8}{'win%':>7}{'maxDD':>8}")
-    for r in rows:
-        print(f" {r['window']:<8}{r['start']:%Y-%m-%d}  Rp{r['final']:>13,.0f}"
-              f"{r['cagr']:>+9.1%}Rp{r['hold_final']:>13,.0f}{r['hold_cagr']:>+10.1%}"
-              f"{r['round_trips']:>8}{r['win_rate']:>7.0%}{r['max_dd']:>8.0%}")
+    print(f"\n{'=' * 100}\n THE SAME TABLE AS ANNUAL RETURN\n{'=' * 100}")
+    print(f" {'delay':<10}" + "".join(f"{w:>12}" for w in ("1y", "2y", "3y"))
+          + f"{'trades (3y)':>14}{'win% (3y)':>11}")
+    for delay in args.delays:
+        g = G[G["delay"] == delay]
+        line = f" {str(delay) + 'd':<10}"
+        for years in ("1y", "2y", "3y"):
+            r = g[g["window"] == years]
+            line += f"{r['cagr'].iloc[0]:>+12.1%}" if len(r) else f"{'-':>12}"
+        r3 = g[g["window"] == "3y"]
+        if len(r3):
+            line += f"{r3['round_trips'].iloc[0]:>14.0f}{r3['win_rate'].iloc[0]:>11.0%}"
+        print(line)
 
+    rows = []
     # full history, for context
-    eq, trades = run_account(df, args.band, args.capital, args.participation)
-    n0 = int(args.capital / (df["open"].iloc[0] * LOT * (1 + FEE_BUY)))
-    hold = pd.Series(args.capital - n0 * LOT * df["open"].iloc[0] * (1 + FEE_BUY)
+    eq, trades = run_account(df, args.band, args.capital, args.participation,
+                             0, args.fee_buy, args.fee_sell)
+    n0 = int(args.capital / (df["open"].iloc[0] * LOT * (1 + args.fee_buy)))
+    hold = pd.Series(args.capital - n0 * LOT * df["open"].iloc[0] * (1 + args.fee_buy)
                      + n0 * LOT * df["close"].to_numpy(float), index=df.index)
     s = summarise(eq, trades, args.capital, hold)
     print(f"\n full history ({s['years']:.1f}y from {df.index[0]:%Y-%m-%d}): "
