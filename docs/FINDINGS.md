@@ -4330,3 +4330,226 @@ holding outright on only 8 of 46 names, and Result 100 still measures it losing
 to holding by 1.5-2.6% a year. The concentration objection was aimed at the right
 target; it just needed the paired version to land, and in the paired version it
 lands on the universe rather than on CUAN.
+
+# Part XXVIII — What the band can and cannot do, settled
+
+## Result 109 — you cannot miss a big move; you can only pay a toll on it
+
+The question: *"what is the expected miss of the best X if you have 90% accuracy?
+It's impossible to completely miss right? Just maybe a late entry or sell."*
+
+That intuition is correct, and it is better than correct — it is provable. The
+"remove the best 5" test of Result 108 deletes those trades. That is the wrong
+model of failure for a band rule, because the rule's failure mode is arithmetic,
+not probabilistic.
+
+**The law.** The rule flips green when price rises `b` off the running low and red
+when it falls `b` off the running high. For a leg from low `L` to high `H`, with
+`M = H/L - 1`:
+
+```
+you cannot buy below   L(1+b)        the flip is what buys you in
+you cannot sell above  H(1-b)        the flip is what sells you out
+
+best possible capture = (1+M)(1-b)/(1+b)
+break-even leg size   = M* = 2b/(1-b)        b=8% -> 17.39%
+```
+
+Three consequences, none of them a hit rate:
+
+1. **A move larger than the band cannot be missed.** If price rises `b` off the
+   low, the state flips — by construction. Not 90% of the time. Always.
+2. **The cost is a fixed toll of `(1+b)/(1-b)` on price**, not a fixed share of
+   the move. It eats 8% of a +292% leg and all of a +15% one.
+3. **Every leg below `M*` is a guaranteed loss before fees.**
+
+**Measured on 46 big caps, 2,607 up legs** (`scripts/capture_toll.py`):
+
+| leg size | legs | median move | captured | ceiling | trade P/L | wins | missed |
+|---|---|---|---|---|---|---|---|
+| < 17.4% (break-even) | 1,325 | 12% | 10% | 30% | −6.7% | 5% | — |
+| 17.4–25% | 484 | 21% | 50% | 59% | −1.2% | 40% | 0 |
+| 25–50% | 588 | 33% | 66% | 73% | +8.6% | 80% | 0 |
+| 50–100% | 176 | 61% | 80% | 84% | +31.1% | 97% | 0 |
+| 100–200% | 26 | 114% | 86% | 90% | +66.4% | 100% | 0 |
+| > 200% | 8 | 298% | 92% | 94% | +226.0% | 100% | 0 |
+
+**Of 2,591 up legs larger than the band, the number never flagged is 0.** Of the
+230 biggest legs (five per name, median +57%, largest +2,385%): 0 missed, 0
+flagged only at the peak, median capture **78%** of the log return against an 83%
+ceiling, and the trade that started in them returned a median **+27.7%** with
+**97% winners**.
+
+So the expected miss on a big leg is **22% of it**, never the leg.
+
+**Where the losses actually are:** the 1,325 legs below break-even — 51% of all
+up legs — which lose by construction no matter how accurately they are called.
+
+**Being late costs little.** Delaying every decision by 5 bars moves capture on
+big legs from 78% to 75%; by 10 bars, to 68%. The failure mode is not lateness,
+it is **speed**: the 446 legs flagged only at their peak last a median 4 bars
+against 13 for the rest.
+
+*Two measurement traps fixed while building this.* Capture measured to the peak
+charges only the entry toll — the exit flip lands after the peak by construction
+— so it must be compared to an entry-only ceiling, not the round-trip one. And
+the realised round trip is not confined to its leg (its exit often lands inside a
+later move), so it is reported in money, never as a fraction of the leg.
+
+## Result 110 — the band cannot be optimised, because IDX legs are a random walk
+
+If the losses live in sub-break-even legs, the obvious fix is a band whose legs
+clear their own toll. There is none, and the reason is decisive.
+
+**The fixed point.** Raising `b` makes the surviving legs bigger, but it raises
+`M* = 2b/(1-b)` just as fast. Measured across 46 big caps on daily bars, the ratio
+of median leg to break-even never gets meaningfully above 1:
+
+| band | break-even | legs | median leg | leg/M* | above M* |
+|---|---|---|---|---|---|
+| 3% | 6.2% | 196 | 7.4% | 1.20 | 60% |
+| 5% | 10.5% | 106 | 10.9% | 1.03 | 52% |
+| 8% | 17.4% | 56 | 17.3% | **0.99** | 49% |
+| 12% | 27.3% | 32 | 26.1% | 0.96 | 47% |
+| 20% | 50.0% | 14 | 41.7% | 0.83 | 38% |
+| 30% | 85.7% | 7 | 62.6% | 0.73 | 37% |
+
+**The null that settles it.** Simulating a driftless random walk at each name's
+own volatility reproduces that profile almost exactly. Median gap in leg/M*,
+real minus walk:
+
+| timeframe | median gap |
+|---|---|
+| daily (46 names) | **−0.001** |
+| 4h (12 names) | −0.032 |
+| 1h (12 names) | +0.008 |
+| 15m (65 names) | no significant positive result |
+
+On 15m the only significant result is **negative** (2% band, gap −0.056,
+p = 0.0035, passing a Bonferroni threshold of 0.0125). A promising +0.053 on a
+12-name sample vanished when the sample was widened to 65 — a reminder that a
+gap that size on a dozen names is noise.
+
+**So "the legs are bigger than the band" is not evidence of anything.** A random
+walk does it too. Out of sample, no selector beats holding: grid-fitted −0.118,
+fixed 8% −0.134, buy-and-hold **+0.276**.
+
+**The break-even law is a good explanation and a bad selector.** Choosing the band
+by it picks 3% and returns **−1.453** out of sample, because the ceiling is a
+bound, not an expectation — whipsaw at small bands never reaches it. Recorded as
+the negative it is.
+
+## Result 111 — combining timeframes lowers the toll and does not make money
+
+The tolls need not come from the same band. Enter on a fast one and exit on a
+slow one and the break-even becomes `(1+b_fast)/(1-b_slow) - 1`. With a 3% hourly
+entry inside a 12% daily-confirmed leg, that is **17.0% instead of 27.3%**.
+
+The arithmetic worked. The money did not. 46 big caps, ~4,300 hourly bars each,
+fees charged, daily state lagged to the last *completed* session:
+
+| rule | median log | vs hold | same-exposure null | beats null |
+|---|---|---|---|---|
+| fast only (3%) | −0.580 | −0.377 | −0.094 | 15% |
+| slow only (12%) | −0.177 | +0.027 | −0.094 | 30% |
+| both green | −0.410 | −0.207 | −0.047 | 15% |
+| **fast in / slow out** | **−0.173** | +0.031 | −0.080 | 34% |
+| buy & hold | −0.204 | — | — | — |
+
+**The right null.** Holding *lost* 18.4% over this window, so any rule that sits
+in cash looks good for free. The fair benchmark is random timing at the same
+exposure — `exposure × hold`. **Every rule loses to it.** The best combination
+beats the best single timeframe by +0.025 log on 57% of names, which is a coin
+flip, and misses its own null by −0.083.
+
+A cheaper bet at unchanged odds is still a losing bet.
+
+## Result 112 — layer 2 cannot reach the timeframes it would need to
+
+The broker-summary layer was audited against what a multi-timeframe system would
+actually require.
+
+**It cannot be intraday, ever.** The source is end-of-day. There is no price at
+which it resolves a 15m, 1h or 4h bar.
+
+**The cache is not daily and not a sample of history.** Of 1,795 files, **1,703
+are range aggregates** — one table over a `start..end` window stamped with a
+single date equal to the window's end; all 1,703 checked, none contains more than
+one distinct date. Only 92 are true single-day files, covering 5 tickers: BBCA
+(60 sessions, 94% dense) and ADRO/ANTM/BUMI/MDKA (8 sessions each). A daily
+net-flow series is buildable today for **exactly one name**.
+
+Worse for inference, the windows are **outcome-conditioned**: 900 files match a
+`(peak_date, signal_date)` pair from `reports/pullback_events.csv` exactly, and
+800 more are half-windows from the trajectory test. It is a sample of pullback
+events, not a sample of history.
+
+**And it has already been measured, twice, at zero.** Result 96: a 300-event pilot
+found `foreign_net` d = 0.257, p = 0.047; the pre-registered replication on 600
+untouched events returned **d = 0.002, p = 0.489**. Result 97: the trajectory
+version, **d = −0.005, p = 0.519**. Result 17: 322,827 rows gave a 60-day IC of
+−0.0254 (t = −10.88) that survived every control — and a long-short spread of
++0.15%, t = 0.76, with U-shaped deciles. Result 19 bounds the whole exercise:
+BBCA's cumulative top-10 net over 52 sessions came to −2,808,171 lots where a
+complete rekap must sum to zero.
+
+## Result 113 — regime gating does not clear the null either
+
+The last untested place. Gating the daily band on a regime condition, 44 names ×
+2,862 sessions, 2015-01-02 to 2026-08-19, fees charged, every gate lagged:
+
+| filter | median log | exposure | same-exposure null | edge vs null | beats null |
+|---|---|---|---|---|---|
+| none | −0.249 | 53% | +0.095 | −0.318 | 39% |
+| above 200-day MA | −0.319 | 31% | +0.056 | −0.320 | 27% |
+| top-third relative strength | −0.416 | 23% | +0.035 | −0.470 | 18% |
+| both | −0.278 | 19% | +0.030 | −0.307 | 23% |
+| market regime | −0.132 | 38% | +0.068 | −0.258 | 34% |
+| **buy & hold** | **+0.169** | 100% | — | — | — |
+
+**No gate clears its own null.** The market-regime gate is the least bad (−0.258
+against −0.318 ungated) and still loses to spending the same exposure at random.
+
+**An important limit on this result.** What was tested is *price-derived proxies*
+for regime — moving averages, relative strength, an equal-weight market filter.
+A point-in-time news and fundamentals dataset does not exist in this repo, so
+**layer 1 proper has not been tested**, and this result should not be read as
+having tested it. Testing it honestly would need earnings, guidance and corporate
+actions timestamped at the moment they became public, not as they are known now.
+Everything else here is a measurement; that one is an open question.
+
+### The state of the market this was measured in (19 Aug 2026)
+
+Layer-1 research, dated and sourced, for context on every number above:
+
+- **IHSG 6,394** — peaked 9,134.70 on 2026-01-20, fell 41.5% to 5,342.14 on
+  2026-06-08, rebounded 18.6%, still **30.6% below the peak** and 15.2% below its
+  200-day average. This is a bear-market rebound, not an uptrend.
+- **BI rate 5.75%, tightening** — hiked 50bp on 2026-05-20 to defend the rupiah
+  (primary source: bi.go.id). Rupiah at a record-weak ~Rp17,850/USD. Any model
+  assuming an easing cycle for 2026 is mis-specified.
+- **MSCI deleted six names** — AMMN, BREN, TPIA, DSSA, CUAN, AMRT — announced
+  2026-05-13, effective 2026-06-01, on free-float grounds. **All six bottomed
+  before the effective date** (21–29 May), so a rule keyed to the event date would
+  have been badly wrong.
+- **IDX raised minimum free float** from 7.5% to 15%. CUAN sits at 14.9%,
+  BREN 12.3% — both non-compliant, with a 'P' notation live since 2026-08-03.
+- **Only 11 of 46 large caps are above their 200-day average.** Of the researched
+  set only ADRO (+39% YTD) and AADI are.
+- **Commodities do not move as one factor**: copper at an all-time high
+  (+46% yoy), gold US$4,339/oz, coal recovered ~22% off its January low — but
+  nickel is falling on Indonesian supply expansion.
+
+### Where this leaves the three layers
+
+| layer | status |
+|---|---|
+| 3 — technical | **Measured, no edge.** Leg structure matches a random walk at 15m/1h/4h/daily; every rule and combination loses to random timing at matched exposure. |
+| 2 — broker flow | **Measured at zero, twice, pre-registered.** Cannot reach intraday at all; the cache is outcome-conditioned and daily for one name. |
+| 1 — news/fundamentals | **Untested.** Price-derived proxies for it fail. A point-in-time dataset would be needed to test the real thing. |
+
+What survives is narrow and worth keeping: the band rule cannot miss a move
+bigger than its band, it never repaints, and its trigger price is exact and known
+in advance. That makes it a good **instrument** — it tells you where you are. It
+is not evidence about where price goes next, and every attempt in this Part to
+make it into one has been measured and has failed.

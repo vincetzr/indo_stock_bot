@@ -86,22 +86,25 @@ all dropped unconditionally. Zero-volume bars are dropped too, with one
 exception that matters a great deal:
 
 **the first bar of each session is kept even at zero volume.** In the 5-minute
-feed the 09:00 bar has volume 0 in 100% of sessions; in the hourly feed the
-09:00 bar has volume 0 in 71% of sessions and the rate rises from ~0% in late
-2023 to 100% from mid-2025 on. That is a feed change, not a market change. The
-volume is *missing*, not zero, and the proof is in the daily cache: on sessions
-where the 09:00 hourly bar reads zero, the intraday bars sum to a median 75.8%
-of the day's reported volume; on sessions where it reads non-zero they sum to
-97.1%. The missing ~22% is the first hour. The bar's price range is real - its
-close chains continuously into the next bar's open - so dropping it would throw
-away the session open and the opening range for two thirds of recent sessions
-while keeping bars that are no more real. Pass ``keep_session_open=False`` to
-drop them anyway; the count is reported either way.
+feed the 09:00 bar has volume 0 in a median 100% of sessions (never below 89%
+for any name); in the hourly feed the 09:00 bar reads zero in a median 74% of
+sessions, and on BBCA that rate climbs from ~0% in late 2023 to 100% from
+mid-2025 on. That is a feed change, not a market change.
+
+The volume is *missing*, not zero, and the daily cache proves it. Over a
+119-name sample: on sessions where the 09:00 hourly bar reads zero, the intraday
+bars sum to a median 75.1% of the day's reported volume; on sessions where it
+reads non-zero they sum to 98.1%. The missing ~23% is the first hour. The bar's
+price range is also real - its close chains continuously into the next bar's
+open - so dropping it would throw away the session open and the opening range
+for three quarters of sessions while keeping bars that are no more real. Pass
+``keep_session_open=False`` to drop them anyway; the count is reported either
+way, and it is large: 391,301 hourly session opens across the 778 names.
 
 The corollary is a warning, not a fix: **intraday volume in this cache does not
 reconcile with daily volume, and the shortfall is time-varying.** Any signal of
-the form "volume so far vs normal" is measuring a fraction that was ~97% in 2023
-and is ~76% now. Calibrate such a signal on hourly data at your own risk.
+the form "volume so far vs normal" is measuring a fraction that was ~98% in 2023
+and is ~75% now. Calibrate such a signal on hourly data at your own risk.
 
 
 THE IMPOSSIBLE-PRINT GUARD, AND WHY 35% IS THE WRONG NUMBER AT 15m
@@ -155,13 +158,24 @@ before clipping is reported in ``df.attrs['suspect_jumps']`` - treat those dates
 as unbacktestable for that name rather than trusting the clipped value. 730
 steps larger than 30% were found across the 778 hourly files.
 
-It is also wrong for sub-Rp50 names. 52 tickers in this cache have a median
+It is also wrong for sub-Rp50 names. 66 of the 778 hourly tickers have a median
 close under Rp50; they trade on the special-monitoring full-call-auction board
 where the tick is Rp1, so one tick on a Rp1 stock is +100% and the guard clips a
-real move. Filter them out rather than trusting the guard on them.
+real move. BTEK alone takes 37 in-session clips. Filter these names out rather
+than trusting the guard on them.
+
+And it does nothing about the biggest hazard in this cache, which is not a price
+at all: **five sessions are simply absent from the intraday feed.** 2025-09-24,
+25, 26, 29 and 30 have no intraday bars for any of the 778 names, while the
+daily cache has all five with normal volume - the exchange was open. An hourly
+backtest steps straight from 2025-09-23's close to 2025-10-01's open and never
+sees the week in between (BBCA fell 4.8% across it). ``--selftest`` will not
+catch this; the coverage run cross-checks the intraday calendar against the
+daily cache and prints it.
 
     python3 scripts/tf_data.py                 # coverage table + warnings
     python3 scripts/tf_data.py --names 50      # quick pass
+    python3 scripts/tf_data.py --selftest      # structure + prefix identity
 """
 
 from __future__ import annotations
@@ -248,30 +262,70 @@ def _empty(interval: str, ticker: str) -> pd.DataFrame:
 # cache access (read-only, never fetches)
 # ---------------------------------------------------------------------------
 
+def _safe(name: str) -> str:
+    """The fetcher's filename sanitiser (see data/cache.py)."""
+    return "".join(c if c.isalnum() or c in "-_." else "_" for c in name)
+
+
+def _symbols(ticker: str) -> List[str]:
+    """Cache basenames a ticker could be stored under, most likely first.
+
+    ``to_yahoo_symbol`` alone is not enough to get back to a filename. The cache
+    sanitises non-alphanumerics, so ``BZ=F`` is on disk as ``BZ_F`` - and
+    ``to_yahoo_symbol("BZ_F")`` sees four characters with no dot and helpfully
+    returns ``BZ_F.JK``, a symbol that cannot exist. The same trap catches
+    ``^VIX`` -> ``_VIX`` -> ``_VIX.JK``. Try the sanitised name as given too.
+    """
+    raw = ticker.strip().upper()
+    out, seen = [], set()
+    for cand in (_safe(to_yahoo_symbol(raw)), _safe(raw)):
+        if cand not in seen:
+            seen.add(cand)
+            out.append(cand)
+    return out
+
+
+def _pick(directory: str, ticker: str, suffix: str) -> str:
+    for sym in _symbols(ticker):
+        path = os.path.join(directory, f"{sym}{suffix}")
+        if os.path.exists(path):
+            return path
+    return os.path.join(directory, f"{_symbols(ticker)[0]}{suffix}")
+
+
 def _cache_key(ticker: str, interval: str) -> str:
     """Reproduce the fetcher's cache key, including its filename sanitising."""
-    key = f"{to_yahoo_symbol(ticker)}_{CACHE_KEY[interval]}"
-    return "".join(c if c.isalnum() or c in "-_." else "_" for c in key)
+    return _safe(f"{to_yahoo_symbol(ticker)}_{CACHE_KEY[interval]}")
 
 
 def intraday_path(ticker: str, interval: str) -> str:
-    return os.path.join(INTRADAY_DIR, f"{_cache_key(ticker, interval)}.csv.gz")
+    return _pick(INTRADAY_DIR, ticker, f"_{CACHE_KEY[interval]}.csv.gz")
 
 
 def daily_path(ticker: str) -> str:
-    symbol = to_yahoo_symbol(ticker)
-    safe = "".join(c if c.isalnum() or c in "-_." else "_" for c in symbol)
-    return os.path.join(DAILY_DIR, f"{safe}.csv.gz")
+    return _pick(DAILY_DIR, ticker, ".csv.gz")
 
 
-def available(interval: str) -> List[str]:
-    """Tickers with a cache file for this interval, as ticker codes."""
+def is_idx_equity(ticker: str) -> bool:
+    """Four letters. Everything else in the cache is an index, FX or a future."""
+    return len(ticker) == 4 and ticker.isalpha()
+
+
+def available(interval: str, equities_only: bool = False) -> List[str]:
+    """Tickers with a cache file for this interval, as ticker codes.
+
+    The daily namespace is not an IDX universe: it also holds ``^JKSE``,
+    ``^GSPC``, ``DX-Y.NYB`` and a handful of futures, cached by the macro code.
+    Globbing it without ``equities_only`` gets you all of them.
+    """
     if interval == "1d":
         paths = sorted(glob.glob(os.path.join(DAILY_DIR, "*.csv.gz")))
-        return [os.path.basename(p)[: -len(".csv.gz")].replace(".JK", "") for p in paths]
-    suffix = f"_{CACHE_KEY[SOURCE[interval]]}.csv.gz"
-    paths = sorted(glob.glob(os.path.join(INTRADAY_DIR, f"*{suffix}")))
-    return [os.path.basename(p)[: -len(suffix)].replace(".JK", "") for p in paths]
+        names = [os.path.basename(p)[: -len(".csv.gz")].replace(".JK", "") for p in paths]
+    else:
+        suffix = f"_{CACHE_KEY[SOURCE[interval]]}.csv.gz"
+        paths = sorted(glob.glob(os.path.join(INTRADAY_DIR, f"*{suffix}")))
+        names = [os.path.basename(p)[: -len(suffix)].replace(".JK", "") for p in paths]
+    return [n for n in names if is_idx_equity(n)] if equities_only else names
 
 
 def _read_raw(path: str) -> Optional[pd.DataFrame]:
@@ -600,6 +654,25 @@ def load(ticker: str, interval: str, **kw) -> pd.DataFrame:
 # audit
 # ---------------------------------------------------------------------------
 
+def _cache_mtime(interval: str) -> pd.Timestamp:
+    """When the newest cache file for this interval was written.
+
+    Not the same question as "what is the last bar". A cache written today can
+    still end on a bar from last week, and knowing which of the two is stale
+    tells you whether to refetch or to stop trusting the feed.
+    """
+    if interval == "1d":
+        paths = glob.glob(os.path.join(DAILY_DIR, "*.csv.gz"))
+    else:
+        paths = glob.glob(os.path.join(
+            INTRADAY_DIR, f"*_{CACHE_KEY[SOURCE[interval]]}.csv.gz"))
+    if not paths:
+        return pd.NaT
+    # Median, not max: one file refetched yesterday says nothing about the
+    # other 777, and the max would quietly claim the whole cache is fresh.
+    return pd.Timestamp(float(np.median([os.path.getmtime(p) for p in paths])), unit="s")
+
+
 def _constant_run(close: np.ndarray) -> int:
     """Longest run of identical closes - a suspended or non-trading stretch."""
     if len(close) < 2:
@@ -648,10 +721,35 @@ def calendar_gaps(dates: List[pd.Timestamp], min_days: int = 5) -> List[Tuple[st
             for i in np.flatnonzero(d.to_numpy() >= min_days)]
 
 
+def sessions_missing_from_intraday(intraday_dates, reference: List[str],
+                                   start: pd.Timestamp) -> List[pd.Timestamp]:
+    """Sessions the DAILY cache has that the intraday cache does not.
+
+    This is the check that catches a feed hole masquerading as a holiday. A gap
+    in the intraday calendar is only benign if the exchange was shut; the daily
+    cache is the independent witness for that.
+    """
+    have = set(pd.Timestamp(d) for d in intraday_dates)
+    if not have:
+        return []
+    # Only the interior matters. Sessions after the last intraday bar are
+    # staleness, which is a different problem reported separately.
+    last = max(have)
+    ref: set = set()
+    for t in reference:
+        d = load_daily(t, guard=False)
+        if not d.empty:
+            ref.update(x for x in d["date"] if start <= x <= last)
+    return sorted(ref - have)
+
+
 def audit(intervals: List[str], limit: Optional[int], asof: pd.Timestamp,
           probe: int = 60) -> Tuple[pd.DataFrame, pd.DataFrame, Dict[str, list]]:
     rows, per_name = [], []
     gaps: Dict[str, list] = {}
+    holes: Dict[str, list] = {}
+    # Liquid names that trade every session, used as the reference calendar.
+    REF = ["BBCA", "BBRI", "BMRI", "ASII", "TLKM"]
     # Donchian lookback per interval, chosen so the rule holds a swing of
     # roughly comparable calendar length at each resolution.
     donchian = {"1h": 20, "4h": 10, "15m": 20, "1d": 20}
@@ -691,7 +789,10 @@ def audit(intervals: List[str], limit: Optional[int], asof: pd.Timestamp,
         R = pd.DataFrame(recs)
         R["interval"] = interval
         per_name.append(R)
-        gaps[interval] = calendar_gaps([pd.Timestamp(d) for d in seen_dates])
+        dates = [pd.Timestamp(d) for d in seen_dates]
+        gaps[interval] = calendar_gaps(dates)
+        holes[interval] = (sessions_missing_from_intraday(dates, REF, min(dates))
+                           if dates and interval != "1d" else [])
 
         live = R[R["bars"] > 0]
         usable = live[live["bars"] >= _MIN_BARS[interval]]
@@ -706,13 +807,14 @@ def audit(intervals: List[str], limit: Optional[int], asof: pd.Timestamp,
             median_sessions=int(live["sessions"].median()) if len(live) else 0,
             bars_per_day=round(float(live["bars_per_day"].median()), 2) if len(live) else 0,
             first=live["first"].min() if len(live) else pd.NaT,
-            last=live["last"].max() if len(live) else pd.NaT,
-            stale_days=int((asof - live["last"].max()).days) if len(live) else -1,
+            last=live["last"].median() if len(live) else pd.NaT,
+            freshest=live["last"].max() if len(live) else pd.NaT,
+            stale_days=int((asof - live["last"].median()).days) if len(live) else -1,
             median_trips=float(live["trips"].median()) if live["trips"].notna().any() else float("nan"),
         ))
 
     P = pd.concat(per_name, ignore_index=True)
-    return pd.DataFrame(rows), P, gaps
+    return pd.DataFrame(rows), P, {"gaps": gaps, "holes": holes}
 
 
 # Minimum clean bars for a name to count as usable at each interval. Set so a
@@ -721,8 +823,84 @@ def audit(intervals: List[str], limit: Optional[int], asof: pd.Timestamp,
 _MIN_BARS = {"1h": 500, "4h": 150, "15m": 500, "1d": 250}
 
 
+def selftest(tickers: List[str]) -> int:
+    """Structural and no-cheating checks. Every one of these must be exact.
+
+    The prefix check is the important one. Painting the first half of a series
+    with only the first half must reproduce, bar for bar, what the full series
+    gives for that half. If it does not, something in the pipeline is reading
+    forward, and every backtest built on it is worthless.
+    """
+    expect_bpd = {"1h": {6, 7}, "4h": {2}, "15m": {19, 23}}
+    LIQUID = {"BBCA", "ADRO", "_JKSE", "BBRI", "BMRI", "TLKM", "ASII"}
+    fails = 0
+
+    def check(ok: bool, label: str) -> None:
+        nonlocal fails
+        if not ok:
+            fails += 1
+        print(f"   {'ok  ' if ok else 'FAIL'}  {label}")
+
+    for t in tickers:
+        print(f"\n [{t}]")
+        for interval in ("1h", "4h", "15m"):
+            df = load(t, interval)
+            if df.empty:
+                print(f"   skip  {interval}: not cached")
+                continue
+
+            check(df["ts"].is_monotonic_increasing, f"{interval}: timestamps sorted")
+            check(not df["ts"].duplicated().any(), f"{interval}: no duplicate timestamps")
+            check(bool((df["high"] >= df[["open", "close"]].max(axis=1) - 1e-6).all()
+                       and (df["low"] <= df[["open", "close"]].min(axis=1) + 1e-6).all()),
+                  f"{interval}: OHLC coherent")
+
+            # No bar may be built across lunch or across midnight.
+            minute = df["ts"].dt.hour * 60 + df["ts"].dt.minute
+            check(bool(((minute >= SESSION_OPEN) & (minute <= POST_END)).all()),
+                  f"{interval}: every bar inside 09:00-16:15")
+            check(bool((~((minute >= LUNCH_START) & (minute < LUNCH_END - 30))).all()
+                       if interval != "1h" else True),
+                  f"{interval}: no bar labelled inside the lunch break")
+            spans = df.groupby(["date", "session"])["ts"].count()
+            check(len(spans) > 0, f"{interval}: bars group cleanly by (date, session)")
+
+            # A liquid name must hit the documented count exactly. An illiquid
+            # one may have fewer - whole hours pass with no trade - but never
+            # more, because more would mean the layer invented a bar.
+            per_day = df.groupby("date").size()
+            bpd = set(per_day.mode().tolist())
+            cap = max(expect_bpd[interval])
+            check(int(per_day.max()) <= cap,
+                  f"{interval}: max bars/day {int(per_day.max())} <= {cap} (none invented)")
+            if t in LIQUID:
+                check(bool(bpd & expect_bpd[interval]),
+                      f"{interval}: modal bars/day {sorted(bpd)} in "
+                      f"{sorted(expect_bpd[interval])}")
+            else:
+                print(f"   note  {interval}: modal bars/day {sorted(bpd)} "
+                      f"(illiquid name, sparse by nature)")
+
+            # Prefix identity: rebuild using only the first half of the history.
+            cut = df["ts"].iloc[len(df) // 2]
+            part = load(t, interval, end=cut)
+            full = df[df["ts"] <= cut].reset_index(drop=True)
+            same = (len(part) == len(full)
+                    and np.allclose(part["close"].to_numpy(float),
+                                    full["close"].to_numpy(float), rtol=0, atol=1e-9)
+                    and np.allclose(part["high"].to_numpy(float),
+                                    full["high"].to_numpy(float), rtol=0, atol=1e-9))
+            check(same, f"{interval}: prefix identical to the full-series painting "
+                        f"({len(full)} bars, cut {cut:%Y-%m-%d %H:%M})")
+
+    print(f"\n {'ALL CHECKS PASSED' if not fails else str(fails) + ' CHECKS FAILED'}")
+    return 1 if fails else 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--selftest", action="store_true",
+                    help="run the structural and no-cheating checks and exit")
     ap.add_argument("--names", type=int, default=0, help="cap names per interval (0 = all)")
     ap.add_argument("--intervals", default="1h,4h,15m,1d")
     ap.add_argument("--asof", default="2026-08-19")
@@ -731,9 +909,14 @@ def main() -> int:
     ap.add_argument("--csv", default="reports/tf_data_coverage.csv")
     args = ap.parse_args()
 
+    if args.selftest:
+        print("=" * 108 + "\n STRUCTURE AND NO-CHEATING CHECKS\n" + "=" * 108)
+        return selftest(["BBCA", "ADRO", "CUAN", "BTEK", "_JKSE"])
+
     intervals = [s.strip() for s in args.intervals.split(",") if s.strip()]
     asof = pd.Timestamp(args.asof)
-    C, P, GAPS = audit(intervals, args.names or None, asof, probe=args.probe)
+    C, P, CAL = audit(intervals, args.names or None, asof, probe=args.probe)
+    GAPS, HOLES = CAL["gaps"], CAL["holes"]
 
     os.makedirs(os.path.join(REPO_ROOT, "reports"), exist_ok=True)
     out_csv = args.csv if os.path.isabs(args.csv) else os.path.join(REPO_ROOT, args.csv)
@@ -750,6 +933,8 @@ def main() -> int:
               f"{r['bars_per_day']:>7.2f}  {pd.Timestamp(r['first']):%Y-%m-%d}  "
               f"{pd.Timestamp(r['last']):%Y-%m-%d}{r['stale_days']:>7}"
               f"{r['median_trips']:>7.0f}")
+    print("\n first = earliest bar of any name; last = MEDIAN name's last bar; "
+          "stale = days from that to as-of")
     print("\n usable = has a cache file and at least "
           + ", ".join(f"{_MIN_BARS[i]} {i} bars" for i in intervals if i in _MIN_BARS))
     print(" trips  = median round trips from a causal 20/10-bar Donchian rule on the "
@@ -785,14 +970,31 @@ def main() -> int:
               f"(one tick = 2%-100%; the clip is wrong for these)")
         print(f"   last bar >3d behind the cohort ... {len(stale)} names "
               f"(cohort last bar {pd.Timestamp(cohort):%Y-%m-%d})")
+        print(f"   cache files last written ......... "
+              f"{_cache_mtime(interval):%Y-%m-%d %H:%M} (median file mtime)")
         print(f"   staleness ........................ cohort last bar "
               f"{pd.Timestamp(cohort):%Y-%m-%d}, freshest "
               f"{pd.Timestamp(S['last'].max()):%Y-%m-%d} -> "
               f"{int((asof - cohort).days)} days stale at {asof:%Y-%m-%d}")
+        non_idx = S[~S["ticker"].map(is_idx_equity)]
+        if len(non_idx):
+            print(f"   NOT IDX equities ................. {len(non_idx)} "
+                  f"({', '.join(sorted(non_idx['ticker'])[:8])}"
+                  f"{' ...' if len(non_idx) > 8 else ''})")
         g = GAPS.get(interval, [])
-        print(f"   holes in the session calendar .... {len(g)} gaps of >=5 calendar days")
+        print(f"   gaps in the session calendar ..... {len(g)} of >=5 calendar days")
         for a, b, n in g:
             print(f"       {a} -> {b}   ({n} days)")
+        h = HOLES.get(interval, [])
+        if h:
+            print(f"   ** {len(h)} sessions MISSING from inside this interval's range "
+                  f"that the daily cache has **")
+            print("       " + ", ".join(f"{pd.Timestamp(x):%Y-%m-%d}" for x in h[:12])
+                  + (" ..." if len(h) > 12 else ""))
+            print("       the exchange traded on these days. A feed hole, not a "
+                  "holiday - and invisible unless you check.")
+        else:
+            print("   interior sessions vs daily cache .. none missing")
 
     print(f"\n -> {out_csv}")
     print(f" -> {out_csv.replace('.csv', '_per_name.csv')}")
