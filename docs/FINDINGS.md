@@ -4469,8 +4469,33 @@ A cheaper bet at unchanged odds is still a losing bet.
 The broker-summary layer was audited against what a multi-timeframe system would
 actually require.
 
-**It cannot be intraday, ever.** The source is end-of-day. There is no price at
-which it resolves a 15m, 1h or 4h bar.
+**The source used here is end-of-day, so it cannot resolve a 15m, 1h or 4h bar.**
+
+*Correction, added after the fact.* This originally read "it cannot be intraday,
+ever — there is no price at which it resolves a 15m, 1h or 4h bar." That was an
+overclaim, and it conflated the free daily-summary page this repo reads with the
+underlying exchange data. IDX's trade feed carries the **buying and selling broker
+code on every transaction**, intraday — which is precisely why broker-summary and
+running-trade features exist in Indonesian broker apps at all, and why
+"bandarmology" is an Indonesian phenomenon rather than a global one. Member firms
+receive that feed as an entitlement.
+
+So the honest statement is narrower and more useful: **every limitation measured
+in this Result is a limitation of the source currently in hand, not of the data
+class.** Specifically —
+
+| limitation found | is it fundamental? |
+|---|---|
+| end-of-day only | **No.** The exchange feed is tick-level with broker codes. |
+| top 10 brokers per side | **No.** The full rekap exists upstream; the cap is the free page's. |
+| outcome-conditioned sample | **No.** That is this repo's own sampling artefact. |
+| daily series for one name | **No.** A consequence of the above three. |
+
+What remains fundamental is only the measured result: on the question actually
+asked — does flow into a drawdown predict the recovery — two adequately powered
+pre-registered replications returned d = 0.002 and d = −0.005. That is evidence
+about a hypothesis, not about the data class, and a better feed would let the
+hypothesis be re-asked at intraday resolution for the first time.
 
 **The cache is not daily and not a sample of history.** Of 1,795 files, **1,703
 are range aggregates** — one table over a `start..end` window stamped with a
@@ -4545,7 +4570,7 @@ Layer-1 research, dated and sourced, for context on every number above:
 | layer | status |
 |---|---|
 | 3 — technical | **Measured, no edge.** Leg structure matches a random walk at 15m/1h/4h/daily; every rule and combination loses to random timing at matched exposure. |
-| 2 — broker flow | **Measured at zero, twice, pre-registered.** Cannot reach intraday at all; the cache is outcome-conditioned and daily for one name. |
+| 2 — broker flow | **Measured at zero, twice, pre-registered** — but on an end-of-day, top-10-truncated, outcome-conditioned source. The exchange feed itself is tick-level with broker codes, so the hypothesis has never been asked at the resolution that would matter. |
 | 1 — news/fundamentals | **Untested.** Price-derived proxies for it fail. A point-in-time dataset would be needed to test the real thing. |
 
 What survives is narrow and worth keeping: the band rule cannot miss a move

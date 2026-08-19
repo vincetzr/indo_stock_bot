@@ -34,12 +34,20 @@ post-trading window, where IDX only allows trades at the already-fixed closing
 price; they are kept but they are zero-range by construction, and on resampling
 they fold into the 16:00 bar, which is where they belong.
 
-The last intraday close does NOT always equal the daily close. Over 99 names and
-67,355 sessions it matches on a median 96.0% of them (10th percentile 94.3%,
-worst name 88.6%). On BBCA it happens to be 100%, which is why this is worth
-stating: one in twenty-five sessions has an intraday close that disagrees with
-the daily bar. A strategy whose exit is "the close" will not get the same price
-from the two layers.
+The last intraday close does NOT always equal the daily close, and the mismatch
+is not spread evenly. Over 39,878 session-name pairs the two agree 96.4% of the
+time, but by quarter:
+
+    2023Q3  84.5%    2024Q1-2026Q3  98.5% - 99.9%
+    2023Q4  73.6%
+
+The first five months of the hourly history are the bad part. From 2024-01-01 on
+the layers agree on 99%+ of sessions. When they do disagree it is usually small
+(median 0.85%, 76% of cases under 1.5%, roughly one tick), but 0.6% of mismatches
+exceed 10%. **Start hourly backtests at 2024-01-01.** That costs five months of a
+three-year window and removes the stretch where one session in four has an
+intraday close the daily bar does not recognise. On BBCA agreement happens to be
+100% throughout, which is exactly why this needs measuring on more than one name.
 
 Hourly buckets land on 09,10,11,13,14,15,16 Mon-Thu and 09,10,11,14,15,16 on
 Friday. A stray bar at 12:00 appears in 209 of the 778 files (3,003 bars total)
@@ -522,6 +530,18 @@ def _load_intraday(ticker: str, source: str, target: str, *,
         df.attrs["report"] = rep
         return df
 
+    # ``end`` is applied HERE, before anything derived is computed, so that
+    # load(end=X) returns exactly the frame you would have had standing at X.
+    # Truncating afterwards would let the guard see prices from beyond X.
+    # ``start`` is applied last on purpose: the guard recompounds from the first
+    # bar, so trimming the head before it would move every subsequent price
+    # level and two overlapping windows would disagree.
+    if end is not None:
+        df = df[df["ts"] <= pd.Timestamp(end)]
+        if df.empty:
+            df.attrs["report"] = rep
+            return df
+
     # Guard at the SOURCE resolution: a corrupt print has to be fixed before it
     # can leak into a resampled bar's high or low.
     if guard:
@@ -537,8 +557,6 @@ def _load_intraday(ticker: str, source: str, target: str, *,
 
     if start is not None:
         df = df[df["ts"] >= pd.Timestamp(start)]
-    if end is not None:
-        df = df[df["ts"] <= pd.Timestamp(end)]
 
     df = df[["ts"] + OHLCV + ["date", "session", "n_src"]].reset_index(drop=True)
     rep.final_bars = len(df)
@@ -625,14 +643,17 @@ def load_daily(ticker: str, *, drop_zero_volume: bool = True, guard: bool = True
     out["ts"] = out["date"]
     out["session"] = "D"
     out["n_src"] = 1
-    if guard:
-        # Every daily step is an overnight step, so both caps are 35%.
-        out = _guard(out, rep, INTRA_CAP["1d"])
 
-    if start is not None:
-        out = out[out["date"] >= pd.Timestamp(start)]
+    # Same ordering rule as the intraday loaders: ``end`` before the guard so
+    # the frame is a faithful as-of view, ``start`` after so the recompounded
+    # level does not depend on the window requested.
     if end is not None:
         out = out[out["date"] <= pd.Timestamp(end)]
+    if guard and not out.empty:
+        # Every daily step is an overnight step, so both caps are 35%.
+        out = _guard(out.reset_index(drop=True), rep, INTRA_CAP["1d"])
+    if start is not None:
+        out = out[out["date"] >= pd.Timestamp(start)]
 
     out = out[["ts"] + OHLCV + ["date", "session", "n_src"]].reset_index(drop=True)
     rep.final_bars = len(out)
