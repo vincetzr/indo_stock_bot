@@ -25,19 +25,26 @@ Measured over the whole cache, the 5-minute grid that actually appears is:
     09:00 .. 11:25   Fri morning            (30 bars)
     13:30 .. 15:45   Mon-Thu afternoon      (28 bars)
     14:00 .. 15:45   Fri afternoon          (24 bars)
-    15:50            almost never present   (10 occurrences cache-wide)
+    15:50            almost never present   (94 bars in 44 of 221 files)
     16:00            pre-closing auction     - always present, large volume
     16:05, 16:10     post-trading            - fixed at the closing price
 
-The 16:00 bar is the closing cross: its close equals the daily close in 100% of
-sessions checked against the daily cache, so it is kept. 16:05/16:10 are the
+The 16:00 bar is the closing cross, so it is kept. 16:05/16:10 are the
 post-trading window, where IDX only allows trades at the already-fixed closing
 price; they are kept but they are zero-range by construction, and on resampling
 they fold into the 16:00 bar, which is where they belong.
 
+The last intraday close does NOT always equal the daily close. Over 99 names and
+67,355 sessions it matches on a median 96.0% of them (10th percentile 94.3%,
+worst name 88.6%). On BBCA it happens to be 100%, which is why this is worth
+stating: one in twenty-five sessions has an intraday close that disagrees with
+the daily bar. A strategy whose exit is "the close" will not get the same price
+from the two layers.
+
 Hourly buckets land on 09,10,11,13,14,15,16 Mon-Thu and 09,10,11,14,15,16 on
-Friday. A bar at 12:00 exists in 7 files out of 778 and is dropped: an hourly
-bucket starting at 12:00 lies entirely inside the lunch break.
+Friday. A stray bar at 12:00 appears in 209 of the 778 files (3,003 bars total)
+and is dropped: an hourly bucket starting at 12:00 lies entirely inside the
+lunch break. Nothing in the cache falls before 09:00 or after 16:15.
 
 
 RESAMPLING CONVENTION
@@ -113,9 +120,11 @@ THE IMPOSSIBLE-PRINT GUARD, AND WHY 35% IS THE WRONG NUMBER AT 15m
 That number is chosen as an upper bound on IDX auto-rejection: no stock can
 close more than one ARA/ARB band away from the previous close, and 35% is the
 widest band. Applied to a daily close series it is well calibrated - across
-53,080 overnight steps in this cache the 99.9th percentile is 25.0% and the
-99.99th is 35.0%, so 35% sits exactly on the shoulder of the real distribution
-and clips only what cannot be real (the largest is +165%, a reverse split).
+53,080 sampled overnight steps the 99.9th percentile is 25.0% and the 99.99th is
+35.0%, so 35% sits exactly on the shoulder of the real distribution and clips
+only what cannot be real. Cache-wide the largest raw overnight step is CUAN's
++905.6% on 2025-07-10, a reverse split; 83 names carry a step above 35% and 7
+carry one above 100%.
 
 Applied to a 15-minute bar it is **inert**. Measured over 91,491 in-session
 15-minute steps: the 99.99th percentile is 13.1%, the largest is 24.6%, and the
@@ -156,7 +165,8 @@ discontinuity; the guard bounds it to 35% and moves on, which turns an
 impossible +905% into a merely wrong +35%. Every overnight step that hit the cap
 before clipping is reported in ``df.attrs['suspect_jumps']`` - treat those dates
 as unbacktestable for that name rather than trusting the clipped value. 730
-steps larger than 30% were found across the 778 hourly files.
+steps larger than 30% were found across the 778 hourly files, and the guard
+fires on 85 overnight steps spread over 58 names.
 
 It is also wrong for sub-Rp50 names. 66 of the 778 hourly tickers have a median
 close under Rp50; they trade on the special-monitoring full-call-auction board
@@ -743,11 +753,36 @@ def sessions_missing_from_intraday(intraday_dates, reference: List[str],
     return sorted(ref - have)
 
 
+def close_agreement(interval: str, tickers: List[str]) -> Tuple[float, int, int]:
+    """Share of sessions where the last intraday close equals the daily close.
+
+    Two layers that disagree about the closing price will disagree about every
+    trade that exits on the close, and nothing in either layer complains.
+    """
+    shares, sessions = [], 0
+    for t in tickers:
+        d = load(t, interval, guard=False)
+        day = load_daily(t, guard=False, drop_zero_volume=False)
+        if d.empty or day.empty:
+            continue
+        last = d.groupby("date")["close"].last()
+        j = pd.concat([last.rename("i"), day.set_index("date")["close"].rename("d")],
+                      axis=1, sort=True).dropna()
+        if len(j) < 50:
+            continue
+        shares.append(float(np.isclose(j["i"], j["d"], rtol=1e-6).mean()))
+        sessions += len(j)
+    if not shares:
+        return float("nan"), 0, 0
+    return float(np.median(shares)), len(shares), sessions
+
+
 def audit(intervals: List[str], limit: Optional[int], asof: pd.Timestamp,
           probe: int = 60) -> Tuple[pd.DataFrame, pd.DataFrame, Dict[str, list]]:
     rows, per_name = [], []
     gaps: Dict[str, list] = {}
     holes: Dict[str, list] = {}
+    agree: Dict[str, tuple] = {}
     # Liquid names that trade every session, used as the reference calendar.
     REF = ["BBCA", "BBRI", "BMRI", "ASII", "TLKM"]
     # Donchian lookback per interval, chosen so the rule holds a swing of
@@ -793,6 +828,9 @@ def audit(intervals: List[str], limit: Optional[int], asof: pd.Timestamp,
         gaps[interval] = calendar_gaps(dates)
         holes[interval] = (sessions_missing_from_intraday(dates, REF, min(dates))
                            if dates and interval != "1d" else [])
+        agree[interval] = (close_agreement(interval, [n for n in names[:probe]
+                                                      if is_idx_equity(n)])
+                           if interval != "1d" else (1.0, 0, 0))
 
         live = R[R["bars"] > 0]
         usable = live[live["bars"] >= _MIN_BARS[interval]]
@@ -814,7 +852,7 @@ def audit(intervals: List[str], limit: Optional[int], asof: pd.Timestamp,
         ))
 
     P = pd.concat(per_name, ignore_index=True)
-    return pd.DataFrame(rows), P, {"gaps": gaps, "holes": holes}
+    return pd.DataFrame(rows), P, {"gaps": gaps, "holes": holes, "agree": agree}
 
 
 # Minimum clean bars for a name to count as usable at each interval. Set so a
@@ -916,7 +954,7 @@ def main() -> int:
     intervals = [s.strip() for s in args.intervals.split(",") if s.strip()]
     asof = pd.Timestamp(args.asof)
     C, P, CAL = audit(intervals, args.names or None, asof, probe=args.probe)
-    GAPS, HOLES = CAL["gaps"], CAL["holes"]
+    GAPS, HOLES, AGREE = CAL["gaps"], CAL["holes"], CAL["agree"]
 
     os.makedirs(os.path.join(REPO_ROOT, "reports"), exist_ok=True)
     out_csv = args.csv if os.path.isabs(args.csv) else os.path.join(REPO_ROOT, args.csv)
@@ -976,6 +1014,10 @@ def main() -> int:
               f"{pd.Timestamp(cohort):%Y-%m-%d}, freshest "
               f"{pd.Timestamp(S['last'].max()):%Y-%m-%d} -> "
               f"{int((asof - cohort).days)} days stale at {asof:%Y-%m-%d}")
+        share, nn, ns = AGREE.get(interval, (float("nan"), 0, 0))
+        if nn:
+            print(f"   last close == daily close ........ {share:.1%} of sessions "
+                  f"(median over {nn} names, {ns:,} sessions)")
         non_idx = S[~S["ticker"].map(is_idx_equity)]
         if len(non_idx):
             print(f"   NOT IDX equities ................. {len(non_idx)} "
