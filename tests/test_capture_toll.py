@@ -151,3 +151,74 @@ def test_leg_table_only_reports_up_legs():
     px = 100 * np.cumprod(1 + rng.normal(0, 0.03, 400))
     df = leg_table(px, 0.10)
     assert (df["move"] > 0).all()
+
+
+# --------------------------------------------------------------------------- #
+# the corrections: the toll is a floor, and a bull move is not one leg
+# --------------------------------------------------------------------------- #
+from capture_toll import bull_moves, realised_tolls                # noqa: E402
+
+
+def test_entry_overshoot_is_recorded_not_assumed():
+    # the trigger is 100*1.08 = 108 but the first close at/above it is 130
+    px = np.array([100.0, 100.0, 130.0, 140.0, 150.0, 120.0, 110.0, 111.0])
+    rows = realised_tolls(px, 0.08)
+    assert rows, "no round trip found"
+    overshoot = rows[0][0]
+    assert overshoot > 0.08, "overshoot was assumed to equal the band"
+
+
+def test_the_floor_binds_at_signal_prices_but_not_at_fills():
+    """(1+b)/(1-b) bounds the SIGNAL price, not the fill.
+
+    The flip fires on a close at or above min(1+b), but the fill is the NEXT
+    bar, which can come back under the trigger. So realised tolls straddle the
+    'floor' - most land above it, some below - and a test asserting it always
+    binds is asserting something false. This one pins both directions.
+    """
+    rng = np.random.default_rng(31)
+    b = 0.08
+    floor = (1 + b) / (1 - b)
+    tolls = []
+    for _ in range(20):
+        px = 100 * np.cumprod(1 + rng.normal(0.0005, 0.025, 500))
+        tolls += [(1 + e) / (1 - x) for e, x, _p, _m in realised_tolls(px, b)]
+    tolls = np.array(tolls)
+    assert len(tolls) > 50
+    assert (tolls < floor).any(), "no fill ever beat the floor - check the lag"
+    assert (tolls > floor).any()
+    assert np.median(tolls) > floor, "the typical fill should be worse, not better"
+
+
+def test_a_move_bigger_than_the_band_can_still_lose_on_real_fills():
+    """'Guaranteed loss below break-even' was wrong in the other direction too:
+    gaps mean the realised toll is normally worse than the algebra's floor."""
+    rng = np.random.default_rng(33)
+    px = 100 * np.cumprod(1 + rng.normal(0.0005, 0.03, 900))
+    rows = realised_tolls(px, 0.08)
+    tolls = np.array([(1 + e) / (1 - x) for e, x, _p, _m in rows])
+    assert np.median(tolls) > (1.08 / 0.92), "realised toll never exceeded the floor"
+
+
+def test_bull_moves_contain_more_than_one_band_leg():
+    # a staircase: up, pull back more than the band, up again - one 30% move
+    up1 = np.linspace(100, 140, 25)
+    dip = np.linspace(140, 120, 10)
+    up2 = np.linspace(120, 190, 25)
+    px = np.concatenate([np.full(20, 100.0), up1, dip, up2, np.full(20, 190.0)])
+    out = bull_moves(px, 0.08, big_band=0.30, floor=0.50)
+    assert out, "no bull move detected"
+    assert out[0][1] >= 2, "a multi-leg move was counted as a single leg"
+
+
+def test_bull_move_capture_never_exceeds_one():
+    rng = np.random.default_rng(35)
+    for _ in range(10):
+        px = 100 * np.cumprod(1 + rng.normal(0.001, 0.025, 900))
+        for _m, _n, cap, _f in bull_moves(px, 0.08):
+            if np.isfinite(cap):
+                assert cap <= 1.0 + 1e-9
+
+
+def test_realised_tolls_returns_nothing_on_a_flat_series():
+    assert realised_tolls(np.full(200, 100.0), 0.08) == []

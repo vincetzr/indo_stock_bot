@@ -16,28 +16,65 @@ high H, with M = H/L - 1:
 
     best possible capture  =  (1 + M) * (1 - b) / (1 + b)
 
-Three consequences follow immediately, none of them probabilistic:
+One consequence is exact. The other two, as first written here, were wrong, and
+an adversarial re-derivation caught them. Both corrections are kept in place
+rather than quietly patched, because the difference between them matters:
 
-    1. A move larger than the band CANNOT be missed. If price rises b off the
-       low the state flips, by construction. There is no "90% of the time" about
-       it - the only way to miss a +292% leg is for the data to gap through it,
-       and even then the flip lands on the gap bar.
+    1. EXACT. A move larger than the band CANNOT be missed. While the state is
+       red the running minimum is non-increasing, so the trigger price is
+       non-increasing, so the first close that reaches it fires the flip. Proven
+       in one line, verified with zero violations on 1.3m red bars across 719
+       names, and it holds through gaps - a one-bar 100 -> 400 jump flips the
+       state on the gap bar itself.
 
-    2. The cost is a FIXED TOLL of (1+b)/(1-b) on price, not a fixed fraction of
-       the move. On a +292% leg the toll eats 8% of the log move; on a +15% leg
-       it eats all of it and more.
+    2. WRONG AS FIRST STATED. This said "the cost is a FIXED TOLL of (1+b)/(1-b)
+       on price". It is not fixed. It is a floor on the SIGNAL price only: the
+       flip fires on the first close at or ABOVE min*(1+b), overshooting the
+       trigger by however far that bar travelled, and the fill is the bar AFTER
+       that - which can come back under it. So realised tolls straddle the
+       figure rather than respecting it, with the typical one well above.
+       Measured on 2,571 real round trips across 46 IDX large caps:
 
-    3. There is an exact break-even leg size:
+           entry overshoot   median  9.4%   (70% of entries exceed 8%)
+           exit shortfall    median  8.8%   (63% exceed 8%)
+           realised toll     median 20.6% of price, p90 31.7%
 
-           M* = 2b / (1 - b)          b = 8%  ->  17.4%
+       The same passage also said the toll "eats 8% of the log move" on a +292%
+       leg. The correct figure from this file's own ceiling_fraction is 11.7%.
 
-       Every leg smaller than that is a guaranteed loss before fees. This is not
-       a backtest result, it is arithmetic, and it is the single most useful
-       number for choosing a band.
+    3. WRONG AS FIRST STATED. This said M* = 2b/(1-b) = 17.4% is the break-even
+       and that every smaller leg is a "guaranteed loss". 17.4% is the
+       ALGEBRAIC FLOOR on the break-even, reachable only with perfect fills. The
+       realised break-even, taken from where round-trip P/L actually crosses
+       zero, is ~21% for these names:
 
-So the honest robustness test is not "delete the best five trades", it is
+           move spanned    trips   median P/L   win rate
+           10-17%            813        -6.5%          6%
+           17-20%            171        -2.5%         26%
+           20-25%            291        +0.0%         50%    <- crosses here
+           25-30%            195        +3.3%         68%
+           >40%              329       +25.4%         98%
+
+       And "guaranteed" is wrong regardless: fills gap, so a sub-break-even leg
+       can still pay. The direction of the claim survives; the certainty does not.
+
+AND THE ONE THAT MATTERS MOST FOR READING ANY OF THIS
+-----------------------------------------------------
+A "leg" here is defined by a zigzag at the SAME band as the rule, which makes it
+by construction a move containing no b-sized retracement - i.e. exactly one round
+trip. That is near-circular, and it is NOT what a person means by a big move.
+
+Measured against real bull moves (a 30% zigzag, >= +50%), 203 of them:
+
+    a real bull move contains a median of 5 separate 8% legs, and pays 5 tolls
+    captured: 55% of the move's log return, where the one-leg formula implies 77%
+
+So the honest headline is not "the rule keeps 78-92% of a big move". It is that
+the rule cannot MISS one, and keeps a bit over half of it.
+
+And the honest robustness test is still not "delete the best five trades" - it is
 "arrive late at them", which is what a real trader actually does. Both are
-measured here.
+measured here, along with every corrected figure quoted above.
 
 WHAT IS MEASURED
 ----------------
@@ -132,6 +169,69 @@ def round_trip_from(px: np.ndarray, state: np.ndarray, a: int
     if j >= n - 1:
         return None
     return entry, j + 1
+
+
+def realised_tolls(px: np.ndarray, band: float) -> List[Tuple[float, ...]]:
+    """The toll the rule ACTUALLY paid on each round trip, versus the algebra.
+
+    The entry is the first close at or above min*(1+b) - which overshoots the
+    trigger by however far that bar moved - and the fill is the bar after. So the
+    realised toll is (1 + overshoot) / (1 - shortfall), and (1+b)/(1-b) is only
+    its floor. Returns one row per completed round trip:
+
+        (entry overshoot, exit shortfall, round-trip P/L, move the trip spanned)
+    """
+    st, _ = band_state(px, band)
+    n = len(px)
+    out: List[Tuple[float, ...]] = []
+    i = 0
+    while i < n - 1:
+        while i < n and not st[i]:
+            i += 1
+        if i >= n - 1:
+            break
+        j = i
+        while j > 0 and st[j - 1] == 0:
+            j -= 1
+        lo = float(px[j:i + 1].min())
+        entry = float(px[i + 1])
+        k = i + 1
+        while k < n and st[k]:
+            k += 1
+        if k >= n - 1:
+            break
+        hi = float(px[i + 1:k + 1].max())
+        exit_ = float(px[k + 1])
+        out.append((entry / lo - 1.0, 1.0 - exit_ / hi,
+                    exit_ / entry - 1.0, hi / lo - 1.0))
+        i = k + 1
+    return out
+
+
+def bull_moves(px: np.ndarray, band: float, big_band: float = 0.30,
+               floor: float = 0.50) -> List[Tuple[float, ...]]:
+    """What a PERSON calls a big move, and how many band-legs hide inside it.
+
+    A leg measured at the rule's own band contains no b-sized retracement by
+    construction, so it is exactly one round trip - which makes any capture
+    figure computed on it close to circular. A real bull run is found with a
+    much wider zigzag and normally contains several band-legs, each charging its
+    own toll. Returns (move, legs inside, captured share, formula's share).
+    """
+    st, _ = band_state(px, band)
+    out: List[Tuple[float, ...]] = []
+    for a, c, r in legs(px, zigzag(px, big_band)):
+        if r < floor or c <= a:
+            continue
+        sub = px[a:c + 1]
+        inside = sum(1 for _x, _y, rr in legs(sub, zigzag(sub, band)) if rr > 0)
+        lr = np.diff(np.log(sub))
+        held = st[a:c].astype(bool)
+        tot = float(np.log(px[c] / px[a]))
+        got = float(lr[held].sum())
+        out.append((r, float(inside), got / tot if tot > 0 else np.nan,
+                    ceiling_fraction(r, band)))
+    return out
 
 
 # --------------------------------------------------------------------------- #
@@ -244,7 +344,7 @@ def main() -> int:
         cap = capture_ceiling(M, b)
         frac = ceiling_fraction(M, b)
         print(f" {M:>10.0%}{cap - 1:>+12.1%}{frac:>9.0%}   "
-              f"{'a loss no matter what' if cap <= 1 else 'the toll is a fixed 17.4% of price'}")
+              f"{'below the algebraic floor' if cap <= 1 else 'floor only: real fills overshoot it'}")
 
     cfg = load_config()
     loader = YahooOHLCV(cfg, Cache(cfg.path("data.cache_dir", "data/cache")))
@@ -296,9 +396,14 @@ def main() -> int:
           "often past the leg's end, so the leg\n  does not bound it.")
     tradable = A[A["move"] > b]
     over_c = int((tradable["capture"] > tradable["ceiling_entry"] + 1e-9).sum())
-    print(f"\n  legs above the band that beat their own ceiling: {over_c} of "
-          f"{len(tradable):,}.\n  A ceiling that is ever breached is a broken "
-          f"ceiling, so this has to read zero.")
+    print(f"\n  legs above the band that beat their own SIGNAL-level ceiling: "
+          f"{over_c} of {len(tradable):,}.")
+    print("  This bounds signal prices, not fills. It is near-zero rather than "
+          "identically zero\n  because band_state tests `p/ext-1 >= band-1e-12` "
+          "while zigzag tests `p >= lo*(1+band)`\n  with no tolerance, and on "
+          "tick-quantised IDX prices an exactly-b move is common.\n  The "
+          "realised-fill ceiling below is breached far more often, and that is "
+          "the real point.")
 
     # --- the question as asked: can a big move be missed? -------------------
     over = A[A["move"] > b]
@@ -363,16 +468,72 @@ def main() -> int:
 
     pd.DataFrame(rows).to_csv("reports/capture_toll_delay.csv", index=False)
 
+    # --- what the toll REALLY was, versus what the algebra claimed -----------
+    RT = np.array([r for px in keep.values() for r in realised_tolls(px, b)])
+    print(f"\n{'=' * 78}\n THE TOLL THE RULE ACTUALLY PAID — {len(RT):,} complete "
+          f"round trips\n{'=' * 78}")
+    print(f" {'':20}{'p25':>8}{'median':>9}{'p75':>8}{'p90':>8}{'over 8%':>10}")
+    for lab, col in (("entry overshoot", 0), ("exit shortfall", 1)):
+        v = RT[:, col]
+        print(f" {lab:20}" + "".join(f"{np.quantile(v, q):>8.1%}"
+                                     for q in (.25, .5, .75, .9))
+              + f"{float((v > b + 1e-9).mean()):>10.0%}")
+    toll = (1 + RT[:, 0]) / (1 - RT[:, 1])
+    print(f"\n realised round-trip toll: median {np.median(toll) - 1:.1%} of "
+          f"price, p90 {np.quantile(toll, .9) - 1:.1%}")
+    print(f" the algebra's floor:      {(1 + b) / (1 - b) - 1:.1%} — reachable "
+          f"only with perfect fills")
+
+    print(f"\n where round-trip P/L actually crosses zero:")
+    print(f" {'move spanned':>16}{'trips':>8}{'median P/L':>13}{'win rate':>11}")
+    for lo_, hi_ in [(0, .10), (.10, breakeven_move(b)), (breakeven_move(b), .20),
+                     (.20, .25), (.25, .30), (.30, .40), (.40, 1e9)]:
+        m = (RT[:, 3] >= lo_) & (RT[:, 3] < hi_)
+        if m.sum() < 10:
+            continue
+        lab = f"{lo_:.0%}-{hi_:.0%}" if hi_ < 1e9 else f">{lo_:.0%}"
+        print(f" {lab:>16}{int(m.sum()):>8,}{np.median(RT[m, 2]):>+13.1%}"
+              f"{float((RT[m, 2] > 0).mean()):>11.0%}")
+
+    # --- and what a big move looks like when it is not defined by the band ---
+    Bm = np.array([r for px in keep.values() for r in bull_moves(px, b)])
+    if len(Bm):
+        print(f"\n{'=' * 78}\n A REAL BULL MOVE IS NOT ONE LEG — {len(Bm):,} "
+              f"moves of +50% or more (30% zigzag)\n{'=' * 78}")
+        print(f" {'move size':>14}{'moves':>8}{'8% legs inside':>17}"
+              f"{'captured':>11}{'formula says':>14}")
+        for lo_, hi_ in [(.5, 1.0), (1.0, 2.0), (2.0, 4.0), (4.0, 1e9)]:
+            m = (Bm[:, 0] >= lo_) & (Bm[:, 0] < hi_)
+            if m.sum() < 3:
+                continue
+            lab = f"{lo_:.0%}-{hi_:.0%}" if hi_ < 1e9 else f">{lo_:.0%}"
+            print(f" {lab:>14}{int(m.sum()):>8}{np.median(Bm[m, 1]):>17.0f}"
+                  f"{np.nanmedian(Bm[m, 2]):>11.0%}"
+                  f"{np.nanmedian(Bm[m, 3]):>14.0%}")
+        print(f"\n a real bull move holds a median {np.median(Bm[:, 1]):.0f} "
+              f"separate {b:.0%} legs and pays that\n many tolls: captured "
+              f"{np.nanmedian(Bm[:, 2]):.0%} of its log return where the "
+              f"one-leg formula implies {np.nanmedian(Bm[:, 3]):.0%}.")
+
     print(f"\n{'=' * 78}\n THE ANSWER\n{'=' * 78}")
     tm = T["capture"].median()
-    print(f" Expected miss on a big leg is NOT the leg. It is "
-          f"{1 - tm:.0%} of it:\n the rule collects a median {tm:.0%} of the log "
-          f"return of each name's five\n biggest legs, and never once failed to "
-          f"turn green on one — {int((~T['green_by_peak']).sum())} of {len(T):,}.")
-    print(f"\n The losses are not in the big legs at all. They are in the "
-          f"{int(B.iloc[0]['legs']):,} legs\n smaller than the "
-          f"{breakeven_move(b):.1%} break-even, which cannot be profitable at "
-          f"this band\n no matter how accurately they are called.")
+    real_be = float(np.median((1 + RT[:, 0]) / (1 - RT[:, 1])) - 1)
+    print(f" What is EXACT: the rule never once failed to turn green on a big "
+          f"leg —\n {int((~T['green_by_peak']).sum())} of {len(T):,}. A move "
+          f"bigger than the band trips the flip by construction,\n so it cannot "
+          f"be missed. That is the part that is arithmetic.")
+    print(f"\n What it KEEPS is smaller than this file first claimed. Measured on "
+          f"a same-band\n leg it is {tm:.0%}, but such a leg is one round trip by "
+          f"construction. Measured on a\n real bull move — a median of "
+          f"{np.median(Bm[:, 1]):.0f} band-legs, each paying its own toll — it is "
+          f"{np.nanmedian(Bm[:, 2]):.0%}.")
+    print(f"\n And the toll is a FLOOR, not a fixed cost: entries overshoot the "
+          f"trigger, so the\n realised round trip costs a median {real_be:.1%} of "
+          f"price against the algebra's "
+          f"{(1 + b) / (1 - b) - 1:.1%},\n which puts the true break-even near "
+          f"{real_be:.0%} rather than {breakeven_move(b):.1%}.")
+    print(f"\n The losses remain where they were: the {int(B.iloc[0]['legs']):,} "
+          f"legs below break-even,\n which no amount of accuracy can rescue.")
     print("\n -> reports/capture_toll_legs.csv, reports/capture_toll_delay.csv")
     return 0
 

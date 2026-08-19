@@ -4380,7 +4380,67 @@ flagged only at the peak, median capture **78%** of the log return against an 83
 ceiling, and the trade that started in them returned a median **+27.7%** with
 **97% winners**.
 
-So the expected miss on a big leg is **22% of it**, never the leg.
+So the expected miss on a *same-band* leg is 22% of it, never the leg.
+
+### Correction to Result 109 — an adversarial re-derivation found three errors
+
+An independent check was asked to refute this law and returned "wrong" with
+deterministic counterexamples. Three of its objections hold, and all three are
+verified here on 2,571 real round trips across the 46 large caps.
+
+**1. The toll is not fixed.** `(1+b)/(1-b)` bounds the *signal price* only: the
+flip fires on the first close at or above `min(1+b)`, overshooting by however far
+that bar travelled, and the fill is the bar *after* — which can come back under
+the trigger. Realised tolls therefore straddle the figure rather than respecting
+it, with the typical one well above.
+
+| | p25 | median | p75 | p90 | over 8% |
+|---|---|---|---|---|---|
+| entry overshoot | 7.6% | **9.4%** | 12.2% | 15.9% | **70%** |
+| exit shortfall | 7.0% | **8.8%** | 10.8% | 13.4% | **63%** |
+
+Realised round-trip toll: **median 20.6% of price, p90 31.7%**, against the
+algebra's flat 17.4%.
+
+**2. The break-even is ~21%, not 17.4%,** and nothing is "guaranteed". Where
+round-trip P/L actually crosses zero:
+
+| move spanned | trips | median P/L | win rate |
+|---|---|---|---|
+| 10–17% | 812 | −6.5% | 6% |
+| 17–20% | 172 | −2.5% | 26% |
+| **20–25%** | 291 | **+0.0%** | **50%** |
+| 25–30% | 195 | +3.3% | 68% |
+| > 40% | 330 | +25.5% | 98% |
+
+17.4% is the algebraic floor, reachable only with perfect fills. Fills gap, so a
+sub-break-even leg can still pay — the direction of the claim survives, the
+certainty does not.
+
+**3. A real bull move is not one leg, and this is the one that changes the
+headline.** A leg measured at the rule's own band contains no `b`-sized
+retracement *by construction*, so it is exactly one round trip — which makes any
+capture figure computed on it near-circular. Against 203 real bull moves found
+with a 30% zigzag:
+
+| move size | moves | 8% legs inside | captured | one-leg formula says |
+|---|---|---|---|---|
+| 50–100% | 98 | 4 | 46% | 70% |
+| 100–200% | 59 | 5 | 59% | 81% |
+| 200–400% | 28 | 9 | 55% | 88% |
+| > 400% | 18 | 12 | 65% | 92% |
+
+**A real bull move holds a median of 5 separate 8% legs and pays 5 tolls. Capture
+is 55%, not the 78–92% reported above.**
+
+**Also corrected:** the original text said the toll "eats 8% of the log move" on a
++292% leg. This file's own `ceiling_fraction(2.92, 0.08)` returns 0.8827, so the
+correct figure is **11.7%** — the original was wrong by a third.
+
+**What survives untouched** is claim 1, the only one that was ever exact: a move
+larger than the band cannot be missed, verified with zero violations on 1.3m red
+bars across 719 names, holding through gaps. The rule cannot miss a big move; it
+keeps a bit over half of one.
 
 **Where the losses actually are:** the 1,325 legs below break-even — 51% of all
 up legs — which lose by construction no matter how accurately they are called.

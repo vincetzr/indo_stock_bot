@@ -66,6 +66,24 @@ Two rules, applied to every interval:
      bar inside them. A bar labelled 09:00 is the 09:00 bar; it is complete only
      after its window has elapsed. Nothing in this module ever reads forward.
 
+
+AS-OF RECONSTRUCTION
+--------------------
+``end=X`` is not a slice of the finished frame. It truncates the raw source at X
+and re-runs everything - guard, resample, the lot - so what comes back is what
+you would have had standing at X and nothing else. ``--selftest`` proves this by
+rebuilding from scratch at two cut points per name and comparing bar for bar.
+
+It also withholds the bar that was still open at X. A 15m bar labelled 09:00 is
+not finished at 09:00, and handing it back looking like a finished bar is how a
+walk-forward loop ends up trading on a five-minute bar it believes is fifteen.
+Exactly one trailing bar is ever affected; the count lands in
+``df.attrs['report'].partial_tail``, and ``complete_only=False`` keeps it.
+
+``start=`` is applied last, after the guard, on purpose. The guard recompounds
+from the first bar, so trimming the head first would shift every price level
+after it and two overlapping windows would disagree about the same bar.
+
 **15m** is a plain 15-minute floor grid. This works without any special casing
 because every IDX session boundary is already a multiple of 15 minutes past the
 hour: 09:00, 12:00, 13:30, 14:00, 16:00. The bin [11:45,12:00) ends exactly at
@@ -262,6 +280,7 @@ class LoadReport:
     clipped_overnight: int = 0
     max_abs_step_raw: float = float("nan")
     suspect_jumps: List[Tuple[str, float]] = field(default_factory=list)
+    partial_tail: int = 0
     final_bars: int = 0
 
     def as_dict(self) -> Dict[str, object]:
@@ -502,6 +521,45 @@ def resample_15m(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+#: Nominal width of one output bar, in minutes. ``None`` = the whole session.
+BAR_WIDTH = {"1h": 60, "15m": 15, "4h": None, "5m": 5}
+
+
+def _bar_end(df: pd.DataFrame, target: str) -> pd.Series:
+    """When each bar's window closes, capped at the end of its own session.
+
+    A 15m bar labelled 15:45 closes at 16:00, not at 16:00 plus whatever the
+    grid says, because the session ends first. Without the cap the last bar of
+    every day would look permanently unfinished.
+    """
+    label = df["ts"]
+    day = label.dt.normalize()
+    session_end = day + pd.to_timedelta(
+        np.where(df["session"].to_numpy() == "AM", LUNCH_START, POST_END), unit="m")
+    width = BAR_WIDTH[target]
+    if width is None:
+        return session_end
+    return pd.concat([label + pd.Timedelta(minutes=width), session_end], axis=1).min(axis=1)
+
+
+def drop_incomplete_tail(df: pd.DataFrame, target: str, end) -> Tuple[pd.DataFrame, int]:
+    """Remove trailing bars whose window had not closed at ``end``.
+
+    Only the tail can be affected: truncating the source at ``end`` leaves every
+    earlier bar exactly as it was. Handing back a half-formed bar that looks like
+    a finished one is how an as-of reconstruction turns into a lookahead bug in
+    the opposite direction - the rule sees a 09:00 bar covering five minutes and
+    treats it as fifteen.
+    """
+    if df.empty or end is None:
+        return df, 0
+    complete = _bar_end(df, target) <= pd.Timestamp(end)
+    keep = len(df)
+    while keep > 0 and not bool(complete.iloc[keep - 1]):
+        keep -= 1
+    return df.iloc[:keep].reset_index(drop=True), len(df) - keep
+
+
 def resample_session(df: pd.DataFrame) -> pd.DataFrame:
     """1h -> one bar per exchange session (the '4h' timeframe). Two per day."""
     if df.empty:
@@ -518,7 +576,8 @@ def resample_session(df: pd.DataFrame) -> pd.DataFrame:
 
 def _load_intraday(ticker: str, source: str, target: str, *,
                    drop_zero_volume: bool, keep_session_open: bool,
-                   guard: bool, start=None, end=None) -> pd.DataFrame:
+                   guard: bool, start=None, end=None,
+                   complete_only: bool = True) -> pd.DataFrame:
     raw = _read_raw(intraday_path(ticker, source))
     if raw is None:
         return _empty(target, ticker)
@@ -555,6 +614,9 @@ def _load_intraday(ticker: str, source: str, target: str, *,
         df = df.reset_index(drop=True)
         df["n_src"] = 1
 
+    if complete_only:
+        df, rep.partial_tail = drop_incomplete_tail(df, target, end)
+
     if start is not None:
         df = df[df["ts"] >= pd.Timestamp(start)]
 
@@ -566,16 +628,16 @@ def _load_intraday(ticker: str, source: str, target: str, *,
 
 def load_1h(ticker: str, *, drop_zero_volume: bool = True,
             keep_session_open: bool = True, guard: bool = True,
-            start=None, end=None) -> pd.DataFrame:
+            start=None, end=None, complete_only: bool = True) -> pd.DataFrame:
     """Hourly bars straight from the 1h cache. 7 bars Mon-Thu, 6 on Friday."""
     return _load_intraday(ticker, "1h", "1h", drop_zero_volume=drop_zero_volume,
                           keep_session_open=keep_session_open, guard=guard,
-                          start=start, end=end)
+                          start=start, end=end, complete_only=complete_only)
 
 
 def load_4h(ticker: str, *, drop_zero_volume: bool = True,
             keep_session_open: bool = True, guard: bool = True,
-            start=None, end=None) -> pd.DataFrame:
+            start=None, end=None, complete_only: bool = True) -> pd.DataFrame:
     """Session bars resampled from 1h. Two per day (morning, afternoon).
 
     Not a four-hour clock grid - see the module docstring. The IDX day is 5h20m,
@@ -583,12 +645,12 @@ def load_4h(ticker: str, *, drop_zero_volume: bool = True,
     """
     return _load_intraday(ticker, "1h", "4h", drop_zero_volume=drop_zero_volume,
                           keep_session_open=keep_session_open, guard=guard,
-                          start=start, end=end)
+                          start=start, end=end, complete_only=complete_only)
 
 
 def load_15m(ticker: str, *, drop_zero_volume: bool = True,
              keep_session_open: bool = True, guard: bool = True,
-             start=None, end=None) -> pd.DataFrame:
+             start=None, end=None, complete_only: bool = True) -> pd.DataFrame:
     """15-minute bars resampled from 5m. 23 bars Mon-Thu, 19 on Friday.
 
     Only ~12 weeks of history exists. This is a live-monitoring resolution, not
@@ -596,7 +658,7 @@ def load_15m(ticker: str, *, drop_zero_volume: bool = True,
     """
     return _load_intraday(ticker, "5m", "15m", drop_zero_volume=drop_zero_volume,
                           keep_session_open=keep_session_open, guard=guard,
-                          start=start, end=end)
+                          start=start, end=end, complete_only=complete_only)
 
 
 def load_daily(ticker: str, *, drop_zero_volume: bool = True, guard: bool = True,
@@ -940,17 +1002,21 @@ def selftest(tickers: List[str]) -> int:
                 print(f"   note  {interval}: modal bars/day {sorted(bpd)} "
                       f"(illiquid name, sparse by nature)")
 
-            # Prefix identity: rebuild using only the first half of the history.
-            cut = df["ts"].iloc[len(df) // 2]
-            part = load(t, interval, end=cut)
-            full = df[df["ts"] <= cut].reset_index(drop=True)
-            same = (len(part) == len(full)
-                    and np.allclose(part["close"].to_numpy(float),
-                                    full["close"].to_numpy(float), rtol=0, atol=1e-9)
-                    and np.allclose(part["high"].to_numpy(float),
-                                    full["high"].to_numpy(float), rtol=0, atol=1e-9))
-            check(same, f"{interval}: prefix identical to the full-series painting "
-                        f"({len(full)} bars, cut {cut:%Y-%m-%d %H:%M})")
+            # Prefix identity. ``end=cut`` re-runs the whole pipeline on data
+            # truncated at cut, so this really is "what would I have had then",
+            # not a slice of the finished frame. The bar labelled cut is by
+            # definition still open at cut, so exactly one bar may be withheld.
+            for cut in (df["ts"].iloc[len(df) // 2], df["ts"].iloc[max(1, len(df) - 40)]):
+                part = load(t, interval, end=cut)
+                full = df[df["ts"] <= cut].reset_index(drop=True)
+                dropped = len(full) - len(part)
+                same = (0 <= dropped <= 1 and len(part) > 0 and all(
+                    np.allclose(part[c].to_numpy(float),
+                                full[c].to_numpy(float)[:len(part)], rtol=0, atol=1e-9)
+                    for c in OHLCV))
+                check(same, f"{interval}: prefix identical rebuilding from scratch at "
+                            f"{cut:%Y-%m-%d %H:%M} ({len(part)} bars, "
+                            f"{dropped} open bar withheld)")
 
     print(f"\n {'ALL CHECKS PASSED' if not fails else str(fails) + ' CHECKS FAILED'}")
     return 1 if fails else 0
