@@ -4250,3 +4250,83 @@ lives in 8% of its trades cannot be run on one name. Miss the five and you have
 a losing system. That is the argument for spreading the same rule across many
 names - not to raise the mean, but to raise the chance of being present when the
 few trades that matter arrive.
+
+## Result 108 — "remove the best 5 and it loses" is true, and it is true of holding too
+
+The objection: *"ain't no way, off the daily indicator you lose if you remove
+the best 5."* It is the standard way to kill a backtest and it deserved a proper
+test rather than a defence.
+
+**Why the obvious version of the test proves nothing.** Removing the best five
+trades from any long-only equity strategy produces a loss, because equity
+returns are multiplicative and lopsided. The test only counts as evidence if the
+strategy is *more* concentrated than the alternative it is being measured
+against. So it has to be paired:
+
+> cut the timeline at the strategy's own trade boundaries; that gives N
+> segments; the strategy's total is the product of its N segment multiples and
+> holding's total is the product of *its* N multiples **over the same dates**;
+> now drop the best k from each side and compare what survives.
+
+Same stock, same dates, same number of factors, same removal. `scripts/concentration.py`.
+
+**On CUAN the rule survives the removal better than holding does.**
+
+| remove best | strategy | buy & hold |
+|---|---|---|
+| none | 40.27x | 30.11x |
+| 1 | 10.33x | 8.09x |
+| 2 | 3.90x | 3.10x |
+| 3 | 1.83x | 1.27x |
+| **5** | **0.77x** | **0.41x** |
+| 8 | 0.34x | 0.15x |
+
+Removing the best five *does* turn it into a loss — that part of the objection is
+simply correct. But it turns holding the same stock over the same dates into a
+worse loss. On this name the test does not separate them.
+
+**Holding is not exempt, and not by a little.** Across the 41 big caps that rose
+over their history, the best **5% of weeks carry a median 406%** of everything
+holding them produced — the other 95% of weeks are a net loss. The most
+broadly-earned name in the whole sample is BBCA at 147%. There is no IDX large
+cap whose return is spread evenly across its weeks.
+
+**But one name is an anecdote, so the same paired test was run on all 46.** This
+is where the objection lands.
+
+| | |
+|---|---|
+| removing each side's best 5 | strategy ahead on **13/46** names (28%) |
+| removing each side's best 10% (fraction-matched) | strategy ahead on **15/46** |
+| strategy less concentrated than holding | **4/46** names |
+| median share of all *gains* in the best 5 segments | strategy **39%**, holding **31%** |
+
+**The objection largely stands on the universe.** On 42 of 46 big caps the
+rule's gains are more concentrated than those of simply holding the same stock,
+and after the same removal it is behind holding on 33 of 46. CUAN survives the
+removals better but is *still* the more concentrated of the two there (72% of its
+gains in the best 5 segments against 65% for holding) — it starts from a higher
+base, which is not the same thing as being robust.
+
+**Two measurement notes, because the first version of this was wrong.**
+
+1. An inline version of this test printed a hardcoded conclusion that the
+   strategy "is MORE concentrated than the thing it is trading" while its own
+   output showed 98% against 98%. Both the conclusion and the number were
+   artefacts. The verdict is now computed from the data in the same run, and the
+   script says so in its docstring.
+2. Share-of-*net*-total is unusable across names: the denominator passes through
+   zero, producing values from -362% to +8,856% on real names. Median-of-that is
+   meaningless. The cross-name figure is now share of all **gains**, which is
+   bounded in [0,1] and always defined. On one name the net figure is still
+   printed, because ">100%" there has a real reading: everything outside the best
+   few segments lost money.
+
+**What this settles and what it does not.** It settles that "remove the best few
+and it loses" is not on its own proof of a broken rule — the same test breaks
+buy-and-hold on every large cap in the sample. It does not rescue the daily
+indicator. On the universe the rule is the more concentrated of the two, it beats
+holding outright on only 8 of 46 names, and Result 100 still measures it losing
+to holding by 1.5-2.6% a year. The concentration objection was aimed at the right
+target; it just needed the paired version to land, and in the paired version it
+lands on the universe rather than on CUAN.
