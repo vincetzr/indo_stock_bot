@@ -4004,3 +4004,44 @@ where the unlagged book must look impossibly good and the lagged one must not.
 **The rule this makes explicit: in a cross-sectional book, every input to the
 selection must be lagged, not merely the position state.** One unlagged input is
 enough to manufacture an 87% CAGR.
+
+## Result 101 — the half-chart test, and why "success rate" means two things
+
+Hide the second half of every big cap's chart, paint it forward one bar at a
+time, and compare with the painting made from the whole series. 43 names,
+14,854 hidden weeks.
+
+**The no-cheating proof.** Painting the visible half using ONLY the visible half
+reproduces the full-chart painting of that half **exactly, on 43 of 43 names**.
+A rule that peeked would differ somewhere.
+
+**On the hidden half**, two different questions get two different numbers, and
+conflating them is how people fool themselves:
+
+| question | answer |
+|---|---|
+| once a leg has CLOSED, does its colour ever change? | **never — 100%, 43 of 43** |
+| how much of the chart is closed at age k? | 6.9% at 4w, 15% at 6w, 49.5% at 13w |
+| including the still-running leg, is a bar's colour final? | 87% at 4w, 92.4% at 6w, 98.2% at 13w |
+
+The first is a property of the construction: a zigzag never repaints a leg that
+has already ended. The second is the honest limit: at any moment, most of the
+*recent* chart is still inside the running leg and is provisional by nature.
+
+## Result 102 — the trigger price is arithmetic, not a forecast
+
+A reversal band has an exact flip level at every moment:
+
+    inside a green leg -> turns red at   running high x (1 - band)
+    inside a red leg   -> turns green at running low  x (1 + band)
+
+So "when does the indicator light up" has a precise answer available now. As of
+the last weekly close, of 43 big caps at Rp10T+: **32 in green legs, 11 in red**.
+The nearest triggers are JSMR (-5.2% to a sell), GGRM (-5.4%), BMRI (-5.5%),
+PGAS (+4.1% to a buy), TLKM (+6.0%), ASII (+7.1%). ADRO sits in a green leg at
+2,530 and turns red at 2,235, -11.7% away.
+
+**What is knowable and what is not, stated exactly:** the level is arithmetic and
+certain; whether price reaches it is neither, and Result 100 measured what acting
+on these flips is worth - it loses to holding by 1.5-2.6% a year. The triggers
+tell you where the picture changes, not that changing with it pays.
