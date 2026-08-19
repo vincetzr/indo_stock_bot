@@ -4195,3 +4195,58 @@ mechanism at the level of one account: the dispersion swamps the mean. Quoting
 any single number from the table above - including the flattering +121.3% - as
 "what the strategy returns" would be quoting a draw from a very wide
 distribution and calling it an expectation.
+
+## Result 107 — the stop works; the returns are just concentrated in five trades
+
+"Shouldn't cutting the loss the moment it goes red keep the losses small?" It
+does. That was worth checking rather than assuming, and checking it corrects the
+framing of Result 106.
+
+CUAN daily 8% band, 36 round trips, fees at 0.56%:
+
+| | | |
+|---|---|---|
+| winners | 16 (44%) | average **+53.2%**, biggest +292% |
+| losers | 20 (56%) | average **-8.1%**, worst -19% |
+| **mean trade** | | **+18.60%** net |
+| **median trade** | | **-2.42%** net |
+
+**The stop does exactly what it is supposed to.** The mean loss is -8.1% against
+an 8% band, and the worst loss in three and a half years is -19%. Eleven of
+twenty losses exceed the band slightly, for a mechanical reason worth knowing:
+the band trails the HIGH SINCE ENTRY, not the entry price. You buy 8% above the
+low, so if the leg adds little before turning, the stop sits below where you
+bought.
+
+**So the edge is real and strongly positive - and it lives in five trades.**
+
+| | |
+|---|---|
+| compounding all 36 trades | **36.4x** |
+| remove the single best | 9.31x (26% survives) |
+| remove the top 2 | 3.50x (10% survives) |
+| remove the top 3 | 1.64x (**4.5% survives**) |
+| remove the top 5 | 0.69x (a loss) |
+
+The top three trades were **+292%, +166%, +114%**. They are 8% of the trades and
+carry **96% of the total return**. Trades over +50% arrived in 2023-03, 2023-08,
+2024-01, 2025-06 and 2025-10 - five moments in three and a half years.
+
+**This resolves the apparent contradiction in Result 106.** A one-year window
+returning -25% is not the stop failing. It is a year containing none of those
+five trades, in which the account pays the 8% stop repeatedly and collects
+nothing. The mean is +18.6% per trade; the median trade loses 2.4%. Both numbers
+are true and the gap between them is the entire behaviour of the strategy.
+
+**Correcting Result 106.** It said the dispersion was "the strongest evidence yet
+that the rule has no reliable edge on a single name". That was wrong as stated -
+the per-trade expectancy is positive and large. The correct statement is that the
+edge is real but so concentrated that no one-year sample estimates it, and an
+account can be down 25% in a year while the underlying rule is working exactly
+as designed.
+
+**The practical consequence, which is not optional:** a strategy whose return
+lives in 8% of its trades cannot be run on one name. Miss the five and you have
+a losing system. That is the argument for spreading the same rule across many
+names - not to raise the mean, but to raise the chance of being present when the
+few trades that matter arrive.
