@@ -4516,6 +4516,14 @@ fees charged, daily state lagged to the last *completed* session:
 | **fast in / slow out** | **−0.173** | +0.031 | −0.080 | 34% |
 | buy & hold | −0.204 | — | — | — |
 
+**Robustness to the data.** A later coverage audit found two problems with the
+hourly cache: five sessions (2025-09-24 to 09-30) are missing for all 778 names
+although the exchange was open, and the intraday close disagrees with the daily
+close on 15–26% of 2023 sessions before settling at 98.5–99.9% from 2024Q1.
+Re-running restricted to 2024-01-01 onward leaves the conclusion unchanged and
+marginally weaker: `fast_in_slow_out` −0.154 against `slow_only` −0.154, ahead on
+**52%** of names rather than 57%, and −0.115 against its same-exposure null.
+
 **The right null.** Holding *lost* 18.4% over this window, so any rule that sits
 in cash looks good for free. The fair benchmark is random timing at the same
 exposure — `exposure × hold`. **Every rule loses to it.** The best combination

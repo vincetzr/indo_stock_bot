@@ -65,8 +65,15 @@ ROUND_TRIP_FEE = 0.0056
 RULES = ("fast_only", "slow_only", "both_green", "fast_in_slow_out")
 
 
-def load_hourly(ticker: str, cap: float = 0.20) -> Optional[pd.DataFrame]:
-    """Hourly bars from the cache, session-clean, impossible prints capped."""
+def load_hourly(ticker: str, cap: float = 0.20,
+                start: Optional[str] = None) -> Optional[pd.DataFrame]:
+    """Hourly bars from the cache, session-clean, impossible prints capped.
+
+    ``start`` exists because the coverage audit found the intraday feed
+    disagrees with the daily close on 15-26% of sessions in 2023 (84.5% and
+    73.6% agreement in Q3 and Q4) before settling at 98.5-99.9% from 2024Q1.
+    Passing 2024-01-01 drops the contaminated stretch.
+    """
     f = os.path.join(CACHE, f"{ticker}.JK_1h_730d.csv.gz")
     if not os.path.exists(f):
         return None
@@ -74,6 +81,8 @@ def load_hourly(ticker: str, cap: float = 0.20) -> Optional[pd.DataFrame]:
     d["ts"] = pd.to_datetime(d["ts"])
     d = d.dropna(subset=["close"])
     d = d[d["volume"] > 0].set_index("ts").sort_index()
+    if start:
+        d = d[d.index >= pd.Timestamp(start)]
     if len(d) < 500:
         return None
     c = d["close"].astype(float)
@@ -156,6 +165,9 @@ def main() -> int:
     ap.add_argument("--slow", type=float, default=0.12, help="exit band, daily")
     ap.add_argument("--min-mcap", type=float, default=1e13)
     ap.add_argument("--names", type=int, default=60)
+    ap.add_argument("--start", default=None,
+                    help="drop bars before this date; 2024-01-01 skips the "
+                         "stretch where intraday and daily closes disagree")
     args = ap.parse_args()
     os.makedirs("reports", exist_ok=True)
 
@@ -172,7 +184,7 @@ def main() -> int:
     big = sorted(mc[mc >= args.min_mcap].index)
     rows = []
     for t in big:
-        d = load_hourly(t)
+        d = load_hourly(t, start=args.start)
         if d is None:
             continue
         r = run_name(d, args.fast, args.slow)
