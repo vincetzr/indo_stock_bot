@@ -5080,3 +5080,77 @@ summary* is reachable today by screenshot, at roughly a minute a name. That is
 enough: the protocol needs complete daily rekaps, not intraday ticks. At 10–15
 names it reaches a d = 0.20 test in about a year, which is the first honest
 answer layer 2 has ever been in a position to give.
+
+## Result 120 — reconstructing broker habits, and the contamination it caught
+
+Broker summary carries more than volume: `buy_avg` and `sell_avg` are the
+broker's own VWAP on each side, each day. So the book reconstructs:
+
+```
+inventory_t  = inventory_{t-1} + buy_lot - sell_lot
+cost basis   = weighted average of everything they bought
+realised P/L = sell_lot x (sell_avg - basis) x 100
+```
+
+Every sale is therefore a decision taken at a **known profit or loss against
+their own average cost**. The distribution of that number *is* the exit habit —
+it does not have to be inferred from price action. `scripts/broker_habits.py`.
+
+### What it says on BBCA, 60 sessions
+
+| broker | sales | win | take profit | cut loss | median exit | worst held |
+|---|---|---|---|---|---|---|
+| XL | 54 | 83% | +3.20% | −3.43% | +2.89% | −9.89% |
+| YP | 45 | 84% | +3.36% | −3.94% | +2.94% | −10.52% |
+| SQ | 42 | 69% | +3.94% | −1.05% | +2.46% | −12.33% |
+| BK | 53 | 57% | +2.19% | −1.91% | +0.71% | −11.44% |
+| **KZ** | 22 | **32%** | **+0.56%** | **−2.37%** | −1.23% | −14.69% |
+| **RX** | 17 | 47% | **+0.81%** | **−4.45%** | −1.41% | −17.82% |
+
+**Median take-profit +2.18%, median cut-loss −1.73%, a ratio of 1.26x.** The
+spread between brokers is the interesting part: XL and YP run an 83–84% win rate
+with roughly symmetric exits, while KZ and RX take profits at under +1% and sit
+in losses past −2.4% — cutting winners short and holding losers, visible in their
+own prints.
+
+### The size tilt — the finding the day count hides
+
+| | by day count | weighted by size |
+|---|---|---|
+| buys placed in an up leg | **70%** | **54%** |
+
+**Median gap −17%.** They buy on more up-days than down-days, but put
+*materially more size* into down-days. That is a contrarian book behind a
+trend-following day count, and only the size-weighted figure sees it. Most
+size-contrarian: CC −26%, SQ −21%, KZ −19%.
+
+### Contamination found, and the guard added
+
+The first run showed brokers exiting at **−90%** on a name that fell 18%. The
+cause was mine: a synthetic test fixture (`BBCA_20260819` at an average price of
+630, against a true close near 6,300) had been written into the real store while
+testing the importer, and it poisoned every cost basis after it.
+
+Removed, and a guard added so it cannot recur — **broker VWAPs must fall inside
+the day's traded range** or the table is rejected:
+
+```
+! BBCA 2026-08-19 REJECTED: broker VWAPs median 630 sits outside the day's 5,355-7,245 range
+```
+
+The same check catches an OCR decimal slip, unit confusion between lots and
+shares, and a misread magnitude suffix.
+
+### What to distrust in the table above
+
+The **percentage exits are robust** — each is one sale priced against a basis
+built from that broker's own visible buys. The **realised-rupiah column is
+fragile**: it compounds every basis error across the whole window, so a broker
+who drops out of the top ten for a week carries that gap into every later figure.
+Read the signs, not the totals.
+
+And 60 sessions on one name is a **demonstration, not a finding**. Result 19's
+bound still applies — top-10 truncation means each inventory is built on whatever
+fraction of the book was visible, which is why `visibility()` reports an
+appearance rate and a hard bound on unseen volume per broker, and why 20 of 31
+brokers are refused a profile outright.

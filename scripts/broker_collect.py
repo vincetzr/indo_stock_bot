@@ -68,7 +68,9 @@ import pandas as pd
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir, "src"))
 
 from idxbot.config import load_config                     # noqa: E402
+from idxbot.data.cache import Cache                       # noqa: E402
 from idxbot.data.broker_summary import SCHEMA             # noqa: E402
+from idxbot.data.ohlcv import YahooOHLCV                  # noqa: E402
 
 STORE = os.path.join("data", "cache", "broker_daily")
 BALANCE_TOL = 1e-6
@@ -80,6 +82,46 @@ def is_complete(g: pd.DataFrame) -> bool:
     if max(b, s) <= 0:
         return False
     return abs(b - s) / max(b, s) < BALANCE_TOL
+
+
+def price_sane(g: pd.DataFrame, ticker: str, date: pd.Timestamp,
+               slack: float = 0.15) -> Tuple[bool, str]:
+    """Do the broker average prices sit inside that day's traded range?
+
+    A broker's VWAP must lie between the day's low and high. This one check
+    catches unit confusion, a misread decimal, an OCR digit slip, and - the case
+    that prompted it - a synthetic test fixture leaking into the real store,
+    where BBCA appeared at 630 against a true close near 6,000 and drove one
+    broker's reconstructed exit to -90%.
+
+    Returns (ok, reason). When the day's bar cannot be found it passes: absence
+    of a check is not evidence of a fault.
+    """
+    avgs = pd.concat([g["buy_avg"], g["sell_avg"]]) if "buy_avg" in g else pd.Series(dtype=float)
+    avgs = pd.to_numeric(avgs, errors="coerce")
+    avgs = avgs[avgs > 0]
+    if avgs.empty:
+        return True, "no prices to check"
+    try:
+        cfg = load_config()
+        sys.path.insert(0, os.path.dirname(__file__))
+        from account_sim import load_ohlc
+        loader = YahooOHLCV(cfg, Cache(cfg.path("data.cache_dir", "data/cache")))
+        df = load_ohlc(loader, ticker)
+        if df is None or df.empty:
+            return True, "no price history"
+        row = df[df.index.normalize() == pd.Timestamp(date).normalize()]
+        if row.empty:
+            return True, "no bar for that date"
+        lo = float(row["close"].min()) * (1 - slack)
+        hi = float(row["close"].max()) * (1 + slack)
+    except Exception:
+        return True, "price check unavailable"
+    med = float(avgs.median())
+    if lo <= med <= hi:
+        return True, "prices agree with the tape"
+    return False, (f"broker VWAPs median {med:,.0f} sits outside the day's "
+                   f"{lo:,.0f}-{hi:,.0f} range")
 
 
 def store_path(ticker: str, date: pd.Timestamp) -> str:
@@ -94,6 +136,11 @@ def save(df: pd.DataFrame) -> Tuple[int, int]:
     for (tk, dt), g in df.groupby(["ticker", "date"]):
         path = store_path(str(tk), pd.Timestamp(dt))
         g = g.copy()
+        ok, why = price_sane(g, str(tk), pd.Timestamp(dt))
+        if not ok:
+            print(f"   ! {tk} {pd.Timestamp(dt):%Y-%m-%d} REJECTED: {why}")
+            skipped += 1
+            continue
         g["complete"] = is_complete(g)
         if os.path.exists(path):
             try:
