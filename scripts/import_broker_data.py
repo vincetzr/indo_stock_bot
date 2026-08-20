@@ -97,6 +97,12 @@ def read_any(path: str) -> Optional[pd.DataFrame]:
             return pd.DataFrame(obj if isinstance(obj, list) else [obj])
         if ext in (".xlsx", ".xls"):
             return pd.read_excel(path)
+        if ext in (".html", ".htm", ".xhtml"):
+            # "Save page as" or a copied rendered table. Take the widest table on
+            # the page: broker summaries are the biggest grid on those screens,
+            # and the small ones are navigation and summary boxes.
+            tables = pd.read_html(path, converters={i: str for i in range(64)})
+            return max(tables, key=lambda t: t.shape[0] * t.shape[1]) if tables else None
         for sep in (None, ",", ";", "\t", "|"):
             try:
                 d = pd.read_csv(path, sep=sep, engine="python")

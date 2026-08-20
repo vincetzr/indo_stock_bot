@@ -135,3 +135,49 @@ def test_every_canonical_column_is_present_even_when_absent_from_the_paste():
     got = assign_columns(parse_table("BK   100   6.300   200   6.400"))
     for c in ("buy_lot", "buy_val", "buy_avg", "sell_lot", "sell_val", "sell_avg"):
         assert c in got.columns
+
+
+# --------------------------------------------------------------------------- #
+# HTML, and the 1000x bug it caused
+# --------------------------------------------------------------------------- #
+from paste_broker import html_to_text                              # noqa: E402
+
+HTML = """<table>
+<tr><th>Kode</th><th>B.Lot</th><th>B.Val</th><th>B.Avg</th>
+    <th>S.Lot</th><th>S.Val</th><th>S.Avg</th></tr>
+<tr><td>BK</td><td>120.000</td><td>7.560.000.000</td><td>6.300</td>
+    <td>90.000</td><td>5.670.000.000</td><td>6.300</td></tr>
+</table>"""
+
+
+def test_html_cells_keep_the_indonesian_thousands_dot():
+    """Regression: pandas.read_html turned "120.000" into the float 120.0 by
+    reading the thousands dot as a decimal point - a silent 1000x error."""
+    got = assign_columns(parse_table(html_to_text(HTML)))
+    assert got is not None
+    assert got.iloc[0]["buy_lot"] == pytest.approx(120000.0)
+    assert got.iloc[0]["buy_val"] == pytest.approx(7.56e9)
+
+
+def test_html_rows_become_lines_and_cells_become_tabs():
+    txt = html_to_text(HTML)
+    assert "\t" in txt
+    assert len([l for l in txt.splitlines() if l.strip()]) >= 2
+
+
+def test_script_and_style_blocks_are_dropped():
+    noisy = "<style>td{color:red}</style><table><tr><td>BK</td>" \
+            "<td>1.000</td><td>2.000</td><td>3.000</td><td>4.000</td></tr></table>"
+    txt = html_to_text(noisy)
+    assert "color" not in txt
+    assert "BK" in txt
+
+
+def test_html_entities_are_decoded():
+    assert "&nbsp;" not in html_to_text("<td>a&nbsp;b</td>")
+
+
+def test_empty_cells_are_dropped_not_shifted():
+    """A blank cell must not slide the buy column into the sell column."""
+    h = "<tr><td>BK</td><td></td><td>1.000</td></tr>"
+    assert html_to_text(h).split("\t") == ["BK", "1.000"]

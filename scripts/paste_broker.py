@@ -107,6 +107,26 @@ def to_number(tok: str) -> Optional[float]:
     return -v if neg else v
 
 
+def html_to_text(raw: str) -> str:
+    """Rows to lines, cells to tabs, every value left exactly as written."""
+    txt = re.sub(r"(?is)<(script|style).*?</\1>", " ", raw)
+    # Saved pages are pretty-printed, so a single <tr> spans several source
+    # lines. Collapse them first, or the row is split and its columns are lost.
+    txt = re.sub(r"[\r\n]+", " ", txt)
+    txt = re.sub(r"(?i)</\s*(tr|table)\s*>", "\n", txt)
+    txt = re.sub(r"(?i)</\s*(td|th)\s*>", "\t", txt)
+    txt = re.sub(r"(?s)<[^>]+>", "", txt)
+    txt = (txt.replace("&nbsp;", " ").replace("&amp;", "&")
+              .replace("&lt;", "<").replace("&gt;", ">"))
+    lines = []
+    for line in txt.splitlines():
+        cells = [c.strip() for c in line.split("\t")]
+        cells = [c for c in cells if c != ""]
+        if cells:
+            lines.append("\t".join(cells))
+    return "\n".join(lines)
+
+
 def split_row(line: str) -> List[str]:
     """Tabs, pipes, or runs of two-plus spaces. Single spaces stay inside names."""
     if "\t" in line:
@@ -174,7 +194,8 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
-    raw = (open(args.file).read() if args.file else sys.stdin.read())
+    raw = (open(args.file, errors="replace").read() if args.file
+           else sys.stdin.read())
     if not raw.strip():
         print("nothing pasted. Pipe the table in, or use --file.")
         return 1
@@ -182,21 +203,15 @@ def main() -> int:
 
     print(f"{'=' * 84}\n PASTED BROKER TABLE — {args.ticker} {date}\n{'=' * 84}")
 
-    # a running-trade paste is worth far more, so try that reading first
-    try:
-        head = pd.read_csv(io.StringIO(raw), sep=None, engine="python", nrows=5)
-        if looks_like_ticks(head):
-            full = pd.read_csv(io.StringIO(raw), sep=None, engine="python")
-            out = import_ticks(full, args.ticker, date)
-            if out is not None and not out.empty:
-                print(f" read as RUNNING TRADE: {len(full):,} prints -> "
-                      f"{out['broker'].nunique()} brokers")
-                if not args.dry_run:
-                    save(out)
-                print(f" complete rekap: {is_complete(out)}")
-                return 0
-    except Exception:
-        pass
+    # An HTML table pasted or saved from a browser. The tags are stripped by
+    # hand rather than handed to pandas.read_html, because that coerces
+    # "120.000" to the float 120.0 - it reads the Indonesian thousands dot as a
+    # decimal point - and a silent 1000x error is exactly what this file exists
+    # to prevent. Stripping tags keeps every cell an untouched string for
+    # to_number() to judge.
+    if "<t" in raw.lower():
+        raw = html_to_text(raw)
+        print(f" stripped an HTML table -> {len(raw.splitlines())} rows")
 
     parsed = parse_table(raw)
     if parsed.empty:
