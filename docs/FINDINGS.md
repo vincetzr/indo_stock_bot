@@ -4956,3 +4956,58 @@ Invezgo, an IDX RapidAPI listing, OHLC.dev, `NeaByteLab/IDX-API`, sectors.app):
 IDX's authorised redistributor list, and at least one is an openly-licensed
 scraper of idx.co.id. Fetching is therefore gated on an explicit host allowlist
 in config which ships **empty**.
+
+## Result 118 — the network diagnosis, and the route that works
+
+"Is it my network, the website, or the VPN?" Measured from inside this session
+with curl and with headless Chromium, so the causes are named rather than guessed.
+
+| host | result | cause |
+|---|---|---|
+| reddit.com | **200** | reachable by curl — the FETCH TOOL blocks it, not the network |
+| rapidapi.com | 200 | reachable, but a JavaScript SPA — the HTML shell is empty |
+| ohlc.dev | 200 | same |
+| invezgo.com | 200 | same |
+| blog.itick.org | 200 | same |
+| sectors.app | **429** | rate-limited by Vercel — not 403 as the fetch tool reported |
+| **www.idx.co.id** | **403** | Cloudflare, blocking the datacenter IP |
+
+Headless Chromium returns `ERR_CONNECTION_RESET` to **every** host including
+example.com, with and without the proxy, so browser egress is closed here and
+rendering a JS page is not an option. The agent proxy itself is healthy —
+`recentRelayFailures: []`, no domain allowlist.
+
+**None of this is the user's network or VPN.** Every failure is inside this
+sandbox, and the earlier "unable to fetch" and "403" messages were tool-level and
+mis-reported respectively.
+
+### The asymmetry that matters
+
+`idx.co.id` returns 403 to this datacenter IP and will very likely serve a normal
+Indonesian residential connection. **The person has reach this process does not**,
+plus a logged-in broker account. So the working division of labour is not "find a
+better fetcher" — it is **they capture, this processes**.
+
+### `scripts/paste_broker.py`
+
+Takes a table copied straight off a broker screen and turns it into the canonical
+daily store. Deliberately copy-and-paste rather than automation: IDX prohibits
+scraping and Stockbit's terms forbid "data mining, robots, spiders, or similar"
+without written consent. A person copying the table already on their screen is
+doing neither.
+
+It handles what those platforms actually emit — Indonesian number format,
+English format, lots vs shares, Indonesian headers, tab/space/pipe separation,
+with the title and total rows ignored:
+
+```
+BK     120.000   7.560.000.000   6.300   90.000    5.670.000.000   6.300
+->  buy 340,000 lots  sell 340,000 lots  imbalance 0.00%
+    COMPLETE REKAP — counts toward the protocol sample
+```
+
+**The number parser carries the most tests, and deserves them.** Indonesian and
+English conventions are mirror images — `1.234,56` against `1,234.56` — and
+reading one as the other is a silent 1000× error that no downstream check would
+catch. The rule that separates them: whichever of `.` or `,` appears **last** is
+the decimal mark.

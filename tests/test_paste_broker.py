@@ -1,0 +1,137 @@
+"""Tests for the pasted-table route.
+
+`to_number` gets the most tests because it is the only place in this repo where
+a bug turns a billion rupiah into a thousand and says nothing. Indonesian and
+English number conventions are mirror images - 1.234,56 against 1,234.56 - and
+reading one as the other is a 1000x error that no downstream check would catch.
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+
+import numpy as np
+import pandas as pd
+import pytest
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir, "scripts"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir, "src"))
+
+from paste_broker import (assign_columns, parse_table,           # noqa: E402
+                          split_row, to_number)
+
+
+# --------------------------------------------------------------------------- #
+# numbers, in both conventions
+# --------------------------------------------------------------------------- #
+def test_indonesian_thousands_and_decimal():
+    assert to_number("1.234.567,89") == pytest.approx(1234567.89)
+
+
+def test_english_thousands_and_decimal():
+    assert to_number("1,234,567.89") == pytest.approx(1234567.89)
+
+
+def test_indonesian_thousands_without_decimals():
+    assert to_number("120.000") == pytest.approx(120000.0)
+    assert to_number("7.560.000.000") == pytest.approx(7.56e9)
+
+
+def test_a_lone_comma_with_two_digits_is_a_decimal():
+    assert to_number("6.300,50") == pytest.approx(6300.50)
+    assert to_number("1234,56") == pytest.approx(1234.56)
+
+
+def test_a_lone_comma_with_three_digits_is_thousands():
+    assert to_number("1,234") == pytest.approx(1234.0)
+
+
+def test_a_plain_integer_survives():
+    assert to_number("6300") == pytest.approx(6300.0)
+
+
+def test_parentheses_mean_negative():
+    assert to_number("(1.500)") == pytest.approx(-1500.0)
+
+
+def test_currency_and_spaces_are_stripped():
+    assert to_number("Rp 1.500.000") == pytest.approx(1500000.0)
+
+
+def test_dashes_and_blanks_are_not_numbers():
+    for t in ("", "  ", "-", "--", "n/a", "abc"):
+        assert to_number(t) is None
+
+
+def test_the_two_conventions_never_collide():
+    """The decisive rule: whichever separator comes LAST is the decimal mark."""
+    assert to_number("1.234,56") == pytest.approx(1234.56)
+    assert to_number("1,234.56") == pytest.approx(1234.56)
+
+
+# --------------------------------------------------------------------------- #
+# splitting
+# --------------------------------------------------------------------------- #
+def test_tabs_split():
+    assert split_row("BK\t100\t200") == ["BK", "100", "200"]
+
+
+def test_runs_of_spaces_split_but_single_spaces_do_not():
+    assert split_row("BK   100   200") == ["BK", "100", "200"]
+    assert split_row("PT ABC   100") == ["PT ABC", "100"]
+
+
+def test_pipes_split():
+    assert split_row("| BK | 100 | 200 |") == ["BK", "100", "200"]
+
+
+# --------------------------------------------------------------------------- #
+# finding the broker rows in a messy paste
+# --------------------------------------------------------------------------- #
+TABLE = """Broker Summary BBCA  20 Agustus 2026
+Kode   B.Lot     B.Val           B.Avg   S.Lot     S.Val           S.Avg
+BK     120.000   7.560.000.000   6.300   90.000    5.670.000.000   6.300
+YP     95.000    5.985.000.000   6.300   110.000   6.930.000.000   6.300
+"""
+
+
+def test_header_and_title_lines_are_ignored():
+    got = parse_table(TABLE)
+    assert list(got["broker"]) == ["BK", "YP"]
+
+
+def test_the_numbers_survive_the_round_trip():
+    got = assign_columns(parse_table(TABLE))
+    bk = got[got["broker"] == "BK"].iloc[0]
+    assert bk["buy_lot"] == pytest.approx(120000.0)
+    assert bk["buy_val"] == pytest.approx(7.56e9)
+    assert bk["sell_lot"] == pytest.approx(90000.0)
+
+
+def test_an_empty_paste_gives_an_empty_frame():
+    assert parse_table("").empty
+    assert parse_table("just some prose with no table").empty
+
+
+def test_a_three_letter_broker_code_is_accepted():
+    got = parse_table("AKS   100   200   300   400   500   600")
+    assert list(got["broker"]) == ["AKS"]
+
+
+def test_a_too_narrow_table_is_refused_rather_than_guessed():
+    """Fewer than four numbers cannot carry both sides, so it must not invent one."""
+    assert assign_columns(parse_table("BK   100   200")) is None
+
+
+def test_a_four_column_layout_maps_lot_and_average():
+    got = assign_columns(parse_table("BK   100   6.300   200   6.400"))
+    assert got is not None
+    assert got.iloc[0]["buy_lot"] == pytest.approx(100.0)
+    assert got.iloc[0]["sell_lot"] == pytest.approx(200.0)
+
+
+def test_every_canonical_column_is_present_even_when_absent_from_the_paste():
+    got = assign_columns(parse_table("BK   100   6.300   200   6.400"))
+    for c in ("buy_lot", "buy_val", "buy_avg", "sell_lot", "sell_val", "sell_avg"):
+        assert c in got.columns
