@@ -129,10 +129,15 @@ def main() -> int:
     t0 = now_wib()
     print(f"{'=' * 92}\n IDX DAILY UPDATE — {args.session.upper()} session, "
           f"{t0:%Y-%m-%d %H:%M} WIB\n{'=' * 92}")
-    print(" This is a POSITION REPORT, not a buy list. The band rule loses to "
-          "buy-and-hold\n (Result 100) and its leg structure matched a random "
-          "walk at every timeframe\n tested (Result 110). What it does exactly "
-          "is tell you where you are and what\n price changes that.\n")
+    print(" Two things, and they are not the same kind of thing.\n")
+    print(" The band section is a POSITION REPORT, not a buy list. The rule "
+          "loses to\n buy-and-hold (Result 100) and its leg structure matched "
+          "a random walk at every\n timeframe tested (Result 110). It tells "
+          "you where you are, exactly, and\n nothing about where price goes.\n")
+    print(" The PLAN section near the end is the part with a measured premium "
+          "behind it\n (Results 124-126): the top 30 by trailing dividend "
+          "yield, rebalanced once a\n year. That is the book to act on, and "
+          "it is acted on in December, not today.\n")
 
     cfg = load_config()
     loader = YahooOHLCV(cfg, Cache(cfg.path("data.cache_dir", "data/cache")))
@@ -191,6 +196,16 @@ def main() -> int:
               f"{int(r.get('daily_bars_in_leg', 0)):>7}d"
               f"{r.get('above_200d', float('nan')):>+10.1%}"
               f"{r.get('ret_1m', float('nan')):>+8.1%}")
+
+    print(f"\n{'=' * 92}\n THE PLAN — the part of this repo with a measured "
+          f"premium behind it\n{'=' * 92}")
+    try:
+        from the_plan import book_status, print_book_status
+        print_book_status(book_status(
+            loader, cfg.path("data.cache_dir", "data/cache")))
+    except Exception as e:                                  # noqa: BLE001
+        print(f" plan state unavailable: {e}")
+        print(" run scripts/the_plan.py directly for the full sizing.")
 
     both = R[(R["weekly_state"] == "GREEN") & (R["daily_state"] == "GREEN")]
     print(f"\n both timeframes green: {len(both)} names"

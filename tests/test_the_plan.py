@@ -26,8 +26,9 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir, "scripts"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir, "src"))
 
-from the_plan import (HAIRCUT, LOT, drawdown_budget,          # noqa: E402
-                      income_forecast, lot_plan, minimum_capital, plan_return)
+from the_plan import (HAIRCUT, LOT, book_drift, drawdown_budget,   # noqa: E402
+                      income_forecast, kill_check, lot_plan,
+                      minimum_capital, next_rebalance, plan_return)
 
 
 PRICES = pd.Series({"AAAA": 1000.0, "BBBB": 5000.0, "CCCC": 250.0,
@@ -215,3 +216,100 @@ def test_a_book_that_never_fell_still_reports_a_peak():
 
 def test_a_total_loss_leaves_nothing():
     assert drawdown_budget(1e9, -1.0)["trough"] == pytest.approx(0.0)
+
+
+# --------------------------------------------------------------------------
+# the calendar — a rule whose date drifts is a different rule
+# --------------------------------------------------------------------------
+def test_the_rebalance_is_the_last_business_day_of_december():
+    when, days = next_rebalance(pd.Timestamp("2026-08-19"))
+    assert when == pd.Timestamp("2026-12-31")     # a Thursday
+    assert days == 134
+
+
+def test_a_december_weekend_falls_back_to_the_friday():
+    # 2027-12-31 is a Friday; 2021-12-31 was a Friday; 2022-12-31 a Saturday
+    assert next_rebalance(pd.Timestamp("2022-06-01"))[0] \
+        == pd.Timestamp("2022-12-30")
+
+
+def test_after_the_date_it_rolls_to_next_year():
+    when, _ = next_rebalance(pd.Timestamp("2026-12-31") + pd.Timedelta(days=1))
+    assert when.year == 2027
+
+
+def test_on_the_day_itself_it_is_today():
+    when, days = next_rebalance(pd.Timestamp("2026-12-31"))
+    assert days == 0 and when == pd.Timestamp("2026-12-31")
+
+
+def test_the_date_does_not_depend_on_when_you_started():
+    a = next_rebalance(pd.Timestamp("2026-01-02"))[0]
+    b = next_rebalance(pd.Timestamp("2026-08-19"))[0]
+    assert a == b
+
+
+# --------------------------------------------------------------------------
+# drift — reported, never acted on
+# --------------------------------------------------------------------------
+def test_drift_splits_the_book_three_ways():
+    d = book_drift(["A", "B", "C"], ["B", "C", "D"])
+    assert d["dropped_out"] == ["A"]
+    assert d["moved_in"] == ["D"]
+    assert d["unchanged"] == ["B", "C"]
+
+
+def test_an_unchanged_book_reports_no_drift():
+    d = book_drift(["A", "B"], ["B", "A"])
+    assert not d["dropped_out"] and not d["moved_in"]
+    assert sorted(d["unchanged"]) == ["A", "B"]
+
+
+def test_a_completely_new_book_is_all_drift():
+    d = book_drift(["A", "B"], ["C", "D"])
+    assert d["dropped_out"] == ["A", "B"]
+    assert d["moved_in"] == ["C", "D"]
+    assert d["unchanged"] == []
+
+
+def test_drift_from_nothing_is_all_arrivals():
+    d = book_drift([], ["A", "B"])
+    assert d["moved_in"] == ["A", "B"]
+    assert d["dropped_out"] == []
+
+
+def test_drift_tolerates_a_duplicated_name():
+    d = book_drift(["A", "A", "B"], ["B"])
+    assert d["dropped_out"] == ["A"]
+
+
+# --------------------------------------------------------------------------
+# the abandon conditions
+# --------------------------------------------------------------------------
+def test_a_healthy_book_trips_nothing():
+    assert kill_check(0.068, 45, 30, deposit=0.055) == []
+
+
+def test_a_yield_below_the_deposit_trips_the_income_condition():
+    out = kill_check(0.04, 45, 30, deposit=0.055)
+    assert len(out) == 1 and "deposit" in out[0]
+
+
+def test_a_universe_too_thin_trips_the_liquidity_condition():
+    out = kill_check(0.08, 22, 30, deposit=0.055)
+    assert len(out) == 1 and "liquidity floor" in out[0]
+
+
+def test_both_can_trip_at_once():
+    assert len(kill_check(0.02, 10, 30, deposit=0.055)) == 2
+
+
+def test_an_unmeasurable_yield_does_not_trip_a_condition():
+    """Missing data is not evidence that the premium is gone."""
+    assert kill_check(float("nan"), 45, 30) == []
+
+
+def test_the_condition_is_the_deposit_rate_not_zero():
+    """A 4% yield is still income; it is just worse than the bank."""
+    assert kill_check(0.04, 45, 30, deposit=0.03) == []
+    assert kill_check(0.04, 45, 30, deposit=0.055) != []

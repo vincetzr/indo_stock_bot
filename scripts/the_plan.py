@@ -163,6 +163,126 @@ def drawdown_budget(capital: float, worst: float) -> Dict[str, float]:
             "lost": capital * abs(worst)}
 
 
+def book_status(loader: YahooOHLCV, cache_dir: str, names: int = 30,
+                min_turnover: float = 5e9, start: str = "2015-01-01") -> Dict:
+    """The plan's live state: what it holds, what drifted, what is due.
+
+    Split out so the twice-daily job reports the thing that has evidence behind
+    it, not only the band colours. The band report is a position report by its
+    own admission (Result 100, 110); this is the part with a measured premium
+    attached, and it belongs in the same run.
+    """
+    close, raw, turn = build_panel(loader, cache_dir, start, total=True)
+    idx_s = load_index(loader, "^JKSE", close.index)
+    idx = idx_s.to_numpy(float) if len(idx_s) else np.full(len(close), np.nan)
+    rebal = rebalance_positions(close.index, "annual", 280)
+    board = Board(close, turn, idx, rebal, [], min_turnover, 280, raw=raw)
+    board.scores["divyield"] = yield_scores(board, 250)
+
+    k = len(board.rebal) - 1
+    cur = list(close.columns.to_numpy()[
+        select(board.cols[k], board.scores["divyield"][k], names)])
+    ys = {t: float(board.scores["divyield"][k][p]) for t, p in
+          zip(cur, select(board.cols[k], board.scores["divyield"][k], names))}
+    held, set_on = cur, close.index[board.rebal[k]]
+    if k >= 1:
+        held = list(close.columns.to_numpy()[
+            select(board.cols[k - 1], board.scores["divyield"][k - 1], names)])
+        set_on = close.index[board.rebal[k - 1]]
+    when, days = next_rebalance(close.index[-1])
+    avg = float(np.mean(list(ys.values()))) if ys else np.nan
+    return {"asof": close.index[-1], "held": held, "set_on": set_on,
+            "current": cur, "yields": ys, "avg_yield": avg,
+            "eligible": int(len(board.cols[k])), "next": when, "days": days,
+            "drift": book_drift(held, cur),
+            "kills": kill_check(avg, int(len(board.cols[k])), names),
+            "prices": raw.iloc[board.rebal[k]]}
+
+
+def print_book_status(st: Dict, names: int = 30) -> None:
+    """One compact block, for the twice-daily run."""
+    d = st["drift"]
+    print(f" the plan holds the top {names} by trailing dividend yield, set on "
+          f"{st['set_on']:%Y-%m-%d}.")
+    print(f" {len(d['unchanged'])} of {len(st['held'])} are still in the top "
+          f"{names} as of {st['asof']:%Y-%m-%d}; average trailing yield "
+          f"{st['avg_yield']:.1%}")
+    if d["dropped_out"]:
+        print(f"   drifted out : {', '.join(d['dropped_out'])}")
+    if d["moved_in"]:
+        print(f"   drifted in  : {', '.join(d['moved_in'])}")
+    print(f" NEXT REBALANCE {st['next']:%Y-%m-%d}, {st['days']} days away. "
+          f"Nothing above is an instruction —\n the annual discipline is what "
+          f"makes this cost 0.19%/yr instead of 0.73%.")
+    if st["kills"]:
+        for w in st["kills"]:
+            print(f" ! ABANDON CONDITION LIVE: {w}")
+    else:
+        print(f" abandon conditions: none live "
+              f"({st['eligible']} names clear the liquidity floor).")
+
+
+def next_rebalance(today: pd.Timestamp) -> Tuple[pd.Timestamp, int]:
+    """The next annual rebalance date, and how many days away it is.
+
+    The tested rule rebalances on the last business day of December and executes
+    the next session, so that is the date reported - not a rolling "twelve
+    months from whenever you started". A rule whose date drifts with the start
+    date is a different rule from the one that was measured.
+
+    Weekends are handled by rolling BACK into December, never forward into
+    January - rolling forward would put the rebalance in the wrong year and
+    quietly skip one. The IDX holiday calendar is not modelled and the exchange
+    is usually shut for part of the year end, so read the date as "the last
+    session at or before this", which is what the backtest did.
+    """
+    def last_weekday_of_december(year: int) -> pd.Timestamp:
+        d = pd.Timestamp(f"{year}-12-31")
+        while d.weekday() >= 5:
+            d -= pd.Timedelta(days=1)
+        return d
+
+    today = pd.Timestamp(today).normalize()
+    date = last_weekday_of_december(today.year)
+    if date < today:
+        date = last_weekday_of_december(today.year + 1)
+    return date, int((date - today).days)
+
+
+def book_drift(held: Sequence[str], current: Sequence[str]) -> Dict[str, List[str]]:
+    """What the book would change to if it rebalanced today.
+
+    Reported as INFORMATION, never as an instruction. The whole reason annual
+    rebalancing beats monthly here is that it does not act on this; a report
+    that showed the drift next to a "sell" column would quietly turn a 0.19%/yr
+    strategy into a 0.73%/yr one.
+    """
+    h, c = list(dict.fromkeys(held)), list(dict.fromkeys(current))
+    hs, cs = set(h), set(c)
+    return {"dropped_out": [t for t in h if t not in cs],
+            "moved_in": [t for t in c if t not in hs],
+            "unchanged": [t for t in h if t in cs]}
+
+
+def kill_check(avg_yield: float, eligible: int, names: int,
+               deposit: float = DEPOSIT_RATE) -> List[str]:
+    """Which of the pre-committed abandon conditions are live right now.
+
+    The three-consecutive-years condition needs the annual review and is not
+    checkable here; the other two are, and are checked every run so nobody has
+    to remember them.
+    """
+    out = []
+    if np.isfinite(avg_yield) and avg_yield < deposit:
+        out.append(f"the book's average trailing yield {avg_yield:.1%} is "
+                   f"below the {deposit:.1%} deposit rate — there is no income "
+                   f"premium left to harvest")
+    if eligible < names:
+        out.append(f"only {eligible} names clear the liquidity floor, fewer "
+                   f"than the {names} the book holds")
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--capital", type=float, default=1e9,
@@ -305,9 +425,40 @@ def main() -> int:
               f"'off target' column above\n ! shows what the rounding is "
               f"actually doing to the weights.")
 
+    # ---- 4b. drift since the last rebalance ------------------------------
+    prior = len(board.rebal) - 2
+    if prior >= 0:
+        held = list(close.columns.to_numpy()[
+            select(board.cols[prior], board.scores["divyield"][prior],
+                   args.names)])
+        drift = book_drift(held, names)
+        when, days = next_rebalance(close.index[-1])
+        print(f"\n{'=' * 96}\n 4b. DRIFT SINCE THE LAST REBALANCE — "
+              f"information, not an instruction\n{'=' * 96}")
+        print(f" the book set on {close.index[board.rebal[prior]]:%Y-%m-%d} "
+              f"still holds {len(drift['unchanged'])} of {len(held)} names.")
+        if drift["dropped_out"]:
+            print(f" out of the top {args.names} today: "
+                  f"{', '.join(drift['dropped_out'])}")
+        if drift["moved_in"]:
+            print(f" into it today:                "
+                  f"{', '.join(drift['moved_in'])}")
+        print(f" NEXT REBALANCE {when:%Y-%m-%d}, {days} days away. Do nothing "
+              f"until then.")
+        print(f" acting on this list monthly instead would cost 0.73%/yr "
+              f"against 0.19%, and the\n grid showed no return bought with "
+              f"that difference.")
+
     # ---- 5. when to stop -------------------------------------------------
     print(f"\n{'=' * 96}\n 5. WHEN TO ABANDON IT — decided now, not later\n"
           f"{'=' * 96}")
+    live = kill_check(float(np.mean(list(ys.values()))), len(board.cols[k]),
+                      args.names)
+    if live:
+        for w in live:
+            print(f" ! LIVE NOW: {w}")
+    else:
+        print(" none of the checkable conditions is live today.")
     print(" A rule with no exit is a rule that gets rationalised. These are "
           "committed to\n before any money moves, and each one is checkable "
           "from the annual review:")
