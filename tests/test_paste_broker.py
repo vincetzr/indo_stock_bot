@@ -181,3 +181,77 @@ def test_empty_cells_are_dropped_not_shifted():
     """A blank cell must not slide the buy column into the sell column."""
     h = "<tr><td>BK</td><td></td><td>1.000</td></tr>"
     assert html_to_text(h).split("\t") == ["BK", "1.000"]
+
+
+# --------------------------------------------------------------------------- #
+# the real Stockbit layout: magnitudes, two brokers per row, val/lot/avg
+# --------------------------------------------------------------------------- #
+from paste_broker import (broker_positions, infer_order,           # noqa: E402
+                          parse_sides, sides_to_frame)
+
+ACES = """Buy\tB.Val\tB.Lot\tB.Avg\tSell\tS.Val\tS.Lot\tS.Avg
+XL\t840.9M\t24.2K\t349\tRF\t2.1B\t60.6K\t347
+XA\t589.7M\t16.9K\t348\tBB\t541.5M\t15.6K\t347
+AK\t373.1M\t10.7K\t348\tCP\t164.6M\t4.7K\t352
+YP\t320M\t9.2K\t348\tPD\t86.4M\t2.4K\t351"""
+
+
+def test_magnitude_suffixes_are_not_dropped():
+    """Regression: "840.9M" parsed as 840.9 - a 1,000,000x error."""
+    assert to_number("840.9M") == pytest.approx(840_900_000.0)
+    assert to_number("2.1B") == pytest.approx(2_100_000_000.0)
+    assert to_number("24.2K") == pytest.approx(24_200.0)
+    assert to_number("1K") == pytest.approx(1_000.0)
+
+
+def test_indonesian_magnitude_words_are_understood():
+    assert to_number("840,9 jt") == pytest.approx(840_900_000.0)
+    assert to_number("2,1 mlr") == pytest.approx(2_100_000_000.0)
+
+
+def test_a_suffixed_dot_is_a_decimal_not_thousands():
+    assert to_number("840.9M") != pytest.approx(8_409_000_000.0)
+
+
+def test_two_brokers_on_one_row_are_found():
+    cells = ["XL", "840.9M", "24.2K", "349", "RF", "2.1B", "60.6K", "347"]
+    assert broker_positions(cells) == [0, 4]
+
+
+def test_the_sell_broker_keeps_its_own_volume():
+    """Regression: reading a two-sided row as one broker gave RF's 2.1B to XL."""
+    buy, sell = parse_sides(ACES)
+    order, _ = infer_order(buy + sell)
+    f = sides_to_frame(buy, sell, order).set_index("broker")
+    assert f.loc["RF", "sell_lot"] == pytest.approx(60_600.0)
+    assert f.loc["RF", "buy_lot"] == pytest.approx(0.0)
+    assert f.loc["XL", "buy_lot"] == pytest.approx(24_200.0)
+    assert f.loc["XL", "sell_lot"] == pytest.approx(0.0)
+
+
+def test_column_order_is_decided_by_arithmetic_not_by_the_header():
+    """value = lot x 100 x average is the identity that settles val/lot/avg."""
+    buy, sell = parse_sides(ACES)
+    order, agree = infer_order(buy + sell)
+    assert order == "val_lot_avg"
+    assert agree > 0.9
+
+
+def test_a_scrambled_table_fails_the_identity_rather_than_parsing_wrong():
+    bad = "XL\t1\t2\t3\tRF\t4\t5\t6"
+    buy, sell = parse_sides(bad)
+    _order, agree = infer_order(buy + sell)
+    assert agree < 0.6
+
+
+def test_both_sides_appear_in_the_joined_frame():
+    buy, sell = parse_sides(ACES)
+    f = sides_to_frame(buy, sell, "val_lot_avg")
+    assert set(f["broker"]) == {"XL", "XA", "AK", "YP", "RF", "BB", "CP", "PD"}
+
+
+def test_a_broker_missing_from_one_side_gets_zero_not_nan():
+    buy, sell = parse_sides(ACES)
+    f = sides_to_frame(buy, sell, "val_lot_avg").set_index("broker")
+    assert f.loc["XL", "sell_lot"] == 0.0
+    assert not np.isnan(f.loc["XL", "sell_lot"])

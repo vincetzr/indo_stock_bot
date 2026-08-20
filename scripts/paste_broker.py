@@ -68,6 +68,14 @@ from import_broker_data import import_summary, import_ticks, looks_like_ticks  #
 
 # A broker code is two or three letters on IDX (YP, CC, BK, AK, PD, ZP, ...).
 BROKER_RE = re.compile(r"^[A-Z]{2,3}$")
+LOT_SIZE = 100
+
+# Platforms abbreviate. English K/M/B/T and Indonesian rb/jt/mlr both appear.
+# "M" is the dangerous one - English million against Indonesian miliar, a factor
+# of 1000 apart - so every parse is checked against value = lot x 100 x average
+# and a mismatch is reported rather than absorbed.
+SUFFIX = {"K": 1e3, "M": 1e6, "B": 1e9, "T": 1e12,
+          "RB": 1e3, "JT": 1e6, "MLR": 1e9}
 
 
 def to_number(tok: str) -> Optional[float]:
@@ -84,9 +92,22 @@ def to_number(tok: str) -> Optional[float]:
         return None
     neg = t.startswith("(") and t.endswith(")")
     t = t.strip("()")
+    # The magnitude suffix must come off BEFORE the digits are cleaned: "840.9M"
+    # is 840.9 million, and dropping the M silently divides it by a million.
+    # A suffixed number's dot is always a DECIMAL point, never thousands.
+    mult = 1.0
+    suf = re.match(r"^([\d.,\-]+)\s*(RB|JT|MLR|[KMBT])$", t, re.I)
+    if suf:
+        t, mult = suf.group(1), SUFFIX[suf.group(2).upper()]
     t = re.sub(r"[^0-9.,\-]", "", t)
     if not t or not re.search(r"\d", t):
         return None
+    if mult != 1.0:
+        try:
+            v = float(t.replace(",", ".")) * mult
+        except ValueError:
+            return None
+        return -v if neg else v
     last_dot, last_com = t.rfind("."), t.rfind(",")
     if last_dot >= 0 and last_com >= 0:
         if last_com > last_dot:                 # Indonesian: 1.234.567,89
@@ -101,7 +122,7 @@ def to_number(tok: str) -> Optional[float]:
         if frac == 3 and t.count(".") >= 1:     # 1.234 is thousands in Indonesian
             t = t.replace(".", "")
     try:
-        v = float(t)
+        v = float(t) * mult
     except ValueError:
         return None
     return -v if neg else v
@@ -160,6 +181,93 @@ def parse_table(text: str) -> pd.DataFrame:
     return out
 
 
+def broker_positions(cells: List[str]) -> List[int]:
+    return [i for i, c in enumerate(cells) if BROKER_RE.match(c.strip().upper())]
+
+
+def parse_sides(text: str) -> Tuple[List[Tuple[str, List[float]]],
+                                    List[Tuple[str, List[float]]]]:
+    """Split rows that carry TWO brokers - the buy list and the sell list.
+
+    Platforms render the two top-N lists side by side, so one row reads
+    "XL 840.9M 24.2K 349 | RF 2.1B 60.6K 347". The two brokers are UNRELATED:
+    the buy side and the sell side are independently ranked, and row 1 of one has
+    nothing to do with row 1 of the other. Reading such a row as a single broker
+    attributes RF's selling to XL, which is worse than useless.
+    """
+    buy, sell = [], []
+    for line in text.splitlines():
+        cells = split_row(line)
+        pos = broker_positions(cells)
+        if not pos:
+            continue
+        groups = []
+        for k, start in enumerate(pos):
+            end = pos[k + 1] if k + 1 < len(pos) else len(cells)
+            nums = [to_number(c) for c in cells[start + 1:end]]
+            groups.append((cells[start].strip().upper(),
+                           [n for n in nums if n is not None]))
+        if groups and len(groups[0][1]) >= 2:
+            buy.append(groups[0])
+        if len(groups) >= 2 and len(groups[1][1]) >= 2:
+            sell.append(groups[1])
+    return buy, sell
+
+
+def infer_order(groups: List[Tuple[str, List[float]]]) -> Tuple[str, float]:
+    """Is it (value, lot, average) or (lot, value, average)?
+
+    Decided by arithmetic rather than by header text, because headers are
+    abbreviated and translated but the identity is not:
+
+        value = lot x 100 shares x average price
+
+    Whichever ordering satisfies it on more rows wins, and the agreement rate is
+    returned so a parse that fits NEITHER can be reported instead of guessed.
+    """
+    best, best_score = "val_lot_avg", -1.0
+    for order in ("val_lot_avg", "lot_val_avg"):
+        ok = tot = 0
+        for _b, nums in groups:
+            if len(nums) < 3:
+                continue
+            a, b, c = nums[0], nums[1], nums[2]
+            val, lot, avg = (a, b, c) if order == "val_lot_avg" else (b, a, c)
+            if val > 0 and lot > 0 and avg > 0:
+                tot += 1
+                ok += int(abs(lot * LOT_SIZE * avg / val - 1.0) < 0.15)
+        score = ok / tot if tot else 0.0
+        if score > best_score:
+            best, best_score = order, score
+    return best, best_score
+
+
+def sides_to_frame(buy: List[Tuple[str, List[float]]],
+                   sell: List[Tuple[str, List[float]]],
+                   order: str) -> pd.DataFrame:
+    """Outer-join the two independent lists on broker code."""
+    def side(groups, prefix):
+        rows = []
+        for b, nums in groups:
+            if len(nums) < 3:
+                continue
+            a, bb, c = nums[0], nums[1], nums[2]
+            val, lot, avg = (a, bb, c) if order == "val_lot_avg" else (bb, a, c)
+            rows.append({"broker": b, f"{prefix}_val": val,
+                         f"{prefix}_lot": lot, f"{prefix}_avg": avg})
+        return pd.DataFrame(rows)
+    B, S = side(buy, "buy"), side(sell, "sell")
+    if B.empty and S.empty:
+        return pd.DataFrame()
+    out = (B.merge(S, on="broker", how="outer") if not B.empty and not S.empty
+           else (B if S.empty else S))
+    for c in ("buy_lot", "buy_val", "buy_avg", "sell_lot", "sell_val", "sell_avg"):
+        if c not in out.columns:
+            out[c] = np.nan
+    return out.fillna({"buy_lot": 0.0, "sell_lot": 0.0,
+                       "buy_val": 0.0, "sell_val": 0.0})
+
+
 def assign_columns(df: pd.DataFrame) -> Optional[pd.DataFrame]:
     """Map the unlabelled numeric columns onto the canonical schema.
 
@@ -213,6 +321,32 @@ def main() -> int:
         raw = html_to_text(raw)
         print(f" stripped an HTML table -> {len(raw.splitlines())} rows")
 
+    # Two-sided layout? Platforms render the buy list and the sell list side by
+    # side, so a row carries TWO unrelated brokers. Detect it before parsing,
+    # because reading such a row as one broker attributes the seller's volume to
+    # the buyer.
+    two = sum(1 for l in raw.splitlines() if len(broker_positions(split_row(l))) >= 2)
+    one = sum(1 for l in raw.splitlines() if len(broker_positions(split_row(l))) == 1)
+    if two >= max(one, 2):
+        buy, sell = parse_sides(raw)
+        order, agree = infer_order(buy + sell)
+        print(f" two-sided layout: {len(buy)} buy rows, {len(sell)} sell rows")
+        print(f" column order inferred as {order.replace('_', '/')} "
+              f"(value = lot x 100 x average held on {agree:.0%} of rows)")
+        if agree < 0.6:
+            print(" ! that identity fails on most rows. The columns are not what "
+                  "they look like,\n ! or a magnitude suffix was misread — "
+                  "refusing to store a guess.")
+            return 1
+        mapped = sides_to_frame(buy, sell, order)
+        if mapped.empty:
+            print(" no usable rows.")
+            return 1
+        mapped["ticker"] = args.ticker.upper()
+        mapped["date"] = pd.Timestamp(date)
+        mapped["source"] = "pasted_two_sided"
+        return report_and_store(mapped, args.dry_run)
+
     parsed = parse_table(raw)
     if parsed.empty:
         print(" no broker rows found. Expected lines with a 2-3 letter broker "
@@ -229,7 +363,10 @@ def main() -> int:
     mapped["ticker"] = args.ticker.upper()
     mapped["date"] = pd.Timestamp(date)
     mapped["source"] = "pasted"
+    return report_and_store(mapped, args.dry_run)
 
+
+def report_and_store(mapped: pd.DataFrame, dry_run: bool) -> int:
     tot_b, tot_s = mapped["buy_lot"].sum(), mapped["sell_lot"].sum()
     comp = is_complete(mapped)
     print(f" {len(mapped)} brokers parsed")
@@ -242,7 +379,7 @@ def main() -> int:
         print(f" {r['broker']:<8}{r['buy_lot']:>14,.0f}{r['sell_lot']:>14,.0f}"
               f"{r['net']:>+14,.0f}")
 
-    if args.dry_run:
+    if dry_run:
         print("\n dry run — nothing written.")
         return 0
     w, s = save(mapped)
