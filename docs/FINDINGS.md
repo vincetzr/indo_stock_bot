@@ -4730,3 +4730,67 @@ Charted by hand, CUAN, ADRO, BBCA and ASII beat buy-and-hold 4 of 4 and the null
 Across all 749 the same rule beats the null on 43% at the daily band. The
 four-name picture is real and it is not representative, and the chart script now
 prints that warning under its own table.
+
+## Result 115 — the improvement was attempted, and it made things worse
+
+Result 114 pointed somewhere specific, with numbers rather than intuition: the
+weekly band (18 round trips) is near-neutral against the null, the daily band
+(54 trips) is clearly negative, and liquid names beat illiquid ones by a wide
+margin. Read together: **trade less, and only where the spread is not the
+strategy.** `scripts/improve.py` tests that.
+
+140 names clearing Rp5bn/day turnover and Rp50 price, 8 bands from 10% to 35%,
+weekly clock. The band is chosen on each name's **first half** and scored on its
+**second half**, against the same-exposure null, with a random-band control.
+
+### In sample, every band looks like an edge
+
+| band | median edge vs null | beats null |
+|---|---|---|
+| 10% | **+0.1656** | 54% |
+| 12% | +0.0922 | 54% |
+| 15% | +0.1102 | 58% |
+| 22% | +0.1355 | 54% |
+| 30% | −0.0334 | 46% |
+
+Seven of eight bands are positive. This is the number to distrust.
+
+### Out of sample, every one of them is negative
+
+| selector | median edge vs null | beats null | median band |
+|---|---|---|---|
+| fitted on the train half | **−0.1310** | 36% | 20% |
+| band chosen at random | −0.1537 | 36% | 22% |
+| **the incumbent 12%, untouched** | **−0.0463** | **45%** | 12% |
+
+**Searching the grid actively hurt.** The fitted band scored −0.131 out of
+sample; simply leaving the band at 12% and not optimising at all scored −0.046,
+three times better. And the fitted choice did not beat a coin flip: paired
+t = −0.80, p = 0.43, against a Bonferroni threshold of 0.0063 for the eight bands
+tried.
+
+**The in-sample/out-of-sample gap is itself the finding.** Every band flipped
+sign across the split. That is not a band being mis-chosen — it is the first half
+of the data (2015–2020) and the second half (2021–2026, including a 41% index
+drawdown) being different regimes. A parameter fitted on one does not transfer to
+the other, which is the general case this repo keeps rediscovering.
+
+### What this settles
+
+The honest answer to "improve it" is that the improvement does not exist, and the
+attempt was run properly enough to be believed: a real holdout, a random control,
+and a multiple-comparison correction. The best available action is the one that
+requires no fitting — **use the wider band, on liquid names, and accept that it
+is a position report rather than an edge.**
+
+Three things survive from everything measured in Parts XXVIII–XXIX, and they are
+worth stating as the standing conclusion:
+
+1. **The rule cannot miss a move bigger than its band.** Exact, proven, zero
+   violations on 1.3m bars (Result 109).
+2. **It keeps a bit over half of a real bull move** — 55%, not the 78% first
+   claimed, because a real move contains a median of 5 band-legs each paying its
+   own toll (Result 109, corrected).
+3. **It does not predict.** Leg structure matches a random walk at every
+   timeframe (110), every combination loses to random timing at the same exposure
+   (111, 113), and fitting it makes it worse (115).
