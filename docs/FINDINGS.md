@@ -4646,3 +4646,87 @@ bigger than its band, it never repaints, and its trigger price is exact and know
 in advance. That makes it a good **instrument** — it tells you where you are. It
 is not evidence about where price goes next, and every attempt in this Part to
 make it into one has been measured and has failed.
+
+## Result 114 — the method review, on the whole exchange
+
+The signal feed, the charts and the review were built so the question "is this
+still working" has an answer that is re-measured rather than remembered.
+`scripts/method_review.py`, 749 IDX equities, every name in the cache with 400+
+sessions and a median price above Rp50, fees charged, causal throughout.
+
+**The benchmark is the same-exposure null**, not buy-and-hold. Take the rule's
+own time in the market and spend it at random — `exposure × hold`. In a falling
+market anything that sits in cash beats buy-and-hold for free, so only the null
+separates timing from absence.
+
+### By timeframe
+
+| timeframe | names | trips | win | median trip | toll | invested | vs hold | **vs null** | beats null |
+|---|---|---|---|---|---|---|---|---|---|
+| weekly 12% | 732 | 18 | 36% | −5.5% | 36.6% | 44% | +0.071 | **+0.034** | 52% |
+| daily 8% | 749 | 54 | 33% | −4.1% | 21.2% | 45% | −0.244 | **−0.222** | 43% |
+
+Both fail — the bar is a positive edge on ≥55% of names — but they fail
+differently, and the difference matters. **The weekly band is roughly neutral
+against the null (+0.034, 52% of names, a coin flip); the daily band is clearly
+negative (−0.222, 43%).** More trading is strictly worse here: 54 round trips a
+year at a 21% toll destroys what 18 at a 37% toll merely fails to create.
+
+### By size — the answer to "expand to small caps"
+
+Bucketed by median daily turnover, which exists for every cached name (market cap
+is cached for only 59, which had left the small bucket at n=3):
+
+| bucket | names | trips | win | median trip | toll | vs null | beats null |
+|---|---|---|---|---|---|---|---|
+| large (≥Rp100bn/day) | 31 | 56 | 34% | −3.7% | 21.6% | **+0.050** | 52% |
+| mid (Rp5–100bn/day) | 128 | 58 | 35% | −4.0% | 21.1% | **+0.013** | 52% |
+| small (<Rp5bn/day) | 590 | 53 | 32% | −4.1% | 21.3% | **−0.277** | 40% |
+
+**Expanding to small caps makes it worse, not better.** The rule is approximately
+break-even on the most liquid third of the exchange and clearly negative on the
+illiquid tail, which is 590 of the 749 names. If this rule is used at all, it
+belongs on the liquid names.
+
+**A prediction that did not confirm.** The toll law says a fixed tick is a larger
+share of a cheaper price, so small caps should carry a *higher* break-even. The
+measured gap is **−0.3%** — the wrong sign. The screen works against the test:
+names under Rp50 were dropped, and those are exactly the ones where the tick
+dominates. Recorded as not confirmed rather than explained away.
+
+### Drift
+
+| year | names | trips | win | median trip | hold | signals | vs null | beats null |
+|---|---|---|---|---|---|---|---|---|
+| 2023 | 679 | 5 | 29% | −4.3% | −0.094 | −0.055 | −0.031 | 39% |
+| 2024 | 734 | 5 | 33% | −3.5% | −0.071 | −0.042 | −0.034 | 42% |
+| 2025 | 749 | 6 | 38% | −2.6% | +0.212 | +0.066 | −0.042 | 44% |
+| 2026 | 71 | 5 | 29% | −4.3% | −0.091 | −0.049 | −0.002 | 45% |
+
+Negative in every year. There is no degradation to detect because there was never
+a working state to degrade from. The 2026 row covers only 71 of 749 names — the
+daily cache is refreshed for a subset — so it is a sample artefact, not a market
+event, and the script now says so on its own output.
+
+### What was built
+
+- `scripts/signals.py` — CONFIRMED_BUY / CONFIRMED_SELL / ARMED / HOLD per name
+  per timeframe, each carrying the hit rate that rule has actually had on that
+  name. ARMED is the earliest honest warning available: "a 2.1% move from here
+  flips this" is a fact; "this is about to rally" is not.
+- `scripts/signal_charts.py` — price with the arrows where the rule really fired,
+  plus an equity panel carrying three lines: signals, buy-and-hold, **and the
+  same-exposure null**. The null had to be on the chart, because on CUAN the
+  signals finish 20% ahead of buy-and-hold while buy-and-hold peaked near Rp1bn
+  and fell back — without the null that picture reads as skill when most of it is
+  simply lower exposure into a crash.
+- `scripts/method_review.py` — the table above, with `reports/method_review.json`
+  carrying a pass/fail per timeframe so a scheduled run can alert on change.
+
+### A selection effect worth naming
+
+Charted by hand, CUAN, ADRO, BBCA and ASII beat buy-and-hold 4 of 4 and the null
+3 of 4. Those four names were chosen because they are the ones under discussion.
+Across all 749 the same rule beats the null on 43% at the daily band. The
+four-name picture is real and it is not representative, and the chart script now
+prints that warning under its own table.
