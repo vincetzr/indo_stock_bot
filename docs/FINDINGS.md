@@ -4794,3 +4794,83 @@ worth stating as the standing conclusion:
 3. **It does not predict.** Leg structure matches a random walk at every
    timeframe (110), every combination loses to random timing at the same exposure
    (111, 113), and fitting it makes it worse (115).
+
+## Result 116 — the optimum, and it is not a trading rule
+
+"Do what needs to be done to achieve optimality." Tuning the band was already
+ruled out (115), so the only honest reading is: given that timing does not work,
+what does the evidence support and what is the best version of it?
+`scripts/optimal.py` sweeps 63 portfolio configurations across all **764 IDX
+equities** — breadth 1 to 50, selection by liquidity / momentum / low volatility,
+rebalance never / annual / quarterly — with point-in-time eligibility and 0.56%
+charged on turnover.
+
+### Nothing beat the index
+
+| | final | CAGR | max DD |
+|---|---|---|---|
+| **IDX Composite** | **1.21x** | **+1.6%** | **−41.5%** |
+| best low-vol book (30 names, annual) | 1.13x | +1.1% | −48.2% |
+| momentum, 20 names | 0.98x | −0.2% | −60.9% |
+| liquidity, 30 names | 0.83x | −1.7% | −61.6% |
+| liquidity, 1 name | 0.09x | −20.0% | −96.4% |
+
+**Not one of the 63 configurations beat simply buying the index, on return or on
+drawdown.** Selection added nothing, which is what Results 110–113 predict. The
+one clean pattern is breadth: concentration is punished hard, exactly as Result
+108's concentration measurement implies it must be.
+
+### The holdout, which is the only version that counts
+
+Configuration chosen on data before 2020-09, then made to live with that choice:
+
+| | CAGR after | max DD after |
+|---|---|---|
+| fitted choice (5 names, low-vol) | −2.6% | −36.4% |
+| plain 30 names, no view | −5.2% | −48.7% |
+| **the index** | **+1.6%** | −41.5% |
+
+The fitted choice beat the plain book and **still lost to the index**. Picking
+names added something relative to picking them badly, and nothing relative to not
+picking at all.
+
+### The band as a risk overlay — the one place it earns its keep
+
+Applied per holding inside a portfolio rather than as a standalone strategy:
+
+| config | final | CAGR | max DD |
+|---|---|---|---|
+| 30 names, hold | 0.83x | −1.7% | −61.6% |
+| **30 names, 8% overlay** | **0.99x** | **−0.1%** | **−36.2%** |
+| 20 names, hold | 0.67x | −3.7% | −62.3% |
+| **20 names, 8% overlay** | **0.89x** | **−1.1%** | **−37.6%** |
+
+The overlay **gained 1.6% a year and removed ~25 points of drawdown** — not the
+usual trade-off. Against its own same-exposure null it clears at 20 and 30 names
+(+0.098, +0.089) and fails at 10 (−0.152): **2 of 3**. On three points that is
+too few to lean on. The drawdown reduction is real; the return edge is unproven.
+
+### Two errors of mine, caught and fixed
+
+1. The first run printed that the overlay **"costs 1.6% a year"** while its own
+   table showed it gaining at every breadth — a sign error.
+2. It reported the **best of 63 configs — a 3-name book at 8.6% a year — as "the
+   optimum"**. At that breadth, best-of-63 is a coin that landed heads. The
+   script now refuses to call a ≤5-name winner an optimum and says why.
+3. The holdout verdict said the fitted choice **"carried over"** because it only
+   checked against a weak in-house baseline, ignoring that it lost to the index.
+
+Both verdicts are now pure functions with regression tests pinning exactly these
+failures, because a sweep that grades itself is where a backtest lies.
+
+### The standing answer
+
+The optimal use of everything measured here is **not a trading system**:
+
+- **Buy the index.** It beat all 63 constructed portfolios on return and all but
+  a handful on drawdown, and it costs one trade.
+- **If holding single names, hold many.** Concentration is punished at every
+  breadth tested, and Result 108 explains why.
+- **The band is worth running as a drawdown control, not a return engine** — and
+  only at real breadth, where it clears its null.
+- **Do not fit it.** Result 115: fitting scores worse than leaving it alone.

@@ -137,3 +137,48 @@ def test_every_rebalance_key_is_understood():
     px, tv = panel()
     for key in REBALANCE:
         assert run(px, tv, 2, "liquidity", key, False, min_turnover=1e9) is not None
+
+
+# --------------------------------------------------------------------------- #
+# the verdicts, which are where a sweep usually lies
+# --------------------------------------------------------------------------- #
+from optimal import verdict_holdout, verdict_overlay                # noqa: E402
+
+
+def test_beating_a_weak_baseline_while_losing_to_the_index_is_not_carrying_over():
+    """Regression: the first version called -2.6% a year 'carried over' because
+    it only checked against a plain in-house book, ignoring the +1.6% index."""
+    v = verdict_holdout(-0.026, -0.052, 0.016)
+    assert "STILL LOST TO THE INDEX" in v
+    assert "carried over AND beat the index" not in v
+
+
+def test_beating_the_index_is_the_only_thing_that_counts_as_carrying_over():
+    assert "beat the index" in verdict_holdout(0.05, -0.02, 0.016)
+
+
+def test_losing_to_both_is_reported_as_losing_to_both():
+    v = verdict_holdout(-0.09, -0.05, 0.016)
+    assert "neither" in v
+
+
+def test_a_missing_index_is_flagged_rather_than_assumed_away():
+    assert "no index" in verdict_holdout(0.05, -0.02, None)
+
+
+def test_a_partial_overlay_result_is_not_reported_as_a_failure():
+    """Regression: 2 of 3 breadths clearing was printed as 'does not clear'."""
+    v = verdict_overlay([-0.152, 0.098, 0.089], 0.246)
+    assert "2 of 3" in v
+    assert "clears its null nowhere" not in v
+    assert "unproven" in v
+
+
+def test_clearing_everywhere_with_a_drawdown_cut_is_allowed_to_say_so():
+    v = verdict_overlay([0.05, 0.09, 0.08], 0.25)
+    assert "pays for itself" in v
+
+
+def test_clearing_nowhere_says_so_plainly():
+    v = verdict_overlay([-0.05, -0.09, -0.08], 0.25)
+    assert "nowhere" in v

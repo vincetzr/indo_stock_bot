@@ -191,6 +191,46 @@ def run(px: pd.DataFrame, tv: pd.DataFrame, breadth: int, selection: str,
             "years": yrs, "curve": eq}
 
 
+def verdict_holdout(fitted_cagr: float, plain_cagr: float,
+                    index_cagr: Optional[float]) -> str:
+    """The fitted choice must clear the INDEX, not just a weak in-house baseline.
+
+    Beating a plain 30-name equal-weight book while losing to something a person
+    could have bought in one trade is not a portfolio that carried over. The
+    index is the benchmark; the in-house book is a diagnostic.
+    """
+    beat_plain = fitted_cagr > plain_cagr
+    if index_cagr is None:
+        return ("the fitted choice beat the plain book, but there is no index "
+                "to check it against" if beat_plain else
+                "the fitted choice did not even beat the plain book")
+    if fitted_cagr > index_cagr:
+        return "the fitted choice carried over AND beat the index"
+    if beat_plain:
+        return ("the fitted choice beat the plain book but STILL LOST TO THE "
+                f"INDEX ({fitted_cagr:+.1%} against {index_cagr:+.1%}).\n "
+                "Picking names added something relative to picking them badly, "
+                "and nothing\n relative to not picking at all.")
+    return "the fitted choice beat neither the plain book nor the index"
+
+
+def verdict_overlay(edges: List[float], dd_change: float) -> str:
+    """Report breadth-dependence rather than collapsing it to yes or no."""
+    clears = sum(1 for e in edges if e > 0)
+    n = len(edges)
+    if clears == n and dd_change > 0.10:
+        return ("the overlay clears its null at every breadth AND cuts the "
+                "drawdown.\n Risk control that pays for itself.")
+    if clears == 0:
+        return ("the overlay clears its null nowhere - the drawdown protection "
+                "is real but it is\n simply being invested less in a market "
+                "that fell.")
+    return (f"the overlay clears its null at {clears} of {n} breadths, and fails "
+            f"at the rest.\n That is a breadth-dependent result on {n} points, "
+            f"which is too few to lean on:\n treat the drawdown reduction as "
+            f"real and the return edge as unproven.")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--start", default="2015-01-01")
@@ -324,7 +364,9 @@ def main() -> int:
             if bench:
                 print(f" the index:                {bench['cagr']:+.1%} a year, "
                       f"{bench['max_dd']:.1%} drawdown")
-            print(f"\n {'the fitted choice carried over' if oos['cagr'] > base['cagr'] else 'the fitted choice did NOT carry over - picking WHICH names added nothing'}")
+            print(f"\n " + verdict_holdout(
+                oos["cagr"], base["cagr"],
+                bench["cagr"] if bench else None))
 
     pairs = [(a, b) for a in ov for b in ov
              if a["breadth"] == b["breadth"] and not a["overlay"] and b["overlay"]]
@@ -340,25 +382,19 @@ def main() -> int:
         # does it beat spending its own exposure at random?
         print(f"\n {'against its own null':<26}{'actual':>10}{'null':>10}"
               f"{'edge':>9}")
-        clears = 0
+        clears, edges = 0, []
         for a, b in pairs:
             base_log = float(np.log(a["final"]))
             null_log = b["exposure"] * base_log
             act_log = float(np.log(b["final"]))
             edge = act_log - null_log
+            edges.append(edge)
             clears += int(edge > 0)
             print(f" {str(int(b['breadth'])) + ' names, overlay':<26}"
                   f"{act_log:>+10.3f}{null_log:>+10.3f}{edge:>+9.3f}")
         print(f"\n the overlay clears its own same-exposure null on "
               f"{clears}/{len(pairs)} breadths.")
-        if clears == len(pairs) and dd > 0.10:
-            print(" This is the first thing measured in this repo that improves "
-                  "BOTH return and\n drawdown and still clears the null. It is "
-                  "risk control that pays for itself.")
-        elif dd > 0.10:
-            print(" The drawdown protection is real, but it does not clear the "
-                  "null - most of it is\n simply being invested less in a "
-                  "market that fell.")
+        print(" " + verdict_overlay(edges, dd))
 
     with open("reports/optimal.json", "w") as fh:
         json.dump({"best_calmar": {k: (float(v) if isinstance(v, (int, float, np.floating)) else v)
