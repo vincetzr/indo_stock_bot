@@ -5230,3 +5230,200 @@ impressive and would be worth nothing.
 
 A floating-point clamp was added to `wilson()` — at k = 0 it returned a lower
 bound of −1.4e-17, and a probability bound printed as negative is simply wrong.
+
+---
+
+# Part XXXII — What the market pays, and the one thing that beat it
+
+## Result 122 — every study in this repo was missing the dividend
+
+`load_ohlc` reads `close`. The Yahoo cache also carries `adj_close`, and the
+difference between them is every dividend the company paid. Nothing before this
+point used it, so Parts XXVIII–XXXI measured the price line and called it the
+return to holding.
+
+The gap is not decorative. Across 614 names with a full history:
+
+| universe | price CAGR | total-return CAGR | dividend |
+|---|---|---|---|
+| all names (614) | −0.19%/yr | +2.08%/yr | +0.48% median, +1.77% mean |
+| liquid names (87) | +1.21%/yr | +4.14%/yr | +1.82% median, +2.72% mean |
+
+87% of liquid names pay something. The largest contributors are not marginal:
+TAPG +16.8%/yr, ADRO +15.2%, ITMG +13.9%, PTBA +11.6%, BJBR +8.1%, UNTR +7.2%.
+At portfolio level the equal-weight liquid book goes from **2.23%/yr to
+4.27%/yr** once dividends are counted — a correction larger than any edge
+claimed anywhere in this repo.
+
+The direction of the error matters. Excluding dividends understates holding and
+therefore *flatters* every timing rule that sits in cash, because a rule in cash
+is not charged for the income it forgoes. Several earlier comparisons were
+tilted by that, all in the same direction.
+
+## Result 123 — the hurdle is a bank deposit, and the sample end date moves it
+
+| series | final | CAGR | real | max DD |
+|---|---|---|---|---|
+| equal-weight liquid, total return | 1.54x | 4.27% | 1.23% | −49.8% |
+| IHSG price index | 1.31x | 2.62% | −0.37% | −34.9% |
+| rupiah time deposit (assumed 5.5%) | — | 5.50% | 2.43% | 0% |
+| equal-weight liquid, in USD | 1.13x | 1.15% | — | −58.3% |
+
+The rupiah went 13,158 to 18,030 per USD, −3.08%/yr.
+
+Holding-period distribution for the equal-weight liquid book:
+
+| hold | worst | median | best | % < 0 | % < cash |
+|---|---|---|---|---|---|
+| 1y | −44.8% | +2.1% | +75.2% | 43% | 60% |
+| 3y | −13.5% | +0.1% | +17.1% | 48% | 79% |
+| 5y | −3.8% | +1.4% | +12.1% | 37% | 83% |
+| 10y | +1.7% | +3.0% | +4.6% | 0% | 100% |
+
+The 10-year row is **one overlapping stretch**, not five observations, and is
+labelled as such in the report — a "100% of the time" claim built on 1.0
+independent windows is one piece of history wearing a statistic's clothes.
+
+And the finish line moves the answer more than anything else does:
+
+| measured through | EW book | IHSG | beats cash? |
+|---|---|---|---|
+| 2019-12 | 4.52% | 6.63% | no |
+| 2023-12 | 1.63% | 5.04% | no |
+| 2025-12 | 6.00% | 6.05% | **yes** |
+| 2026-08 | 4.27% | 2.62% | no |
+
+**4.37 points of annual return depend only on which year you stop counting.**
+The IHSG fell from 8,748 in January 2026 to 6,337 by August. Any strategy
+comparison that does not survive this table is a comparison of end dates.
+
+## Result 124 — thirteen factors, twelve fail, and the walk-forward fails too
+
+`factor_study.py`, 788 names, 2015–2026, monthly, 0.56% costs, one-bar execution
+delay, scored three independent ways. Fundamentals are **not** tested:
+`data/cache/fundamentals` is a snapshot of today, and ranking 2015 on a 2026 P/E
+is look-ahead of the worst kind.
+
+Rank IC, Bonferroni α = 0.0038 for thirteen looks:
+
+| factor | mean IC | t | boot p | |
+|---|---|---|---|---|
+| divyield | 0.0789 | 5.55 | <0.0001 | **significant** |
+| lowidio | 0.0695 | 4.30 | <0.0001 | **significant** |
+| lowvol | 0.0659 | 3.93 | 0.0003 | **significant** |
+| high52 | 0.0411 | 2.24 | 0.0365 | no |
+| lowmax | 0.0378 | 2.63 | 0.0070 | no |
+| illiq | −0.0384 | −2.94 | 0.0045 | no |
+| the other seven | ≤0.023 | | | no |
+
+Two results carry as much weight as the winner:
+
+**The walk-forward makes it worse.** The first-half leader was `illiq` at
++3.37%/yr; out of sample it delivered **−2.20%/yr** and placed **11th of 13**
+when a coin flip averages 7.0. Meanwhile the average factor edge in the second
+half was +2.11%. Choosing the winner was worse than not choosing. This is the
+third time this repo has found that (Results 16, 115).
+
+**`trend` is a mirage.** It posts the second-best headline at +4.47%/yr over the
+neutral book — on −1.58% in the first half and +13.86% in the second. The
+split-half table exists to catch exactly that, and did.
+
+**Breadth is the free lunch, and it is large.** Books drawn *at random* from the
+eligible set, so nothing below is selection:
+
+| names | arith/mo | geo/mo | var drag | cost/mo | CAGR | max DD |
+|---|---|---|---|---|---|---|
+| 1 | 0.547% | −0.412% | 0.959% | 0.551% | −10.49% | −84.8% |
+| 10 | 0.571% | 0.282% | 0.289% | 0.501% | −2.59% | −62.7% |
+| 30 | 0.550% | 0.332% | 0.218% | 0.387% | −0.67% | −56.1% |
+| 100 | 0.569% | 0.371% | 0.198% | 0.083% | +3.57% | −49.8% |
+| all | 0.566% | 0.370% | 0.197% | 0.027% | +4.27% | −49.8% |
+
+The arithmetic mean is **flat across the whole range**, as it must be for random
+draws. The entire ~15-point gap is variance drag (0.76%/month) plus turnover
+(0.52%/month). No forecast is involved anywhere in that table.
+
+## Result 125 — trailing dividend yield, and every way it could be an artefact
+
+Yield turns out to be computable point-in-time without any fundamental history:
+`adj_close / close` **is** the accumulated dividend factor, and its growth over
+the trailing year is knowable at the decision bar. The implied payouts were
+checked against reality before any of it was believed — BBCA Rp 54.9 + Rp 282.4,
+BMRI Rp 98.6 + Rp 376.7, TLKM Rp 226.7. They match.
+
+`yield_book.py` then tried to kill it:
+
+| test | result |
+|---|---|
+| grid: 3 floors × 3 frequencies × 4 breadths | **36 of 36** beat the neutral book *and* the IHSG; worst cell +0.79%/yr, median +4.90% |
+| lookback 6m / 1y / 2y | +1.37% / +5.68% / +3.58% — not a fitted window |
+| skip the top (ranks 1‑30 → 41‑70) | +5.68% → +3.99% → +2.15% → +0.74% → −8.57%: a smooth decay, not three lucky names |
+| calendar years | ahead in **8 of 11** |
+| the 2026 crash | **−0.9%** from the index peak vs −16.4% neutral and −27.6% IHSG |
+| both halves | +2.29% then +9.82% |
+| persistence | 89% of the book carries over month to month; yield rank correlates 0.73 with itself a year later |
+| within-book correlation | 0.202 against 0.157 for a random book — not one sector in disguise |
+| after tax | 9.27%/yr domestic, 8.59% foreign, vs 4.27% neutral and 2.62% IHSG |
+
+**A reporting bug found while doing this.** `max_dd` was taken off the
+rebalance-sampled curve, so an annually rebalanced book had eleven points in
+eleven years and reported a **−2.6%** maximum drawdown while its holdings
+halved. `run_portfolio` now returns a daily curve and every risk number comes
+off it. The honest figure for that cell is **−51.4%**. Three tests pin it,
+including one where a 60% round trip happens entirely inside a calendar year.
+
+Blending yield with the other both-halves survivors was tried and mostly
+**dilutes** it: divyield+mom6_1 gives +2.13%/yr against +5.68% for yield alone.
+One blend beat it (+6.37%) — found by searching six of them, which is the
+overfitting the walk-forward already caught. The simpler thing stands.
+
+Three things held against it in the report itself: the measure is **trailing**,
+so the book holds a payer through its own dividend cut; yield is **a value
+factor wearing an income name**, because a halved price raises it on an
+unchanged payout; and **the drawdown is not smaller** than anything else here.
+
+## Result 126 — the plan, and the word in the brief that had to go
+
+The brief was "profit close to guarantee". Everything can be delivered against
+that except the last three words:
+
+- 43% of IDX names lost money over eleven years, dividends included, in a
+  universe containing **zero delistings**.
+- 37% of five-year holds were negative; 83% came in under a deposit.
+- Every configuration of the best book here lost between half and two thirds.
+
+`the_plan.py` sizes what the evidence *does* support, in rupiah and whole lots.
+
+| | |
+|---|---|
+| measured in sample | 9.93%/yr |
+| of which neutral book | 5.11% |
+| of which yield premium | +4.82% |
+| **planned on (half the premium)** | **7.52%/yr** |
+| domestic, dividends reinvested (PP 9/2021 exempt) | 7.52% → +2.02% vs cash |
+| domestic, taken as cash | 6.84% → +1.34% vs cash |
+| foreign holder | 6.16% → +0.66% vs cash |
+
+The haircut is a convention, stated as one, and a test forbids it from ever
+exceeding 1.0 so the plan cannot be talked upward later.
+
+**The bottom line, put the way a client should hear it:** you are being asked to
+accept a −55.8% drawdown — Rp 475m on Rp 850m of equity — to earn about 2 points
+a year over a bank deposit. If that trade is not wanted, the deposit is the
+better answer and saying so is the job.
+
+**A sizing bug caught by its own test.** `minimum_capital` first checked only
+that one lot of each name was affordable. But buying *k* lots when the target
+was worth *k + something* leaves the position short by up to a whole lot, so the
+worst weight error is ~1/(k+1): one lot of the dearest name is a **50%** error,
+not 0%. Corrected, 30 names needs **Rp 675m**, not Rp 68m — a tenfold difference
+in who can run this book at all.
+
+Kill criteria are committed before any money moves: three consecutive calendar
+years behind the equal-weight universe (it was behind in 3 of 11 and never twice
+running), the book's average trailing yield falling below the deposit rate (6.8%
+today), or the liquidity floor no longer clearing 30 names. Nothing else — not a
+bad quarter, not a drawdown, not a headline.
+
+Layer 2 stays open and stays unassumed. The hypotheses are frozen and hashed
+(`6b8e0a2c9d1f4e73`) so they cannot be edited once the answer is visible.
