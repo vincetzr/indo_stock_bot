@@ -4874,3 +4874,85 @@ The optimal use of everything measured here is **not a trading system**:
 - **The band is worth running as a drawdown control, not a return engine** — and
   only at real breadth, where it clears its null.
 - **Do not fit it.** Result 115: fitting scores worse than leaving it alone.
+
+## Result 117 — correcting the record on layer 2: it was never actually tested
+
+Layer 2 has been described in this repo — including by me, in this session — as
+"measured at zero, twice, pre-registered." That is **too strong**, and a power
+analysis is what shows it.
+
+**What Results 96 and 97 actually tested** was one hypothesis on an
+outcome-conditioned sample: *does foreign flow into a drawdown predict the
+recovery*, on pullback events. Those returned d = 0.002 (p = 0.489) and
+d = −0.005 (p = 0.519), and within their scope they are sound. What they are not
+is a test of whether broker flow predicts returns.
+
+**The daily panel has never had the power to answer that.** The only clean daily
+series in the cache is BBCA, 60 sessions. `scripts/layer2_protocol.py`:
+
+| | |
+|---|---|
+| effective n on the existing daily panel | **60** |
+| smallest effect it could have detected | **d = 0.40** |
+
+An effect of d = 0.40 would be visible by eye without statistics. So the honest
+statement is not "broker flow does not work" — it is **"broker flow has never
+been given a test that could have found a tradable effect."** That is a different
+claim, and the earlier framing should not be repeated.
+
+### What a real test costs
+
+Four pre-registered hypotheses, α = 0.05 Bonferroni-corrected to 0.0125, power
+0.80, clustered by day because flows move together across names:
+
+| effect | what it means | effective n | ticker-days | sessions @ 40 names |
+|---|---|---|---|---|
+| d = 0.30 | large, obvious by eye | 106 | 1,347 | **34** |
+| d = 0.20 | the usual "small" effect | 238 | 3,023 | **76** |
+| **d = 0.10** | **realistic for a real flow edge** | **951** | **12,078** | **302 (~14 months)** |
+| d = 0.05 | plausible and still tradable | 3,803 | 48,299 | 1,208 (~5 years) |
+
+Collecting 40 names once a session, a genuinely-powered answer is **about
+fourteen months away**. Three and a half months buys only a d = 0.20 test.
+
+### The protocol is frozen, and hashed
+
+Result 96 is the cautionary tale: a 300-event pilot found d = 0.257 (p = 0.047)
+and the pre-registered replication returned d = 0.002. The pilot was the best of
+several things looked at on a sample small enough for that to happen by luck.
+
+So the hypotheses, horizons, test, correction and stopping rule are fixed in code
+**now, while there is no data to fit them to**, and the file hashes itself:
+
+```
+LAYER-2 PROTOCOL — frozen 6b8e0a2c9d1f4e73
+H1  top-3 net buying           -> excess return t+1..t+5
+H2  top-3 buy concentration    -> excess return t+1..t+20
+H3  net foreign flow           -> excess return t+1..t+5
+H4  same top net buyer 3 days  -> excess return t+1..t+10
+```
+
+Any result reported under a different hash is a different experiment. Returns are
+measured **relative to the equal-weight universe**, so a signal cannot win by
+being long in an up market. The protocol refuses to report anything before the
+sample target is met — no peeking, no "promising so far".
+
+### Collection
+
+`scripts/broker_collect.py` folds any legitimate export into one permanent daily
+store and records, per ticker-day, whether it is a **complete rekap** — which
+balances exactly, because every share bought was sold — or a **truncated top-N**
+table, which does not. Only complete days count toward the protocol's sample.
+
+A bug worth recording: a running-trade export carries only a *time* per print, so
+pandas dated it to today and an export of Friday's tape was stored under Monday
+and would have joined to the wrong price bar. The filename's date now wins.
+
+### On the third-party APIs
+
+Checked 2026-08-20 against the providers circulating on r/JudiSaham (iTick,
+Invezgo, an IDX RapidAPI listing, OHLC.dev, `NeaByteLab/IDX-API`, sectors.app):
+**none verifiably serves a buyer + seller broker code per trade**, none appears on
+IDX's authorised redistributor list, and at least one is an openly-licensed
+scraper of idx.co.id. Fetching is therefore gated on an explicit host allowlist
+in config which ships **empty**.

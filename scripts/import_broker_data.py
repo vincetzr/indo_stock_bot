@@ -127,8 +127,15 @@ def looks_like_ticks(df: pd.DataFrame) -> bool:
     return has("buyer") and has("seller")
 
 
-def import_ticks(df: pd.DataFrame, ticker: Optional[str]) -> Optional[pd.DataFrame]:
-    """Turn a running-trade export into the COMPLETE broker summary."""
+def import_ticks(df: pd.DataFrame, ticker: Optional[str],
+                 date: Optional[str] = None) -> Optional[pd.DataFrame]:
+    """Turn a running-trade export into the COMPLETE broker summary.
+
+    ``date`` matters more than it looks. A running-trade export usually carries
+    only a TIME per print ("09:00:12"), which pandas dates to today - so an
+    export of last Friday's tape would be stored under this morning's date and
+    then joined to the wrong price bar. When the filename carries a date it wins.
+    """
     agg = RunningTradeAggregator()
     n = agg.ingest(df.to_dict("records"))
     if not n:
@@ -138,6 +145,8 @@ def import_ticks(df: pd.DataFrame, ticker: Optional[str]) -> Optional[pd.DataFra
         return None
     if ticker and "ticker" in out.columns:
         out["ticker"] = out["ticker"].fillna(ticker)
+    if date:
+        out["date"] = pd.Timestamp(date)
     return out
 
 
@@ -214,7 +223,7 @@ def main() -> int:
             continue
         tk, dt = hint_from_name(path)
         ticks = looks_like_ticks(df)
-        out = (import_ticks(df, tk) if ticks else import_summary(df, tk, dt))
+        out = (import_ticks(df, tk, dt) if ticks else import_summary(df, tk, dt))
         if out is None or out.empty:
             print(f" - {name:<44} {len(df):>6,} rows -> nothing usable "
                   f"({'ticks' if ticks else 'summary'})")
