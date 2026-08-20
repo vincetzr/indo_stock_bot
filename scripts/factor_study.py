@@ -514,6 +514,13 @@ def run_portfolio(board: Board, factor: Optional[str], breadth: int,
         held = picks
         sizes.append(len(picks))
         lvl[entry] = equity
+        if k == 0:
+            # Stamp the book's opening value at the bar the money went in.
+            # Without it curve.index[0] is the END of the first period while
+            # curve.iloc[0] already contains that period's return, so the
+            # numerator gets a period the denominator does not - worth 0.02%/yr
+            # on a monthly book and a full 1.07%/yr on an annual one.
+            curve[board.index[entry]] = equity
         if not len(picks) or exit_ <= entry:
             period.append(0.0)
             lvl[entry:exit_ + 1] = equity
@@ -648,10 +655,19 @@ def variance_drag(period: Sequence[float]) -> Tuple[float, float, float]:
 
 
 def cagr(eq: pd.Series) -> float:
+    """Growth rate from the series' OWN first point, not from an assumed 1.0.
+
+    Assuming the start was 1.0 silently credits a book with whatever it earned
+    before its first recorded point. That is harmless when the series does start
+    at 1.0 and it is not harmless otherwise.
+    """
     if len(eq) < 2:
         return np.nan
     yrs = (eq.index[-1] - eq.index[0]).days / 365.25
-    return float(eq.iloc[-1] ** (1 / yrs) - 1) if yrs > 0 else np.nan
+    first = float(eq.iloc[0])
+    if yrs <= 0 or first <= 0:
+        return np.nan
+    return float((float(eq.iloc[-1]) / first) ** (1 / yrs) - 1)
 
 
 def max_dd(eq: pd.Series) -> float:

@@ -482,6 +482,42 @@ def test_compound_and_annualise():
     assert np.isnan(annualise([], 12.0))
 
 
+def test_cagr_measures_from_the_series_own_start():
+    """Assuming a start of 1.0 credits a book with return it did not record."""
+    idx = pd.to_datetime(["2020-01-01", "2021-01-01", "2022-01-01"])
+    started_high = pd.Series([2.0, 3.0, 4.0], index=idx)
+    assert cagr(started_high) == pytest.approx((4.0 / 2.0) ** 0.5 - 1, rel=1e-3)
+
+
+def test_an_annual_book_is_not_credited_with_a_year_it_did_not_time():
+    """The bug this fixes: on an annual book it was worth over a point a year."""
+    bars, step = 3000, 1.0004
+    idx = pd.bdate_range("2015-01-01", periods=bars)
+    line = 1000.0 * np.cumprod(np.full(bars, step))
+    px = pd.DataFrame({f"N{i}": line for i in range(12)}, index=idx)
+    tv = pd.DataFrame({f"N{i}": np.full(bars, 5e10) for i in range(12)},
+                      index=idx)
+    board = Board(px, tv, np.full(bars, 5000.0),
+                  rebalance_positions(idx, "annual", 280), [], 1e9, 280)
+    r = run_portfolio(board, None, 12)
+    # the panel's own annual rate, from the bars actually held rather than an
+    # assumed 250 a year - bdate_range has no holidays and gives about 261
+    entry = board.rebal[0] + 1
+    held_bars = (bars - 1) - entry
+    yrs = (idx[-1] - idx[entry]).days / 365.25
+    want = (step ** held_bars) ** (1 / yrs) - 1
+    assert cagr(r.curve) == pytest.approx(want, rel=0.02)
+    assert cagr(r.daily) == pytest.approx(want, rel=0.02)
+
+
+def test_the_curve_opens_at_the_bar_the_money_went_in():
+    board, *_ = make_board(bars=900, names=20, seed=61)
+    r = run_portfolio(board, "mom6_1", 5)
+    assert r.curve.index[0] == board.index[board.window(0)[0]]
+    assert r.curve.iloc[0] == pytest.approx(1.0 - r.costs[0], rel=1e-12)
+    assert r.curve.index[0] == r.daily.index[0]
+
+
 def test_cagr_and_drawdown():
     idx = pd.to_datetime(["2020-01-01", "2021-01-01", "2022-01-01"])
     eq = pd.Series([1.0, 2.0, 1.5], index=idx)
@@ -604,7 +640,10 @@ def test_the_daily_curve_ends_where_the_rebalance_curve_ends():
     board, *_ = make_board(bars=900, names=20, seed=51)
     r = run_portfolio(board, "mom6_1", 5)
     assert r.daily.iloc[-1] == pytest.approx(r.curve.iloc[-1], rel=1e-9)
-    shared = [t for t in r.curve.index[:-1] if t in r.daily.index]
+    # curve[0] is the opening stamp at the entry bar, where no further cost has
+    # been charged yet and the two series agree exactly
+    assert r.daily.iloc[0] == pytest.approx(r.curve.iloc[0], rel=1e-9)
+    shared = [t for t in r.curve.index[1:-1] if t in r.daily.index]
     assert len(shared) > 10
     for i, t in enumerate(shared):
         assert r.daily[t] == pytest.approx(r.curve[t] * (1.0 - r.costs[i + 1]),
@@ -624,9 +663,10 @@ def test_rebalance_sampling_hides_drawdown_and_the_daily_curve_does_not():
     bars = 1500
     idx = pd.bdate_range("2015-01-01", periods=bars)
     line = np.full(bars, 1000.0)
-    # a deep round trip entirely inside one calendar year
-    line[700:760] = np.linspace(1000.0, 400.0, 60)
-    line[760:820] = np.linspace(400.0, 1000.0, 60)
+    # a deep round trip entirely inside one calendar year, recovered before the
+    # December snapshot - which is exactly the case the sampled curve misses
+    line[640:700] = np.linspace(1000.0, 400.0, 60)
+    line[700:760] = np.linspace(400.0, 1000.0, 60)
     px = pd.DataFrame({f"N{i}": line for i in range(12)}, index=idx)
     tv = pd.DataFrame({f"N{i}": np.full(bars, 5e10) for i in range(12)},
                       index=idx)

@@ -25,7 +25,7 @@ Measured on this repository's own data, over 2015–2026:
 
 - **43% of IDX names lost money** across eleven years, dividends included — in a
   universe that contains **zero delistings**, so the real figure is worse.
-- **37% of five-year holding periods were negative**, and 83% came in under a
+- **36% of five-year holding periods were negative**, and 82% came in under a
   bank deposit.
 - **Every configuration of the best portfolio found here lost between half and
   two thirds of its value** at some point.
@@ -56,11 +56,11 @@ selection effect (`factor_study.py`):
 
 | names held | arithmetic/mo | geometric/mo | variance drag | turnover cost | CAGR | max DD |
 |---|---|---|---|---|---|---|
-| 1 | 0.547% | −0.412% | 0.959% | 0.551% | **−10.49%** | −84.8% |
-| 5 | 0.513% | 0.167% | 0.345% | 0.529% | −4.13% | −70.3% |
-| 20 | 0.578% | 0.350% | 0.229% | 0.445% | −1.16% | −58.2% |
-| 50 | 0.542% | 0.339% | 0.203% | 0.275% | +0.79% | −52.5% |
-| all (~104) | 0.566% | 0.370% | 0.197% | 0.027% | **+4.27%** | −49.8% |
+| 1 | 0.547% | −0.412% | 0.959% | 0.551% | **−10.40%** | −86.5% |
+| 5 | 0.513% | 0.167% | 0.345% | 0.529% | −4.08% | −73.3% |
+| 20 | 0.578% | 0.350% | 0.229% | 0.445% | −1.12% | −63.0% |
+| 50 | 0.542% | 0.339% | 0.203% | 0.275% | +0.81% | −58.4% |
+| all (~104) | 0.566% | 0.370% | 0.197% | 0.027% | **+4.26%** | −56.0% |
 
 The arithmetic mean is **flat across the entire range** — as it must be, for
 random draws. The whole ~15-point gap is variance drag (0.76%/month) plus
@@ -72,7 +72,7 @@ anyone willing to own more names and trade them less.
 
 Every study in this repository before this work read `close` instead of
 `adj_close` and therefore silently excluded every dividend ever paid. Correcting
-it lifts the equal-weight liquid book from **2.23%/yr to 4.27%/yr**. The
+it lifts the equal-weight liquid book from **2.23%/yr to 4.26%/yr**. The
 omission was larger than any edge this repository has ever claimed to find.
 
 ### Tax — the exemption is worth more than most signals
@@ -90,12 +90,12 @@ The hurdle, before any strategy is judged against it:
 
 | series | final | CAGR | real | max drawdown |
 |---|---|---|---|---|
-| equal-weight liquid, total return | 1.54× | 4.27% | 1.23% | −49.8% |
-| IHSG price index | 1.31× | 2.62% | −0.37% | −34.9% |
+| equal-weight liquid, total return | 1.54× | 4.26% | 1.23% | −56.0% |
+| IHSG price index | 1.33× | 2.73% | −0.26% | −34.9% |
 | **rupiah time deposit** (assumed 5.5%) | — | **5.50%** | **2.43%** | **0%** |
-| equal-weight liquid, **in USD** | 1.13× | 1.15% | — | −58.3% |
+| equal-weight liquid, **in USD** | 1.14× | 1.32% | — | −64.6% |
 
-The rupiah went 13,158 → 18,030 per USD, −3.08%/yr.
+The rupiah went 13,365 → 18,030 per USD, −2.90%/yr.
 
 **Over this sample, a bank deposit beat the Indonesian stock market**, with no
 drawdown at all. That is the honest starting point, and any plan that does not
@@ -105,9 +105,9 @@ begin by acknowledging it is selling something.
 
 | hold | worst | median | best | % negative | % below cash |
 |---|---|---|---|---|---|
-| 1 year | −44.8% | +2.1% | +75.2% | 43% | 60% |
-| 3 years | −13.5% | +0.1% | +17.1% | 48% | 79% |
-| 5 years | −3.8% | +1.4% | +12.1% | 37% | 83% |
+| 1 year | −44.8% | +2.3% | +75.2% | 43% | 60% |
+| 3 years | −13.5% | +0.2% | +17.1% | 48% | 78% |
+| 5 years | −3.8% | +1.4% | +12.1% | 36% | 82% |
 | 10 years | +1.7% | +3.0% | +4.6% | 0% | 100% |
 
 The ten-year row is **one overlapping stretch of history**, not five
@@ -118,12 +118,12 @@ unearned work.
 
 | measured through | EW book | IHSG | beats cash? |
 |---|---|---|---|
-| 2019-12 | 4.52% | 6.63% | no |
-| 2023-12 | 1.63% | 5.04% | no |
-| 2025-12 | 6.00% | 6.05% | **yes** |
-| 2026-08 | 4.27% | 2.62% | no |
+| 2019-12 | 4.41% | 6.85% | no |
+| 2023-12 | 1.61% | 5.16% | no |
+| 2025-12 | 5.94% | 6.14% | **yes** |
+| 2026-08 | 4.24% | 2.73% | no |
 
-**4.37 points of annual return depend only on which year you stop counting.**
+**4.33 points of annual return depend only on which year you stop counting.**
 The IHSG fell from 8,748 in January 2026 to 6,337 by August. Any strategy
 comparison that does not survive this table is a comparison of end dates.
 
@@ -140,7 +140,7 @@ by taste.
 | Every band rule and multi-timeframe combination | loses to **random timing at the same exposure** | Results 111, 113 |
 | Fitting the band on a training half | scores *worse* on the holdout than not fitting | Result 115 |
 | Picking the best-performing factor | first-half leader placed **11th of 13** out of sample; the average factor did +2.11% while the chosen one did −2.20% | Result 124 |
-| Concentration | one random name returns −10.49%/yr | Result 124 |
+| Concentration | one random name returns −10.40%/yr | Result 124 |
 | Twelve of thirteen price factors | none significant after Bonferroni | Result 124 |
 | `trend`, despite the second-best headline | −1.58% in the first half, +13.86% in the second — one stretch, not a factor | Result 124 |
 
@@ -162,9 +162,9 @@ Then `yield_book.py` tried to kill it:
 
 | attack | result |
 |---|---|
-| grid: 3 liquidity floors × 3 frequencies × 4 breadths | **36 of 36 cells** beat both the neutral book and the IHSG. Worst +0.79%/yr, median +4.90% |
-| lookback 6m / 1y / 2y | +1.37% / +5.68% / +3.58% — not a fitted window |
-| skip the top: ranks 1‑30 → 4‑33 → 11‑40 → 21‑50 → 41‑70 | +5.68% → +3.99% → +2.15% → +0.74% → −8.57%. A **smooth decay down the ranking** is what a premium looks like; three lucky names would fall off a cliff after the first row |
+| grid: 3 liquidity floors × 3 frequencies × 4 breadths | **36 of 36 cells** beat both the neutral book and the IHSG. Worst +0.79%/yr, median +4.55% |
+| lookback 6m / 1y / 2y | +1.37% / +5.63% / +3.47% — not a fitted window |
+| skip the top: ranks 1‑30 → 4‑33 → 11‑40 → 21‑50 → 41‑70 | +5.63% → +3.95% → +2.14% → +0.74% → −8.50%. A **smooth decay down the ranking** is what a premium looks like; three lucky names would fall off a cliff after the first row |
 | calendar years | ahead in **8 of 11** |
 | both halves of the sample | +2.29%, then +9.82% |
 | the 2026 crash | **−0.9%** from the index peak, against −16.4% neutral and −27.6% IHSG |
@@ -205,10 +205,10 @@ annual wins on the one axis that is certain.
 
 | | |
 |---|---|
-| measured in the sample | 9.93%/yr |
-| of which the neutral book | 5.11% |
-| of which the yield premium | +4.82% |
-| **planned on (half the premium)** | **7.52%/yr** |
+| measured in the sample | 8.89%/yr |
+| of which the neutral book | 4.60% |
+| of which the yield premium | +4.29% |
+| **planned on (half the premium)** | **6.74%/yr** |
 
 The haircut is a convention, stated as one. An estimated premium is the true
 premium plus whatever the estimate got wrong, and here the error has a known
@@ -218,9 +218,9 @@ the plan cannot be quietly talked upward later.
 
 | tax position | net | real | vs cash |
 |---|---|---|---|
-| domestic, dividends reinvested in Indonesia | **7.52%** | 4.38% | **+2.02%** |
-| domestic, dividends taken as cash | 6.84% | 3.73% | +1.34% |
-| foreign holder | 6.16% | 3.07% | +0.66% |
+| domestic, dividends reinvested in Indonesia | **6.74%** | 3.63% | **+1.24%** |
+| domestic, dividends taken as cash | 6.06% | 2.97% | +0.56% |
+| foreign holder | 5.38% | 2.31% | **−0.12%** |
 
 ### What it costs to earn that
 
@@ -229,10 +229,14 @@ equity that is a fall to Rp 375m — **a loss of Rp 475m**, written down before
 the money moves rather than explained afterwards.
 
 **Put plainly: you are being asked to accept a halving in order to earn about
-two points a year over a bank deposit.** If that trade is not wanted, the
-deposit is the better answer and saying so is the job.
+one and a quarter points a year over a bank deposit** — and only if you are an
+Indonesian taxpayer reinvesting at home. **A foreign holder is planned to lose
+to the deposit outright**, at −0.12%/yr, and should not run this book.
 
-37% of five-year holds in this universe were negative, so money that might be
+If that trade is not wanted, the deposit is the better answer and saying so is
+the job.
+
+36% of five-year holds in this universe were negative, so money that might be
 needed inside five years does not belong in this book at all.
 
 ### Sizing
@@ -306,8 +310,9 @@ Ranking history on today's headlines is the same look-ahead error that rules
 - It does not claim the yield premium is permanent. It is a well-documented
   global effect that has also spent decades at a time not working.
 - It does not claim low risk. The drawdown is the same as everything else here.
-- It does not claim to beat the deposit rate by much, and under a foreign
-  holder's tax it barely does at all.
+- It does not claim to beat the deposit rate by much: +1.24%/yr for a domestic
+  reinvesting holder, and **−0.12%/yr for a foreign one**, which is to say it
+  does not beat it at all for them.
 
 What it does claim is that of everything tested in this repository, this is the
 only construction that survived a Bonferroni correction, a walk-forward, a

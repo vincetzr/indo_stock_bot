@@ -5252,7 +5252,7 @@ The gap is not decorative. Across 614 names with a full history:
 87% of liquid names pay something. The largest contributors are not marginal:
 TAPG +16.8%/yr, ADRO +15.2%, ITMG +13.9%, PTBA +11.6%, BJBR +8.1%, UNTR +7.2%.
 At portfolio level the equal-weight liquid book goes from **2.23%/yr to
-4.27%/yr** once dividends are counted — a correction larger than any edge
+4.26%/yr** once dividends are counted — a correction larger than any edge
 claimed anywhere in this repo.
 
 The direction of the error matters. Excluding dividends understates holding and
@@ -5264,20 +5264,20 @@ tilted by that, all in the same direction.
 
 | series | final | CAGR | real | max DD |
 |---|---|---|---|---|
-| equal-weight liquid, total return | 1.54x | 4.27% | 1.23% | −49.8% |
-| IHSG price index | 1.31x | 2.62% | −0.37% | −34.9% |
+| equal-weight liquid, total return | 1.54x | 4.26% | 1.23% | −56.0% |
+| IHSG price index | 1.33x | 2.73% | −0.26% | −34.9% |
 | rupiah time deposit (assumed 5.5%) | — | 5.50% | 2.43% | 0% |
-| equal-weight liquid, in USD | 1.13x | 1.15% | — | −58.3% |
+| equal-weight liquid, in USD | 1.14x | 1.32% | — | −64.6% |
 
-The rupiah went 13,158 to 18,030 per USD, −3.08%/yr.
+The rupiah went 13,365 to 18,030 per USD, −2.90%/yr.
 
 Holding-period distribution for the equal-weight liquid book:
 
 | hold | worst | median | best | % < 0 | % < cash |
 |---|---|---|---|---|---|
-| 1y | −44.8% | +2.1% | +75.2% | 43% | 60% |
-| 3y | −13.5% | +0.1% | +17.1% | 48% | 79% |
-| 5y | −3.8% | +1.4% | +12.1% | 37% | 83% |
+| 1y | −44.8% | +2.3% | +75.2% | 43% | 60% |
+| 3y | −13.5% | +0.2% | +17.1% | 48% | 78% |
+| 5y | −3.8% | +1.4% | +12.1% | 36% | 82% |
 | 10y | +1.7% | +3.0% | +4.6% | 0% | 100% |
 
 The 10-year row is **one overlapping stretch**, not five observations, and is
@@ -5288,12 +5288,12 @@ And the finish line moves the answer more than anything else does:
 
 | measured through | EW book | IHSG | beats cash? |
 |---|---|---|---|
-| 2019-12 | 4.52% | 6.63% | no |
-| 2023-12 | 1.63% | 5.04% | no |
-| 2025-12 | 6.00% | 6.05% | **yes** |
-| 2026-08 | 4.27% | 2.62% | no |
+| 2019-12 | 4.41% | 6.85% | no |
+| 2023-12 | 1.61% | 5.16% | no |
+| 2025-12 | 5.94% | 6.14% | **yes** |
+| 2026-08 | 4.24% | 2.73% | no |
 
-**4.37 points of annual return depend only on which year you stop counting.**
+**4.33 points of annual return depend only on which year you stop counting.**
 The IHSG fell from 8,748 in January 2026 to 6,337 by August. Any strategy
 comparison that does not survive this table is a comparison of end dates.
 
@@ -5333,11 +5333,11 @@ eligible set, so nothing below is selection:
 
 | names | arith/mo | geo/mo | var drag | cost/mo | CAGR | max DD |
 |---|---|---|---|---|---|---|
-| 1 | 0.547% | −0.412% | 0.959% | 0.551% | −10.49% | −84.8% |
-| 10 | 0.571% | 0.282% | 0.289% | 0.501% | −2.59% | −62.7% |
-| 30 | 0.550% | 0.332% | 0.218% | 0.387% | −0.67% | −56.1% |
-| 100 | 0.569% | 0.371% | 0.198% | 0.083% | +3.57% | −49.8% |
-| all | 0.566% | 0.370% | 0.197% | 0.027% | +4.27% | −49.8% |
+| 1 | 0.547% | −0.412% | 0.959% | 0.551% | −10.40% | −86.5% |
+| 10 | 0.571% | 0.282% | 0.289% | 0.501% | −2.54% | −66.5% |
+| 30 | 0.550% | 0.332% | 0.218% | 0.387% | −0.64% | −60.9% |
+| 100 | 0.569% | 0.371% | 0.198% | 0.083% | +3.57% | −56.0% |
+| all | 0.566% | 0.370% | 0.197% | 0.027% | +4.26% | −56.0% |
 
 The arithmetic mean is **flat across the whole range**, as it must be for random
 draws. The entire ~15-point gap is variance drag (0.76%/month) plus turnover
@@ -5355,15 +5355,15 @@ BMRI Rp 98.6 + Rp 376.7, TLKM Rp 226.7. They match.
 
 | test | result |
 |---|---|
-| grid: 3 floors × 3 frequencies × 4 breadths | **36 of 36** beat the neutral book *and* the IHSG; worst cell +0.79%/yr, median +4.90% |
-| lookback 6m / 1y / 2y | +1.37% / +5.68% / +3.58% — not a fitted window |
-| skip the top (ranks 1‑30 → 41‑70) | +5.68% → +3.99% → +2.15% → +0.74% → −8.57%: a smooth decay, not three lucky names |
+| grid: 3 floors × 3 frequencies × 4 breadths | **36 of 36** beat the neutral book *and* the IHSG; worst cell +0.79%/yr, median +4.55% |
+| lookback 6m / 1y / 2y | +1.37% / +5.63% / +3.47% — not a fitted window |
+| skip the top (ranks 1‑30 → 41‑70) | +5.63% → +3.95% → +2.14% → +0.74% → −8.50%: a smooth decay, not three lucky names |
 | calendar years | ahead in **8 of 11** |
 | the 2026 crash | **−0.9%** from the index peak vs −16.4% neutral and −27.6% IHSG |
 | both halves | +2.29% then +9.82% |
 | persistence | 89% of the book carries over month to month; yield rank correlates 0.73 with itself a year later |
 | within-book correlation | 0.202 against 0.157 for a random book — not one sector in disguise |
-| after tax | 9.27%/yr domestic, 8.59% foreign, vs 4.27% neutral and 2.62% IHSG |
+| after tax | 9.22%/yr domestic, 8.54% foreign, vs 4.26% neutral and 2.73% IHSG |
 
 **A reporting bug found while doing this.** `max_dd` was taken off the
 rebalance-sampled curve, so an annually rebalanced book had eleven points in
@@ -5373,7 +5373,7 @@ off it. The honest figure for that cell is **−51.4%**. Three tests pin it,
 including one where a 60% round trip happens entirely inside a calendar year.
 
 Blending yield with the other both-halves survivors was tried and mostly
-**dilutes** it: divyield+mom6_1 gives +2.13%/yr against +5.68% for yield alone.
+**dilutes** it: divyield+mom6_1 gives +2.13%/yr against +5.63% for yield alone.
 One blend beat it (+6.37%) — found by searching six of them, which is the
 overfitting the walk-forward already caught. The simpler thing stands.
 
@@ -5389,28 +5389,30 @@ that except the last three words:
 
 - 43% of IDX names lost money over eleven years, dividends included, in a
   universe containing **zero delistings**.
-- 37% of five-year holds were negative; 83% came in under a deposit.
+- 36% of five-year holds were negative; 82% came in under a deposit.
 - Every configuration of the best book here lost between half and two thirds.
 
 `the_plan.py` sizes what the evidence *does* support, in rupiah and whole lots.
 
 | | |
 |---|---|
-| measured in sample | 9.93%/yr |
-| of which neutral book | 5.11% |
-| of which yield premium | +4.82% |
-| **planned on (half the premium)** | **7.52%/yr** |
-| domestic, dividends reinvested (PP 9/2021 exempt) | 7.52% → +2.02% vs cash |
-| domestic, taken as cash | 6.84% → +1.34% vs cash |
-| foreign holder | 6.16% → +0.66% vs cash |
+| measured in sample | 8.89%/yr |
+| of which neutral book | 4.60% |
+| of which yield premium | +4.29% |
+| **planned on (half the premium)** | **6.74%/yr** |
+| domestic, dividends reinvested (PP 9/2021 exempt) | 6.74% → +1.24% vs cash |
+| domestic, taken as cash | 6.06% → +0.56% vs cash |
+| foreign holder | 5.38% → **−0.12%** vs cash |
 
 The haircut is a convention, stated as one, and a test forbids it from ever
 exceeding 1.0 so the plan cannot be talked upward later.
 
 **The bottom line, put the way a client should hear it:** you are being asked to
-accept a −55.8% drawdown — Rp 475m on Rp 850m of equity — to earn about 2 points
-a year over a bank deposit. If that trade is not wanted, the deposit is the
-better answer and saying so is the job.
+accept a −55.8% drawdown — Rp 475m on Rp 850m of equity — to earn about 1.2
+points a year over a bank deposit, and only as an Indonesian taxpayer
+reinvesting at home. **A foreign holder is planned to lose to the deposit
+outright**, at −0.12%/yr. If that trade is not wanted, the deposit is the better
+answer and saying so is the job.
 
 **A sizing bug caught by its own test.** `minimum_capital` first checked only
 that one lot of each name was affordable. But buying *k* lots when the target
@@ -5427,3 +5429,39 @@ bad quarter, not a drawdown, not a headline.
 
 Layer 2 stays open and stays unassumed. The hypotheses are frozen and hashed
 (`6b8e0a2c9d1f4e73`) so they cannot be edited once the answer is visible.
+
+## Result 127 — the CAGR of an annual book was overstated by a full point
+
+`run_portfolio` stamped its equity curve at each period's **exit**, so
+`curve.index[0]` was the end of the first period while `curve.iloc[0]` already
+contained that period's return. `cagr()` then assumed the series started at 1.0
+— so the numerator carried a period the denominator did not.
+
+On a monthly book that is one month in eleven years and worth 0.02%/yr. **On an
+annual book it is a whole year and worth 1.07%/yr**, and the plan is an annual
+book. The headline was 9.93%/yr; corrected it is **8.89%**.
+
+The fix is two lines and both were needed: the curve is now stamped at the bar
+the money actually goes in, and `cagr()` divides by the series' own first point
+instead of assuming one. Four tests pin it, including one that runs a book on a
+panel compounding at a known fixed rate and requires both the rebalance curve
+and the daily curve to recover that rate.
+
+Everything downstream moved with it, and one conclusion changed materially:
+
+| | before | after |
+|---|---|---|
+| yield book, annual | 9.93%/yr | 8.89% |
+| neutral book, annual | 5.11% | 4.60% |
+| the premium | +4.82% | +4.29% |
+| planned on (half) | 7.52% | 6.74% |
+| domestic, reinvesting, vs cash | +2.02% | +1.24% |
+| foreign holder, vs cash | +0.66% | **−0.12%** |
+
+**A foreign holder is now planned to lose to a rupiah deposit.** That is a
+different recommendation from the one this repository gave an hour earlier, and
+it came from an arithmetic error rather than from new data.
+
+The grid still passes 36 of 36 and the median cell is +4.55%/yr rather than
++4.90%, so the finding survives; the margin over cash does not survive as
+comfortably, and the plan now says so in the row where a reader will see it.
