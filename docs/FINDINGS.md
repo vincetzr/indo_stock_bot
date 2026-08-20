@@ -5011,3 +5011,72 @@ English conventions are mirror images — `1.234,56` against `1,234.56` — and
 reading one as the other is a silent 1000× error that no downstream check would
 catch. The rule that separates them: whichever of `.` or `,` appears **last** is
 the decimal mark.
+
+## Result 119 — how to actually pull IDX running trade and broker summary
+
+The goal: find a way to pull live running trade and broker summary. There are
+exactly three sanctioned shapes, and the ranking is by what a person can have,
+not by what is technically nicest.
+
+### 1. A licensed IDX feed — correct, and not retail
+
+IDX ITCH carries `BuyParticipantId` **and** `SellParticipantId` on every
+execution (verified against IDX's own published ITCH sample file), plus a `K`
+participant directory mapping ids to the two-letter codes. It is exactly the
+data wanted, with no top-N anywhere.
+
+| product | non-member, per month |
+|---|---|
+| ITCH Total View | Rp 22–44M (USD 3,850–7,700) |
+| ITCH Basic | Rp 17.9–35.8M (USD 3,150–6,300) |
+| IDX-i Equity Real Time Order (via redistributor) | Rp 19.8–39.6M |
+
+Plus a security deposit of **300% of the fee**, a signed IDX licence naming a
+limited company as licensee, and a leased line from an authorised NSP. Exchange
+member pricing is unpublished (`idxdata@idx.co.id`).
+
+### 2. A licensed redistributor — same data, same order of cost
+
+LSEG publishes one RIC per broker per instrument — `<OD-BBCA.JK>` is Danareksa
+in BBCA, accumulated buy volume on FID 731, sell on FID 736. Bloomberg,
+Refinitiv, SIX, ICE, FactSet and the local houses (Antara/IMQ, IQ Plus, RTI
+Infokom, IDXSTI) are the authorised list. Terminal-class pricing.
+
+### 3. Your own screen — free, clean, and the one that is actually available
+
+Your broker already renders this data and you are licensed to look at it.
+**Reading the pixels on your own display sends no request to anyone**, so it is
+not scraping under IDX's rules and not "data mining, robots, spiders or similar"
+under Stockbit's. `scripts/ocr_broker.py`.
+
+**What makes OCR trustworthy here is not the OCR.** Tesseract misreads digits on
+a dark, tightly-kerned trading panel. What makes the route usable is that the
+result is checkable against an identity the platform cannot violate:
+
+```
+value = lot x 100 shares x average price
+```
+
+A misread digit breaks it. The pipeline reports the agreement rate and **refuses
+to store anything below 60%**, so a plausible-looking wrong number never reaches
+the store. An OCR route without that check would be worse than no route.
+
+Measured on a reconstruction of the real panel: Tesseract read every digit
+correctly and failed only on spacing — `840 .9M`, `16. 9K`, `2.1 B`. Those are
+rejoined (a space between two *separate* numbers is deliberately kept), after
+which the identity holds on **100% of rows** and the table stores cleanly.
+
+### What the third-party APIs are worth
+
+Checked 2026-08-20: iTick, Invezgo, the IDX RapidAPI listing, OHLC.dev,
+`NeaByteLab/IDX-API` and sectors.app. **None verifiably serves a buyer + seller
+broker code per trade**, none is on IDX's authorised redistributor list, and one
+is an openly-licensed scraper of idx.co.id. They do not solve this.
+
+### The realistic plan
+
+Live *running trade* is out of reach without (1) or (2). End-of-day *broker
+summary* is reachable today by screenshot, at roughly a minute a name. That is
+enough: the protocol needs complete daily rekaps, not intraday ticks. At 10–15
+names it reaches a d = 0.20 test in about a year, which is the first honest
+answer layer 2 has ever been in a position to give.
