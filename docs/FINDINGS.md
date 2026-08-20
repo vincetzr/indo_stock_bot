@@ -5154,3 +5154,79 @@ bound still applies — top-10 truncation means each inventory is built on whate
 fraction of the book was visible, which is why `visibility()` reports an
 appearance rate and a hard bound on unseen volume per broker, and why 20 of 31
 brokers are refused a profile outright.
+
+## Result 121 — the full bandar dashboard, and why most of it cannot be trusted yet
+
+Built the whole picture on one name — inventory, cost basis, floating P/L,
+flows by broker class, and a next-day probability. `scripts/bandar_dashboard.py`.
+The machinery works. The **data does not support most of what it prints**, and
+the interesting result is the measurement of exactly how much.
+
+### The one number that decides everything
+
+Every share bought was sold, so **net across all brokers must be exactly zero**.
+On BBCA's 60 sessions it is **−5,376,758 lots** — 2.1% of all visible volume.
+That gap is the tape below the top-ten cut, and every reconstructed inventory
+inherits a share of it.
+
+### Who is holding what
+
+| broker | class | lots left | avg cost | vs cost | floating P/L | seen | grade |
+|---|---|---|---|---|---|---|---|
+| DX | bumn | 5,667,529 | 6,154 | +2.4% | Rp 82.8bn | **42%** | weak |
+| YU | foreign | 2,864,873 | 6,174 | +2.0% | Rp 36.1bn | 97% | **solid** |
+| XL | domestic | 888,775 | 6,262 | +0.6% | Rp 3.4bn | 100% | **solid** |
+| YP | foreign | 531,286 | 6,254 | +0.7% | Rp 2.4bn | 92% | **solid** |
+| BB | domestic | 520,418 | 5,927 | +6.3% | Rp 19.4bn | 47% | weak |
+| DR | foreign | 352,144 | 6,292 | +0.1% | Rp 0.3bn | **5%** | UNUSABLE |
+
+**Only 3 of 16 holders are solid, and they carry 36% of the reported
+inventory.** The apparent largest holder — DX at 5.7M lots — appears on 42% of
+days, so most of that position is the gap above, not a holding. Grading is by
+`unseen_volume / observed_volume`: below 0.25 with 80%+ appearance is solid,
+above 1.0 is unusable. Some are far worse — RF 22x, GR 48x, BQ 52x.
+
+### Flows by class
+
+| class | total net | days net buying | last session |
+|---|---|---|---|
+| foreign | −11,215,860 | 48% | +115,462 |
+| bumn | +4,461,754 | 63% | +13,578 |
+| domestic | +1,377,348 | 52% | −56,355 |
+
+**"Domestic" is a bucket of brokers, not a retail measurement.** The
+domestic/foreign flag on each *order* lives in the licensed ITCH feed, not in the
+public rekap. A platform showing a retail line is either licensed to
+investor-type data or applying this same proxy — the field does not exist in a
+broker summary and inventing it would be a lie about provenance.
+
+### The next-day probability
+
+Three states, fixed in advance, each with a Wilson interval (correct at n = 60
+where the normal approximation is not):
+
+| state | days | up next day | 95% interval | verdict |
+|---|---|---|---|---|
+| base rate | 60 | 47% | [35%, 59%] | — |
+| S1 foreign net buying | 29 | 41% | [26%, 59%] | spans base |
+| S2 buying concentrated | 30 | 53% | [36%, 70%] | spans base |
+| S3 domestic net buying | 31 | 48% | [32%, 65%] | spans base |
+
+**0 of 3 separate from the base rate.** Every interval contains 47%. On this
+sample nothing here predicts tomorrow — which is the correct answer for 60
+sessions, not a failure of method: Result 117 measured that this panel can only
+detect d = 0.40, an effect that would be visible without statistics.
+
+### What is solid, and what is not
+
+**Solid:** the identity `value = lot x 100 x average` that validates every
+import; the zero-sum check that measures invisibility; per-broker exits priced
+against their own basis; the grading that refuses to call a guess a holding.
+
+**Not solid:** any inventory for a broker below 80% appearance, the realised- and
+floating-rupiah totals for those brokers, and every probability above. A
+dashboard that showed the DX row without the 42% next to it would look far more
+impressive and would be worth nothing.
+
+A floating-point clamp was added to `wilson()` — at k = 0 it returned a lower
+bound of −1.4e-17, and a probability bound printed as negative is simply wrong.
