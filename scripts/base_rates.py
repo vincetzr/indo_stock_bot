@@ -222,7 +222,8 @@ def main() -> int:
     idx = idx_s.to_numpy(float) if len(idx_s) else np.full(len(close), np.nan)
     board = Board(close, turn, idx, rebal, [], args.min_turnover,
                   args.min_hist, raw=raw)
-    ew, ew_p, ew_sizes, ew_c = run_portfolio(board, None, 0)
+    R = run_portfolio(board, None, 0)
+    ew, ew_daily, ew_p, ew_sizes = R.curve, R.daily, R.period, R.sizes
     bench = pd.Series(dtype=float)
     if len(idx_s):
         b = idx_s.reindex(ew.index).dropna()
@@ -255,12 +256,13 @@ def main() -> int:
     # ---- 2. the market ---------------------------------------------------
     print(f"\n{'=' * 96}\n 2. THE MARKET, MEASURED THREE WAYS\n{'=' * 96}")
     print(f" {'series':<34}{'final':>8}{'CAGR':>9}{'real':>9}{'max DD':>9}")
-    lines = [("equal-weight liquid, total return", ew)]
+    # drawdown is taken off the DAILY path, never off the rebalance samples
+    lines = [("equal-weight liquid, total return", ew, ew_daily)]
     if len(bench):
-        lines.append(("IHSG price index (no dividends)", bench))
-    for name, s in lines:
+        lines.append(("IHSG price index (no dividends)", bench, bench))
+    for name, s, path in lines:
         print(f" {name:<34}{s.iloc[-1]:>8.2f}{cagr(s):>9.2%}"
-              f"{real_return(cagr(s)):>9.2%}{max_dd(s):>9.1%}")
+              f"{real_return(cagr(s)):>9.2%}{max_dd(path):>9.1%}")
     print(f" {'rupiah time deposit (assumed)':<34}{'':>8}{DEPOSIT_RATE:>9.2%}"
           f"{real_return(DEPOSIT_RATE):>9.2%}{0.0:>9.1%}")
     fx = pd.Series(dtype=float)
@@ -270,7 +272,8 @@ def main() -> int:
         u = usd_curve(ew, fx)
         if len(u):
             print(f" {'equal-weight liquid, in USD':<34}{u.iloc[-1]:>8.2f}"
-                  f"{cagr(u):>9.2%}{'':>9}{max_dd(u):>9.1%}")
+                  f"{cagr(u):>9.2%}{'':>9}"
+                  f"{max_dd(usd_curve(ew_daily, fx)):>9.1%}")
         f0, f1 = float(fx.reindex(ew.index).ffill().iloc[0]), \
             float(fx.reindex(ew.index).ffill().iloc[-1])
         yrs = (ew.index[-1] - ew.index[0]).days / 365.25

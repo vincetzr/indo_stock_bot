@@ -77,7 +77,7 @@ import argparse
 import glob
 import os
 import sys
-from typing import Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Callable, Dict, List, NamedTuple, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -434,13 +434,18 @@ class Board:
 
 def select(cols: np.ndarray, score: Optional[np.ndarray], breadth: int,
            decile: Optional[str] = None,
-           rng: Optional[np.random.Generator] = None) -> np.ndarray:
+           rng: Optional[np.random.Generator] = None,
+           offset: int = 0) -> np.ndarray:
     """Which of the eligible names the book holds this period.
 
     ``score`` None with no generator is the equal-weight universe - the
     portfolio somebody with no view holds, and the benchmark any factor must
     clear before it means anything. ``score`` None with a generator is a random
     draw of the same size, which isolates what breadth alone is worth.
+
+    ``offset`` skips that many names off the top before taking the book. It
+    exists to answer a question a top-N book cannot: is the edge a premium
+    spread across the whole ranking, or three extreme names carrying it?
     """
     if len(cols) < 10:
         return np.array([], dtype=int)
@@ -459,20 +464,36 @@ def select(cols: np.ndarray, score: Optional[np.ndarray], breadth: int,
         return cg[order[:max(1, len(cg) // 10)]]
     if decile == "bottom":
         return cg[order[-max(1, len(cg) // 10):]]
-    return cg[order[:breadth]]
+    return cg[order[offset:offset + breadth]]
+
+
+class Run(NamedTuple):
+    """One backtest, reported at both resolutions.
+
+    ``curve`` is the value at each rebalance and ``daily`` is the value at every
+    bar. Both exist because a drawdown taken off the rebalance curve is not a
+    drawdown, it is a sampling artefact: an annually-rebalanced book has eleven
+    points in eleven years, and the worst of eleven annual snapshots came out at
+    -2.6% for a book whose holdings actually fell by half. Every risk number
+    here is therefore taken off ``daily``.
+    """
+    curve: pd.Series
+    daily: pd.Series
+    period: List[float]
+    sizes: List[int]
+    costs: List[float]
 
 
 def run_portfolio(board: Board, factor: Optional[str], breadth: int,
                   decile: Optional[str] = None,
-                  rng: Optional[np.random.Generator] = None
-                  ) -> Tuple[pd.Series, List[float], List[int], List[float]]:
+                  rng: Optional[np.random.Generator] = None,
+                  offset: int = 0) -> Run:
     """Equal-weight long-only book.
 
-    Returns (equity, period returns, sizes, cost paid per period). The cost is
-    reported separately rather than only netted into the curve, because a
-    concentrated book loses to a broad one through TWO channels - it pays more
-    turnover and it suffers more variance drag - and lumping them together
-    hides which is doing the damage.
+    Cost is reported separately rather than only netted into the curve, because
+    a concentrated book loses to a broad one through TWO channels - it pays more
+    turnover and it suffers more variance drag - and lumping them together hides
+    which is doing the damage.
 
     The score is computed on the close of bar r and the book is executed
     ``delay`` bars later, so no fill ever happens on the same print that
@@ -480,26 +501,36 @@ def run_portfolio(board: Board, factor: Optional[str], breadth: int,
     """
     equity = 1.0
     curve: Dict[pd.Timestamp, float] = {}
+    lvl = np.full(len(board.cv), np.nan)
     period, sizes, costs = [], [], []
     held = np.array([], dtype=int)
     for k in range(len(board.rebal)):
         entry, exit_ = board.window(k)
         sc = board.scores[factor][k] if factor is not None else None
-        picks = select(board.cols[k], sc, breadth, decile, rng)
+        picks = select(board.cols[k], sc, breadth, decile, rng, offset)
         c = ONE_WAY * turnover_fraction(held, picks)
         equity *= (1.0 - c)
         costs.append(c)
         held = picks
         sizes.append(len(picks))
+        lvl[entry] = equity
         if not len(picks) or exit_ <= entry:
             period.append(0.0)
+            lvl[entry:exit_ + 1] = equity
             curve[board.index[exit_]] = equity
             continue
-        g = float(np.mean(hold_returns(board.ret, entry + 1, exit_ + 1, picks)))
+        seg = board.ret[entry + 1:exit_ + 1][:, picks]
+        seg = np.where(np.isfinite(seg), seg, 0.0)
+        # equal weight at entry, then left to drift until the next rebalance -
+        # which is what actually happens to a book nobody touches
+        path = np.cumprod(1.0 + seg, axis=0).mean(axis=1)
+        lvl[entry + 1:exit_ + 1] = equity * path
+        g = float(path[-1] - 1.0)
         equity *= (1.0 + g)
         period.append(g)
         curve[board.index[exit_]] = equity
-    return pd.Series(curve).sort_index(), period, sizes, costs
+    daily = pd.Series(lvl, index=board.index).dropna()
+    return Run(pd.Series(curve).sort_index(), daily, period, sizes, costs)
 
 
 def compound(period: Sequence[float]) -> float:
@@ -681,7 +712,8 @@ def main() -> int:
     board = Board(close, turn, idx, rebal, factors, args.min_turnover,
                   args.min_hist, raw=raw)
 
-    ew, ew_p, ew_sizes, ew_c = run_portfolio(board, None, args.breadth)
+    R = run_portfolio(board, None, args.breadth)
+    ew, ew_daily, ew_p, ew_sizes, ew_c = R.curve, R.daily, R.period, R.sizes, R.costs
     bench = pd.Series(dtype=float)
     if len(idx_s):
         b = idx_s.reindex(ew.index).dropna()
@@ -689,7 +721,7 @@ def main() -> int:
 
     print(f"\n{'=' * 96}\n BENCHMARKS\n{'=' * 96}")
     print(f" {'equal-weight universe':<26}{ew.iloc[-1]:>8.2f}x "
-          f"{cagr(ew):>8.2%}/yr  DD {max_dd(ew):>7.1%}  "
+          f"{cagr(ew):>8.2%}/yr  DD {max_dd(ew_daily):>7.1%}  "
           f"{int(np.median(ew_sizes)):>4d} names")
     if len(bench):
         print(f" {'IHSG (cap-weighted)':<26}{bench.iloc[-1]:>8.2f}x "
@@ -719,25 +751,27 @@ def main() -> int:
     port = []
     per_factor: Dict[str, List[float]] = {}
     for f in factors:
-        eq, per, _, _ = run_portfolio(board, f, args.breadth)
+        r = run_portfolio(board, f, args.breadth)
+        eq, per = r.curve, r.period
         per_factor[f] = per
         ex = [a - b for a, b in zip(per, ew_p)]
         t = newey_west_t(ex)
         p = block_bootstrap_p(ex)
         v_ew = cagr(eq) - cagr(ew)
         v_ix = cagr(eq) - cagr(bench) if len(bench) else np.nan
-        port.append({"factor": f, "cagr": cagr(eq), "dd": max_dd(eq),
+        port.append({"factor": f, "cagr": cagr(eq), "dd": max_dd(r.daily),
                      "vs_ew": v_ew, "vs_index": v_ix, "t": t, "p": p,
                      "curve": eq})
-        print(f" {f:<10}{eq.iloc[-1]:>8.2f}{cagr(eq):>9.2%}{max_dd(eq):>9.1%}"
+        print(f" {f:<10}{eq.iloc[-1]:>8.2f}{cagr(eq):>9.2%}"
+              f"{max_dd(r.daily):>9.1%}"
               f"{v_ew:>+9.2%}{v_ix:>+9.2%}{t:>10.2f}{p:>9.4f}")
 
     print(f"\n{'=' * 96}\n DECILE SPREAD — diagnostic only, this account "
           f"cannot short\n{'=' * 96}")
     print(f" {'factor':<10}{'top decile':>12}{'bottom':>10}{'spread/yr':>12}")
     for f in factors:
-        top, tp, _, _ = run_portfolio(board, f, args.breadth, decile="top")
-        bot, bp, _, _ = run_portfolio(board, f, args.breadth, decile="bottom")
+        top = run_portfolio(board, f, args.breadth, decile="top").curve
+        bot = run_portfolio(board, f, args.breadth, decile="bottom").curve
         print(f" {f:<10}{cagr(top):>12.2%}{cagr(bot):>10.2%}"
               f"{cagr(top) - cagr(bot):>+12.2%}")
 
@@ -793,16 +827,17 @@ def main() -> int:
         aa, gg, dd_, cc, mm, kk = [], [], [], [], [], []
         for seed in range(DRAWS):
             rng = np.random.default_rng(1000 + seed)
-            eqn, pern, _, cst = run_portfolio(board, None, n, rng=rng)
+            rn = run_portfolio(board, None, n, rng=rng)
+            eqn, pern, cst = rn.curve, rn.period, rn.costs
             a, g, d = variance_drag(pern)
             aa.append(a); gg.append(g); dd_.append(d); kk.append(np.mean(cst))
-            cc.append(cagr(eqn)); mm.append(max_dd(eqn))
+            cc.append(cagr(eqn)); mm.append(max_dd(rn.daily))
         print(f" {n:>7}{np.mean(aa):>14.3%}{np.mean(gg):>12.3%}"
               f"{np.mean(dd_):>10.3%}{np.mean(kk):>8.3%}{np.mean(cc):>9.2%}"
               f"{np.mean(mm):>9.1%}")
     a, g, d = variance_drag(ew_p)
     print(f" {'all':>7}{a:>14.3%}{g:>12.3%}{d:>10.3%}{np.mean(ew_c):>8.3%}"
-          f"{cagr(ew):>9.2%}{max_dd(ew):>9.1%}   (equal-weight universe)")
+          f"{cagr(ew):>9.2%}{max_dd(ew_daily):>9.1%}   (equal-weight universe)")
 
     print(f"\n{'=' * 96}\n READING\n{'=' * 96}")
     survivors = [r for r in port if np.isfinite(r["p"]) and r["p"] < alpha

@@ -552,7 +552,7 @@ def test_a_book_on_a_flat_panel_only_loses_the_entry_fee():
                       index=idx)
     board = Board(px, tv, np.full(bars, 5000.0),
                   rebalance_positions(idx, "monthly", 280), [], 1e9, 280)
-    eq, per, sizes, costs = run_portfolio(board, None, 12)
+    eq, daily, per, sizes, costs = run_portfolio(board, None, 12)
     assert all(abs(p) < 1e-12 for p in per)
     assert eq.iloc[-1] == pytest.approx(1.0 - ONE_WAY, rel=1e-9)
     assert sum(costs) == pytest.approx(ONE_WAY)
@@ -567,7 +567,7 @@ def test_a_book_on_a_steady_panel_compounds_at_that_rate():
                       index=idx)
     rebal = rebalance_positions(idx, "monthly", 280)
     board = Board(px, tv, np.full(bars, 5000.0), rebal, [], 1e9, 280)
-    eq, per, _, _ = run_portfolio(board, None, 12)
+    eq, daily, per, _, _ = run_portfolio(board, None, 12)
     entry = rebal[0] + 1
     want = (1.0 - ONE_WAY) * step ** (len(line) - 1 - entry)
     assert eq.iloc[-1] == pytest.approx(want, rel=1e-9)
@@ -588,21 +588,99 @@ def test_extending_the_panel_cannot_change_a_period_that_already_happened():
     # artefacts, not history, so only the settled periods are compared.
     keep = len(short.rebal) - 2
     for f in FACTORS:
-        _, ps, _, _ = run_portfolio(short, f, 4)
-        _, pl, _, _ = run_portfolio(long, f, 4)
+        ps = run_portfolio(short, f, 4).period
+        pl = run_portfolio(long, f, 4).period
         assert ps[:keep] == pytest.approx(pl[:keep], rel=1e-9, abs=1e-12), f
+
+
+def test_the_daily_curve_ends_where_the_rebalance_curve_ends():
+    """Two resolutions of one book, so they must agree where nothing is traded.
+
+    They differ by exactly one thing at a shared bar: the rebalance curve is
+    stamped BEFORE the next rebalance's cost and the daily curve carries on
+    AFTER it. That relationship is asserted rather than waved at, because a
+    daily curve that quietly skipped the cost would look better than the book.
+    """
+    board, *_ = make_board(bars=900, names=20, seed=51)
+    r = run_portfolio(board, "mom6_1", 5)
+    assert r.daily.iloc[-1] == pytest.approx(r.curve.iloc[-1], rel=1e-9)
+    shared = [t for t in r.curve.index[:-1] if t in r.daily.index]
+    assert len(shared) > 10
+    for i, t in enumerate(shared):
+        assert r.daily[t] == pytest.approx(r.curve[t] * (1.0 - r.costs[i + 1]),
+                                           rel=1e-9)
+
+
+def test_the_daily_curve_has_a_point_for_every_bar_it_is_invested():
+    board, *_ = make_board(bars=900, names=20, seed=53)
+    r = run_portfolio(board, "mom6_1", 5)
+    assert len(r.daily) > 10 * len(r.curve)
+
+
+def test_rebalance_sampling_hides_drawdown_and_the_daily_curve_does_not():
+    """The bug this exists to stop: an annual book showed a -2.6% max drawdown
+    while its holdings halved, because eleven yearly snapshots missed the fall.
+    """
+    bars = 1500
+    idx = pd.bdate_range("2015-01-01", periods=bars)
+    line = np.full(bars, 1000.0)
+    # a deep round trip entirely inside one calendar year
+    line[700:760] = np.linspace(1000.0, 400.0, 60)
+    line[760:820] = np.linspace(400.0, 1000.0, 60)
+    px = pd.DataFrame({f"N{i}": line for i in range(12)}, index=idx)
+    tv = pd.DataFrame({f"N{i}": np.full(bars, 5e10) for i in range(12)},
+                      index=idx)
+    board = Board(px, tv, np.full(bars, 5000.0),
+                  rebalance_positions(idx, "annual", 280), [], 1e9, 280)
+    r = run_portfolio(board, None, 12)
+    assert max_dd(r.curve) > -0.05        # the sampled curve barely notices
+    assert max_dd(r.daily) < -0.55        # the book actually lost 60%
+
+
+def test_the_daily_curve_charges_the_entry_fee_before_the_first_bar():
+    bars = 600
+    idx = pd.bdate_range("2015-01-01", periods=bars)
+    px = pd.DataFrame({f"N{i}": np.full(bars, 1000.0) for i in range(12)},
+                      index=idx)
+    tv = pd.DataFrame({f"N{i}": np.full(bars, 5e10) for i in range(12)},
+                      index=idx)
+    board = Board(px, tv, np.full(bars, 5000.0),
+                  rebalance_positions(idx, "monthly", 280), [], 1e9, 280)
+    r = run_portfolio(board, None, 12)
+    assert r.daily.iloc[0] == pytest.approx(1.0 - ONE_WAY, rel=1e-9)
+
+
+def test_a_book_left_alone_drifts_instead_of_staying_equal_weight():
+    """Between rebalances nobody trims the winner, and the curve must show it."""
+    bars = 600
+    idx = pd.bdate_range("2015-01-01", periods=bars)
+    flat = np.full(bars, 1000.0)
+    riser = 1000.0 * np.cumprod(np.full(bars, 1.01))
+    px = pd.DataFrame({"A": riser, "B": flat, "C": flat, "D": flat,
+                       "E": flat, "F": flat, "G": flat, "H": flat,
+                       "I": flat, "J": flat, "K": flat, "L": flat}, index=idx)
+    tv = pd.DataFrame({c: np.full(bars, 5e10) for c in px.columns}, index=idx)
+    board = Board(px, tv, np.full(bars, 5000.0),
+                  rebalance_positions(idx, "annual", 280), [], 1e9, 280)
+    r = run_portfolio(board, None, 12)
+    # equal weight held without trimming = mean of the compounded paths, which
+    # is strictly more than a book rebalanced back to equal weight every bar
+    n = len(px.columns)
+    entry = board.rebal[0] + 1
+    held = (1.01 ** (bars - 1 - entry) + (n - 1)) / n
+    assert r.daily.iloc[-1] / r.daily.iloc[0] == pytest.approx(held, rel=1e-6)
 
 
 def test_a_concentrated_book_pays_more_turnover_than_a_broad_one():
     board, *_ = make_board(bars=900, names=40, seed=31)
-    _, _, _, few = run_portfolio(board, "mom6_1", 3)
-    _, _, _, many = run_portfolio(board, "mom6_1", 30)
+    few = run_portfolio(board, "mom6_1", 3).costs
+    many = run_portfolio(board, "mom6_1", 30).costs
     assert sum(few) > sum(many)
 
 
 def test_the_universe_book_barely_trades():
     board, *_ = make_board(bars=900, names=40, seed=33)
-    _, _, _, costs = run_portfolio(board, None, 30)
+    costs = run_portfolio(board, None, 30).costs
     assert sum(costs) < 2 * ONE_WAY
 
 
