@@ -49,7 +49,8 @@ from typing import Dict, List, Optional, Sequence
 import numpy as np
 import pandas as pd
 
-from .reference import COVERAGE_START, OutsideCoverage, tick_size, was_locked
+from .reference import (COVERAGE_START, OutsideCoverage,
+                        auto_rejection, tick_size, was_locked)
 
 #: Ratios a genuine split or reverse split takes. Anything else is a price move.
 SPLIT_RATIOS = (1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0, 20.0, 25.0,
@@ -64,6 +65,12 @@ RATIO_TOLERANCE = 0.02
 #: ordinary Rp 3 to Rp 2.
 MIN_SPLIT_TICKS = 20
 
+#: IDX's main board has a Rp 50 price floor, so a quote below it belongs to the
+#: acceleration board and takes that board's far looser auto-rejection ladder.
+#: Board membership per ticker-day is not available, but for this purpose it can
+#: be inferred from the price rather than guessed.
+MAIN_BOARD_FLOOR = 50.0
+
 
 def stale_bars(df: pd.DataFrame) -> pd.Series:
     """True where the bar records no trading.
@@ -76,23 +83,70 @@ def stale_bars(df: pd.DataFrame) -> pd.Series:
     return (v.isna() | (v <= 0)).rename("stale")
 
 
-def decimal_spikes(df: pd.DataFrame, tol: float = 0.02) -> pd.Series:
-    """True where a bar is a power-of-ten source error that reverts next day.
+def decimal_spikes(df: pd.DataFrame, tol: float = 0.02,
+                   ratios: Optional[Sequence[float]] = None) -> pd.Series:
+    """True where a bar is a clean-ratio source error that reverts next day.
 
     Two conditions together, because either alone has honest explanations: the
-    move must be a clean factor of ten, AND it must undo itself on the
-    following bar. A real 10x move does not reverse exactly.
+    move must be a clean corporate-action-shaped ratio, AND it must undo itself
+    on the following bar. A real 10x move does not reverse exactly.
+
+    Originally this looked only for powers of ten, which is the MAPI/ELTY shape.
+    Tracing SCCO's misdated split turned up a different one: 2019-06-19 reads
+    9,250 -> 2,325 -> 9,350, an isolated FOUR-fold dip that recovers the next
+    day. Same defect, different ratio, and the decade-only test walked straight
+    past it. The ratio set is now :data:`SPLIT_RATIOS`, which is where a
+    mis-applied adjustment factor would land.
     """
     c = pd.to_numeric(df.get("close"), errors="coerce").to_numpy(dtype=float)
     out = np.zeros(len(c), dtype=bool)
     if len(c) < 3:
         return pd.Series(out, index=df.index, name="spike")
+    cand = np.asarray(SPLIT_RATIOS if ratios is None else ratios, dtype=float)
     with np.errstate(divide="ignore", invalid="ignore"):
         r_in = c[1:-1] / c[:-2]
         r_out = c[2:] / c[1:-1]
         reverts = np.abs(r_in * r_out - 1.0) < tol
-        decade = np.abs(np.abs(np.log10(r_in)) - 1.0) < tol
-    out[1:-1] = reverts & decade & np.isfinite(r_in) & np.isfinite(r_out)
+        size = np.where(r_in > 1.0, r_in, 1.0 / np.where(r_in > 0, r_in, np.nan))
+        clean = np.min(np.abs(cand[None, :] - size[:, None]) / cand[None, :],
+                       axis=1) < tol
+    # A clean ratio is not enough on this exchange, for the same reason it was
+    # not enough in `level_shifts`: on a stock priced in single rupiah a 1.5x
+    # "spike" is one tick down and one tick back. The move must be one the
+    # exchange COULD NOT HAVE PERMITTED - beyond that day's auto-rejection band
+    # - which is impossible without a corporate action and therefore an error.
+    # Without this, 121 spikes are found across the universe and most of them
+    # are ordinary days on penny stocks.
+    impossible = np.zeros(len(r_in), dtype=bool)
+    dates = pd.to_datetime(df["date"]).to_numpy() if "date" in df else None
+    for k in range(len(r_in)):
+        if not (reverts[k] and clean[k]):
+            continue
+        ref = c[k]
+        day = dates[k + 1] if dates is not None else None
+        # Board membership per ticker-day is a known gap, but it can be
+        # INFERRED here rather than guessed: the main board has a Rp 50 price
+        # floor, so anything quoted below that is on the acceleration board and
+        # takes its far looser ladder. Without this, every penny stock moving
+        # one tick reads as an impossible move.
+        board = "acceleration" if ref < MAIN_BOARD_FLOOR else "main"
+        if day is None:
+            continue
+        try:
+            up, dn = auto_rejection(ref, day, board)
+        except (OutsideCoverage, ValueError):
+            # Before 2014 the bands are not encoded, so the impossible-move
+            # test cannot be applied and nothing may be asserted. Falling back
+            # on a guessed 35% flagged every pre-2014 penny-stock tick as a
+            # source error - APIC in 2005, BNBR in 2002, SMRA in 2002 - none of
+            # which is evidence of anything.
+            continue
+        up = abs(up) / ref if up < 0 else up
+        dn = abs(dn) / ref if dn < 0 else dn
+        move = r_in[k] - 1.0
+        impossible[k] = move > up + 1e-9 if move > 0 else -move > dn + 1e-9
+    out[1:-1] = (reverts & clean & impossible
+                 & np.isfinite(r_in) & np.isfinite(r_out))
     return pd.Series(out, index=df.index, name="spike")
 
 

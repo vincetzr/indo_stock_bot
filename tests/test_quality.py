@@ -97,9 +97,36 @@ def test_an_ordinary_move_is_not_a_spike():
     assert not decimal_spikes(d).any()
 
 
-def test_a_v_shaped_but_not_decade_move_is_not_a_spike():
-    """Reverting is not enough on its own - halving and doubling is a real day."""
+def test_a_v_shape_the_exchange_could_have_permitted_is_not_a_spike():
+    """Reverting is not enough on its own.
+
+    A -20% day followed by +25% is entirely legal inside the 35% band for a
+    Rp 100 stock, so it is a real pair of days however symmetric it looks.
+    """
+    d = series([100.0, 80.0, 100.0, 100.0])
+    assert not decimal_spikes(d).any()
+
+
+def test_a_v_shape_the_exchange_could_NOT_have_permitted_is_a_spike():
+    """-50% on a Rp 100 stock is outside every band. It cannot have happened."""
     d = series([100.0, 50.0, 100.0, 100.0])
+    assert bool(decimal_spikes(d).iloc[1])
+
+
+def test_a_penny_stock_moving_one_tick_and_back_is_not_a_spike():
+    """The same false positive the split detector had, in the other detector.
+
+    A stock at Rp 3 going to Rp 2 and back is one tick each way. It is a 1.5x
+    ratio that reverts exactly, and it is an ordinary week on the acceleration
+    board - whose ladder applies because the main board has a Rp 50 floor.
+    """
+    d = series([3.0, 2.0, 3.0, 3.0])
+    assert not decimal_spikes(d).any()
+
+
+def test_a_pre_coverage_spike_is_not_asserted():
+    """Before 2014 the bands are unknown, so impossibility cannot be judged."""
+    d = series([100.0, 50.0, 100.0, 100.0], start="2005-01-03")
     assert not decimal_spikes(d).any()
 
 
