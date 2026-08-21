@@ -408,7 +408,15 @@ exercising the pipeline offline: `--providers synthetic`, deliberately.
 Re-run from scratch as a sourcing exercise rather than a coding one. The
 conclusion divides cleanly, and the dividing line is not technical skill.
 
-### Running trade, trade by trade — not available free, and now conclusively so
+### Running trade, trade by trade — not available as a FEED
+
+Amended after establishing which platform the account actually uses. You can
+**see** running trade and a broker summary inside Growin' (Mandiri Sekuritas'
+retail app) — Pro View → Stock Details carries **Broker Summary**, **Foreign
+Activity** and **Trade Done**, per Mandiri's own July 2025 user guide, and there
+is a web platform at `pro.growin.id`. Reading your own screen sends no request
+to anybody, so it is neither scraping nor prohibited; `scripts/ocr_broker.py`
+exists for it. What follows is about obtaining it as an automated FEED.
 
 A print carrying **both** a buyer and a seller member code exists in exactly two
 places:
