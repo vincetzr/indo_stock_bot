@@ -80,6 +80,97 @@ bugs in one go (dropped magnitude suffixes, two brokers merged into one row, and
 the column order being Val/Lot/Avg rather than Lot/Val/Avg). One file and I will
 have the importer matching it exactly, then you can bulk-drop the rest.
 
+## 4b. THE ANSWER: buy it from someone licensed to sell it
+
+You said there is always a way, and that sites with no live trade still publish
+full broker summaries from previous days. You were right, and here is the way
+they do it — none of them are defeating Cloudflare. They are **licensed
+redistributors**, and at least one of them sells API access.
+
+**`https://api.sectors.app/v2/broker-summary/{symbol}/`**
+(Sectors, operated by Supertype Pte. Ltd. / PT Supertype Teknologi Nusantara)
+
+Their own specification says the response
+
+> *"lists **every broker active on that day** with buy/sell/net values, lots,
+> frequency, and weighted avg price per share."*
+
+Not a top ten. The worked example in their docs is a broker that traded **55
+lots** — a number no top-ten table on this exchange would ever show. That is
+the full rekap, and it arrives as JSON with an API key instead of as a file you
+have to download by hand.
+
+### What it gives that the free route cannot
+
+| | free top-ten route | licensed API |
+|---|---|---|
+| brokers listed | 10 buyers, 10 sellers | **every one** |
+| volume visible | 85–90% | **100%** |
+| positions | brackets | **exact numbers** |
+| rupiah values | 4 significant figures in billions, 2 in trillions (**4.55% error on a busy day**) | **exact integers** |
+| trade counts (`bfreq`/`sfreq`) | not available | **included** |
+| collection | 1 request per stock per day | 1 request per stock per **fortnight** |
+
+That last row is not a convenience, it is the economics. **One call costs one
+credit and returns up to 14 days.** A per-day fetcher would burn 14× the money
+for identical data, so `idxbot.data.sectors` never makes one: it resolves any
+requested day to a fixed fortnight, buys and caches the whole fortnight, and
+returns the slice. Ask for 400 sessions of one ticker and it costs **about 40
+credits, not 400**.
+
+The trade-count field deserves its own line. `bfreq` is the number of trades
+behind the volume, and it separates *one institutional block* from *a thousand
+retail tickets* — which is the distinction most of the bandarmology folklore in
+this market is actually reaching for and has never been able to measure.
+
+### The catch, stated plainly
+
+**It is not free.** The API is gated behind their Insider subscription. I could
+not read the price from this container — their host returns 429 to it — so
+**check `sectors.app/pricing` yourself before committing.** I am not going to
+quote you a number I could not verify.
+
+### What it costs us, in credits
+
+```
+  10 names x 400 sessions   ~400 credits      (the frozen protocol's panel)
+   1 name  x 400 sessions   ~ 40 credits
+  10 names x  10 sessions   ~ 10 credits      (enough to validate)
+```
+
+`scripts/broker_collect.py --sectors ...` prints that bill and then **stops**.
+It will not spend a credit without `--yes`. A backfill that discovers its own
+cost afterwards is a backfill nobody agreed to.
+
+### It gets validated before it gets trusted
+
+Buying data does not make it correct. A vendor can mis-map a column, quote
+shares where the exchange quotes lots, or publish a different board — and every
+one of those produces numbers that look completely normal. We already hold 416
+sessions of BBCA from a wholly independent route, so:
+
+```bash
+SECTORS_API_KEY=...  python3 scripts/sectors_validate.py --ticker BBCA
+```
+
+runs four checks, in order of what they would catch:
+
+1. **internal** — `value = lots x 100 x average` on the vendor's own rows.
+   Catches a mis-mapped column with no second source needed.
+2. **overlap** — every broker the free route names must show the same lots.
+   Two unrelated pipelines landing on the same integer is not something a
+   parsing bug does by accident.
+3. **depth** — the paid route must list *more* brokers, and the free route's
+   ten must be the ten largest of them. If the "full" rekap is also a top ten,
+   the reason for paying evaporates and this says so.
+4. **closure** — across all brokers, lots bought must equal lots sold. A
+   complete rekap closes exactly; a censored one *cannot*. This is the check
+   the free route can never pass, and passing it is what licenses collapsing
+   every interval in this project to a point.
+
+Until all four pass, nothing downstream is allowed to treat this route as
+complete. One credit buys the whole validation.
+
 ## 5. The other sites — reachable, but not mine to enable
 
 From this container these respond:

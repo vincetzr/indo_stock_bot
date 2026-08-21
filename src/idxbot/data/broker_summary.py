@@ -278,6 +278,11 @@ class BrokerSummaryProvider(ABC):
     #: True when the data describes real exchange activity. Simulated sources
     #: set this False and every downstream report marks the result accordingly.
     is_real: bool = True
+    #: True only when the source lists EVERY member active on the day, not a
+    #: top ten. It decides whether :mod:`idxbot.broker_bounds` can collapse a
+    #: position from an interval to a number, so the default is the safe one:
+    #: assume censored unless a source explicitly claims otherwise.
+    complete: bool = False
 
     @abstractmethod
     def fetch(self, ticker: str, start: Optional[pd.Timestamp] = None,

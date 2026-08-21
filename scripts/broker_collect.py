@@ -246,6 +246,12 @@ def main() -> int:
     ap.add_argument("--collect", default=None,
                     help="comma-separated tickers to pull from the IndoPremier "
                          "public module into the daily store")
+    ap.add_argument("--sectors", default=None,
+                    help="comma-separated tickers to pull at FULL DEPTH from "
+                         "the licensed API. Costs credits; prints the bill "
+                         "first and needs --yes to spend it")
+    ap.add_argument("--yes", action="store_true",
+                    help="consent to spending API credits")
     ap.add_argument("--days", type=int, default=60)
     ap.add_argument("--single-view", action="store_true",
                     help="combined view only, one request a session")
@@ -282,6 +288,38 @@ def main() -> int:
                      if s else ""))
         else:
             print(" nothing ingestible found.")
+
+    if args.sectors:
+        sys.path.insert(0, os.path.dirname(__file__))
+        from idxbot.data.sectors import SectorsBrokerSummary, api_key
+        cache = Cache(cfg.path("data.cache_dir", "data/cache"))
+        end = pd.Timestamp.now(tz="Asia/Jakarta").tz_localize(None).normalize()
+        start = end - pd.Timedelta(days=int(args.days * 7 / 5))
+        names = [t.strip().upper() for t in args.sectors.split(",") if t.strip()]
+        cost = SectorsBrokerSummary.credits_for(len(names), args.days)
+        if not api_key(cfg):
+            print(f" No API key for the full-rekap route. Set SECTORS_API_KEY."
+                  f"\n This would have cost about {cost} credits for "
+                  f"{len(names)} names x {args.days} sessions.")
+        else:
+            # The bill is stated BEFORE it is incurred. A backfill that
+            # discovers its own cost afterwards is a backfill nobody consented
+            # to - and --yes is required so it can never happen by reflex.
+            print(f" Full rekap for {len(names)} names x {args.days} sessions"
+                  f" costs about {cost} credits.")
+            if not args.yes:
+                print(" Re-run with --yes to spend them.")
+            else:
+                p = SectorsBrokerSummary(cache=cache, cfg=cfg, verbose=True)
+                for tk in names:
+                    f = p.fetch_range(tk, start, end)
+                    if f is None or f.empty:
+                        print(f" {tk}: nothing returned")
+                        continue
+                    w, sk = save(f)
+                    print(f" {tk}: stored {w} ticker-days FULL DEPTH"
+                          + (f", {sk} skipped" if sk else ""))
+                print(f" credits spent: {p.credits_spent}")
 
     if args.collect:
         sys.path.insert(0, os.path.dirname(__file__))

@@ -424,6 +424,10 @@ class IpotBrokerSummary(BrokerSummaryProvider):
 
     name = "ipot"
     is_real = True
+    #: Ten buyers and ten sellers, never more. 10-15% of a session's
+    #: volume belongs to members this table does not name, which is why
+    #: positions derived from it are intervals rather than numbers.
+    complete = False
 
     def __init__(self, cache=None, board: str = "RG", delay: float = 1.2,
                  timeout: int = 30, session_type: str = "all",
