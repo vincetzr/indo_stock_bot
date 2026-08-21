@@ -70,6 +70,15 @@ returns HAC-corrected `t`/`p` plus a block-bootstrap CI, keeping `t_iid`/`p_iid`
 alongside so the size of the correction stays visible. `tests/test_overlap.py`
 holds the calibration in place.
 
+### Robustness: the verdict survived the Phase 0 spine repairs
+
+Protocol B was re-run after Phase 0 corrected the return series - point-in-time
+auto-rejection caps instead of a flat 35%, verified corporate actions adjusted
+rather than clipped, quarantined windows exempted. **Every number is
+unchanged.** The panel is 10 large caps with no corporate action inside the
+2025-2026 window, so the corrections correctly had nothing to move. The failure
+is a property of the data, not of the pipeline that was reading it.
+
 ### A second defect found in the same pass
 
 H6 and H7 printed identical numbers at all three censoring levels and this was

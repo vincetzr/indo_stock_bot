@@ -498,14 +498,14 @@ API).
 
 | brief | repo today |
 |---|---|
-| §5 spine | **partial.** OHLCV full history via `idxbot.data.ohlcv`. Broker summary 10 names × ~360 sessions in `data/cache/broker_daily`. **No delisted names, no ARA/ARB schedule, no fraksi harga schedule, no broker-code master.** Gate 0 not attempted. |
+| §5 spine | **Gate 0 PASSES** (`scripts/gate0.py`, exits 0/1). PIT ARA/ARB + fraksi harga + lot + halt schedules in `src/idxbot/spine/reference.py`; quality gates, corporate-action adjustment, repairs and a broker-code master alongside. **Still missing: delisted names** (measured, not fixed — the universe is survivorship-biased) and a systematic corporate-action feed. See `reports/phase0_spine.md`. |
 | §7 Phase 1 | **run and FAILED** on a 1-name panel. See A3. |
 | §9.3 cohort P&L | **not built.** Previously declined on the starting-inventory problem; the brief's round-trip restriction is a better answer and supersedes that decision. |
-| §9.4 execution style | **built** (`scripts/broker_economics.py`) and **carries the exact bias §9.4 warns about.** See A4. |
+| §9.4 execution style | **built and the §9.4 bias is corrected** — VWAP now excludes each broker's own trades. See A4; the size null it threatened was recomputed and stands. |
 | §9.5 archetypes | not built |
-| §11 purged walk-forward | partial — walk-forward exists, purge/embargo does not |
+| §11 purged walk-forward | partial — walk-forward exists; overlapping forward windows are now Newey-West corrected (`layer2_test.one_sided`), but purge/embargo folds do not exist |
 | §11 trial count | `hypotheses.md` now exists; 8 pre-registered trials logged |
-| §13 layout | **conflicts.** Repo is `src/idxbot/`, `scripts/`, `docs/`, `tests/` with 1,297 passing tests. Restructuring wholesale would be destructive for no research gain, so the brief's layout is treated as the target for *new* work and `reports/` + `hypotheses.md` are adopted now. |
+| §13 layout | **conflicts.** Repo is `src/idxbot/`, `scripts/`, `docs/`, `tests/` with 1,509 passing tests. Restructuring wholesale would be destructive for no research gain, so the brief's layout is treated as the target for *new* work and `reports/` + `hypotheses.md` are adopted now. |
 
 ## A3. Phase 1 has already been run once, and it failed
 
@@ -521,22 +521,30 @@ control because flow correlates +0.22 with the day's own move.
 
 Anything that reports on H1–H8 must quote the protocol hash it ran under.
 
-## A4. The bias §9.4 names is present in this repo's own code
+## A4. The bias §9.4 names WAS present, and is now corrected
 
-`execution_edge()` compares each broker's average fill to the day's VWAP **including
-that broker's own trades**. §9.4 is right that this shrinks large brokers toward zero.
+`execution_edge()` compared each broker's average fill to the day's VWAP
+*including that broker's own trades*. §9.4 is right that this shrinks large
+brokers toward zero, and the shares here are large enough to matter: median 5.7%
+of a session, 26% of broker-sides above 10%, maximum 94%.
 
-It also means **a negative result already reported to you is unsafe**: "size does not
-explain execution edge" (corr(log volume, edge) = +0.010, p = 0.96) is exactly what this
-bias manufactures. That result is withdrawn pending recomputation against a
-self-excluded VWAP, which is available from the footer totals:
+It is now corrected exactly, since the footer totals are uncensored and each
+broker's lots partition them:
 
 ```
-VWAP_excluding_b = (total_value − b_buy_value) / (total_lot − b_buy_lot)
+VWAP_excluding_b = (total_value − b_value) / ((total_lot − b_lot) × 100)
 ```
 
-Every broker's buy side is exactly a partition of total volume, so this is exact
-arithmetic on the top-10 table, not an approximation.
+Verified on a synthetic closed market with known true edges: a broker holding
+40% of the day measures +0.43% biased against a true +0.83%, and +0.71%
+corrected.
+
+**The negative result it threatened was withdrawn, recomputed, and reinstated.**
+"Size does not explain execution edge" now reads corr(log volume, edge) = −0.001
+(p = 1.00) and corr with |edge| = −0.213 (p = 0.15) against a self-excluded
+VWAP. The correction attenuates edge *magnitude* roughly symmetrically about
+zero, so it changes how large an individual broker looks rather than whether
+edge tracks size. Full detail in `hypotheses.md` under E4.
 
 ## A5. Standing constraints that predate this brief and still hold
 
