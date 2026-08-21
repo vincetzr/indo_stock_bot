@@ -1,17 +1,21 @@
 """Tests for the survivorship-bias measurement.
 
-The temptation this file guards against is not a bug, it is a fudge. The
-delisted history is not obtainable, so there is a standing pull toward
-inventing a correction factor and quietly applying it - which would turn a
-KNOWN gap into a hidden assumption and make every downstream number look
-defensible when it is not.
+The temptation this file guards against is not a bug, it is a fudge. Most of
+the delisted history WAS obtainable in the end - 121 vanished names recovered
+from a 2019 point-in-time snapshot - but the part that matters most, what a
+name did on the way out after April 2019, is still missing. That leaves a
+standing pull toward inventing a correction factor for the missing piece and
+quietly applying it, which would turn a KNOWN gap into a hidden assumption and
+make every downstream number look defensible when it is not.
 
 So the tests here check that the module bounds rather than corrects: that the
-bias always points in the direction of overstatement, that a cap-weighted book
+bias always points in the direction of overstatement, that the attrition rate
+is the measured one rather than an assumed range, that a cap-weighted book
 carries far less of it than an equal-weighted one (the finding that actually
 matters, because it is what separates the repo's large-cap work from its
-small-cap work), and that the audit reports zero coverage honestly rather than
-degrading gracefully into silence.
+small-cap work), and that both the audit and the point-in-time reconstruction
+report incomplete coverage honestly rather than degrading gracefully into
+silence.
 """
 
 from __future__ import annotations
@@ -156,7 +160,7 @@ def test_the_shield_does_not_return_a_corrected_return():
 # --------------------------------------------------------------------------
 def test_the_caveat_names_the_bound_and_refuses_to_call_it_a_correction():
     c = caveat("equal")
-    assert "bound, not a correction" in c
+    assert "bound rather than a correction" in c
     assert "survivorship" in c.lower()
 
 
@@ -167,6 +171,70 @@ def test_the_caveat_reads_as_english_for_both_weightings():
 
 def test_the_equal_weighted_caveat_quotes_a_bigger_number_than_the_cap_one():
     import re
-    eq = re.findall(r"roughly ([\d.]+) to ([\d.]+)", caveat("equal"))[0]
-    cap = re.findall(r"roughly ([\d.]+) to ([\d.]+)", caveat("cap"))[0]
+    pat = r"by about ([\d.]+) percentage points, rising to ([\d.]+)"
+    eq = re.findall(pat, caveat("equal"))[0]
+    cap = re.findall(pat, caveat("cap"))[0]
+    assert float(eq[0]) > float(cap[0])
     assert float(eq[1]) > float(cap[1])
+
+
+def test_the_caveat_quotes_the_measured_rate_before_the_worst_case():
+    """The measured 2.87% is the headline; 8% is the clean-up-year bound. If
+    the two were ever swapped the caveat would read as scaremongering rather
+    than as a measurement."""
+    import re
+    pat = r"by about ([\d.]+) percentage points, rising to ([\d.]+)"
+    mid, hi = re.findall(pat, caveat("equal"))[0]
+    assert float(mid) < float(hi)
+
+
+# --------------------------------------------------------------------------
+# the point-in-time snapshot that partly repairs the bias
+# --------------------------------------------------------------------------
+def test_the_attrition_rate_is_measured_not_assumed():
+    """121 of 627 names in the 2019 snapshot are gone: 2.87% a year."""
+    from idxbot.spine.universe import (DELIST_RATE_HIGH, DELIST_RATE_LOW,
+                                       DELIST_RATE_MEASURED)
+    assert DELIST_RATE_LOW < DELIST_RATE_MEASURED < DELIST_RATE_HIGH
+
+
+def test_the_doomed_names_were_already_lagging_before_they_vanished():
+    """Measured over 2014-2019 while all of them were still listed."""
+    from idxbot.spine.universe import PRE_DELIST_DRAG
+    assert 0.0 < PRE_DELIST_DRAG < 0.20
+
+
+def test_a_universe_before_the_snapshot_is_survivorship_free():
+    from idxbot.spine.universe import point_in_time_universe
+    u = point_in_time_universe("2018-06-01", ["BBCA", "TLKM"])
+    if u["recovered"]:                    # only when the store is populated
+        assert u["complete"] is True
+        assert len(u["constituents"]) > 2
+
+
+def test_a_universe_after_the_snapshot_is_flagged_incomplete():
+    """After 2019 the vanished names are known but the new listings are not
+    separable, so the reconstruction would be biased the other way."""
+    from idxbot.spine.universe import point_in_time_universe
+    u = point_in_time_universe("2026-08-21", ["BBCA"])
+    assert u["complete"] is False
+    assert "PARTIAL" in u["note"]
+
+
+def test_the_reconstruction_never_silently_claims_completeness():
+    from idxbot.spine.universe import point_in_time_universe
+    u = point_in_time_universe("2018-06-01", [])
+    assert "complete" in u and isinstance(u["complete"], bool)
+
+
+def test_the_caveat_says_the_terminal_loss_is_still_unmeasured():
+    """The snapshot ends in 2019, so the way OUT is not in it - and that is
+    where most of the damage happens."""
+    c = caveat("equal")
+    assert "way\nOUT" in c or "way OUT" in c
+    assert "bound rather than a correction" in c
+
+
+def test_the_caveat_quotes_the_measured_rate():
+    from idxbot.spine.universe import DELIST_RATE_MEASURED
+    assert f"{DELIST_RATE_MEASURED:.2%}" in caveat("equal")

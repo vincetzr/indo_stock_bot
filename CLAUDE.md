@@ -498,14 +498,28 @@ API).
 
 | brief | repo today |
 |---|---|
-| §5 spine | **Gate 0 PASSES** (`scripts/gate0.py`, exits 0/1). PIT ARA/ARB + fraksi harga + lot + halt schedules in `src/idxbot/spine/reference.py`; quality gates, corporate-action adjustment, repairs and a broker-code master alongside. **Still missing: delisted names** (measured, not fixed — the universe is survivorship-biased) and a systematic corporate-action feed. See `reports/phase0_spine.md`. |
+| §5 spine | **Gate 0 PASSES** on nine checks (`scripts/gate0.py`, exits 0/1). PIT ARA/ARB + fraksi harga + lot + halt schedules in `src/idxbot/spine/reference.py`; quality gates, corporate-action adjustment, three sourced repairs and a broker-code master alongside. Survivorship **partly repaired**: 121 vanished names recovered with history from a 2019 point-in-time snapshot, giving a measured 2.87%/yr attrition instead of an assumed 1–8% range. **What is left is one-sided** — the snapshot ends 2019-04-07, so the months in which a name actually died are still missing, and the bias figure stays a bound rather than a correction. See `reports/phase0_spine.md`. |
 | §7 Phase 1 | **run and FAILED** on a 1-name panel. See A3. |
 | §9.3 cohort P&L | **not built.** Previously declined on the starting-inventory problem; the brief's round-trip restriction is a better answer and supersedes that decision. |
 | §9.4 execution style | **built and the §9.4 bias is corrected** — VWAP now excludes each broker's own trades. See A4; the size null it threatened was recomputed and stands. |
 | §9.5 archetypes | not built |
 | §11 purged walk-forward | partial — walk-forward exists; overlapping forward windows are now Newey-West corrected (`layer2_test.one_sided`), but purge/embargo folds do not exist |
 | §11 trial count | `hypotheses.md` now exists; 8 pre-registered trials logged |
-| §13 layout | **conflicts.** Repo is `src/idxbot/`, `scripts/`, `docs/`, `tests/` with 1,509 passing tests. Restructuring wholesale would be destructive for no research gain, so the brief's layout is treated as the target for *new* work and `reports/` + `hypotheses.md` are adopted now. |
+| §13 layout | **conflicts.** Repo is `src/idxbot/`, `scripts/`, `docs/`, `tests/` with 1,547 passing tests. Restructuring wholesale would be destructive for no research gain, so the brief's layout is treated as the target for *new* work and `reports/` + `hypotheses.md` are adopted now. |
+
+**One spine result worth carrying into every later phase.** Every IDX price is an
+exact multiple of that day's fraksi harga, so a price that is not was never
+traded — it is vendor arithmetic. `quality.off_tick` uses that, and two things
+follow. First, an off-grid stretch that `level_shifts` also calls a break is the
+SCCO defect: across 937 tickers it finds exactly three (SCCO, PYFA, SINI), all
+now repaired. Second, **22.3% of the spine provably sits on a vendor-adjusted
+basis** — a lower bound, since a whole-number factor is invisible to the test —
+which means `reference.half_spread` is looking the tick up from the wrong price
+band on those bars and **understating spread cost**. §7 requires costs from the
+point-in-time fraksi harga; on a back-adjusted series that requirement is not yet
+met. The test is **one-sided**: off-grid proves adjustment, on-grid proves
+nothing. Two earlier versions forgot the second half and reported 18,300 and
+2,760 defects respectively.
 
 ## A3. Phase 1 has already been run once, and it failed
 

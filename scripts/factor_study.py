@@ -180,7 +180,17 @@ def _cap_impossible(out: pd.DataFrame, ticker: str) -> pd.Series:
     # Only when the step is actually PRESENT. BBCA, BMRI, DSSA and ISAT are
     # already back-adjusted, and applying the factor to those would manufacture
     # the very jump this is removing.
+    #
+    # A SPLIT has to land on its factor to within a few per cent - four shares
+    # for one, the price is a quarter, to the tick. A RIGHTS ISSUE does not:
+    # the theoretical ex-rights price is a valuation and the market reprices
+    # the moment it opens, inside the auto-rejection band IDX draws around
+    # TERP. PYFA's 1:20 closed its ex-day 34% above TERP. Requiring the tight
+    # match there left a real -71% ex-date drop to be capped at the ARB, which
+    # invents a 25% loss no holder took - the same failure the SCCO cap made,
+    # one layer up.
     adjusted = r.copy()
+    on_ex = pd.Series(False, index=out.index)
     for a in VERIFIED:
         if a.ticker != tk:
             continue
@@ -191,16 +201,41 @@ def _cap_impossible(out: pd.DataFrame, ticker: str) -> pd.Series:
                         <= pd.Timedelta(days=3)]
         for j in hit:
             step = 1.0 + r.loc[j]
-            if np.isfinite(step) and abs(step / fac - 1.0) <= 0.05:
+            if not np.isfinite(step):
+                continue
+            if abs(step / fac - 1.0) <= 0.05:
                 adjusted.loc[j] = step / fac - 1.0
+                on_ex.loc[j] = True
+                continue
+            if a.kind != "rights":
+                continue
+            terp = float(prev.loc[j]) * fac
+            try:
+                up, dn = auto_rejection(terp, dates.loc[j])
+            except (OutsideCoverage, ValueError):
+                continue
+            up = abs(up) / terp if up < 0 else up
+            dn = abs(dn) / terp if dn < 0 else dn
+            if abs(step - 1.0) > 0.02 and -dn <= step / fac - 1.0 <= up:
+                adjusted.loc[j] = step / fac - 1.0
+                on_ex.loc[j] = True
     r = adjusted
 
     # Quarantined windows are left alone entirely: near an unverified shift the
     # truth is unknown, so the window stays visibly odd rather than quietly
     # smoothed into something plausible.
-    exempt = suspect_mask(
+    # ... and so are the ex-date bars this function just divided by a verified
+    # factor. Capping AFTER adjusting undoes the adjustment: PYFA's ex-day came
+    # out at +34%, the real experience of a holder who took up their rights,
+    # and the 25% ARA then clipped it back to +25%. The band does not apply
+    # there at all - on an ex-date IDX draws it around the theoretical price,
+    # which is exactly what the adjustment has already divided out.
+    #
+    # Only bars actually adjusted are exempt. A split whose step does NOT match
+    # its factor is a defect, is not adjusted, and stays capped.
+    exempt = (suspect_mask(
         pd.DataFrame({"date": dates.to_numpy()}, index=out.index), tk
-    ).to_numpy()
+    ) | on_ex).to_numpy()
 
     lo = pd.Series(-0.35, index=out.index)
     hi = pd.Series(0.35, index=out.index)

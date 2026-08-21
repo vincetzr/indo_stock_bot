@@ -40,6 +40,55 @@ that is ONE TICK. IDX has hundreds of names trading in the single rupiah, where
 an ordinary tick is a 33-50% move. So a ratio alone cannot distinguish a split
 from a normal day, and :func:`level_shifts` requires the move to be large in
 TICKS as well as in ratio. That cut the 79 down to the three that are real.
+
+THE TICK GRID IS A FINGERPRINT, AND IT SETTLES WHAT THE OTHER TESTS CANNOT
+--------------------------------------------------------------------------
+Every price IDX ever printed is an exact multiple of that day's fraksi harga.
+A price that is not - Rp 6,234.246582, Rp 122.380951 - was never traded. It is
+arithmetic a data vendor did, and the only thing that produces it is a
+back-adjustment by a factor that is not a whole number of ticks.
+
+That gives two things the ratio tests cannot give.
+
+    IT PROVES A FACTOR.  :func:`factor_fits` divides a window by a CANDIDATE
+    factor - taken from an announcement, never from the tape - and asks whether
+    every open, high, low and close lands exactly on the grid, and every volume
+    on a whole lot. PYFA's window has 16 prices and 4 volumes; SINI's has 32 and
+    3. Chance of that under a wrong factor is the tick spacing to the twentieth
+    power. This is what promoted both from "cause known, factor guessed" to a
+    repair, and it is why neither was adjusted on a factor read off the chart -
+    which would have been circular, the move being the thing to explain.
+
+    IT BOUNDS HOW MUCH OF THE SPINE IS ADJUSTED.  :func:`off_grid_rate` counts
+    the bars that provably were not traded at the price shown. That matters
+    beyond corporate actions: the cost model in
+    :func:`idxbot.spine.reference.half_spread` looks the tick up BY PRICE, so a
+    series back-adjusted to a fifth of its traded level is charged out of the
+    wrong band and understates the spread it would really have paid.
+
+THE TEST IS ONE-SIDED AND TWO VERSIONS OF THIS GOT IT WRONG
+-----------------------------------------------------------
+Off-grid proves adjustment. On-grid proves NOTHING, and every mistake here came
+from forgetting the second half.
+
+    First attempt read each bar alone. BMRI's whole 2005-2023 history is
+    divided by 4 and 2.3% of those bars land on the grid regardless - 2,850
+    divides by 10, 2,837.50 does not - so one uniform region came back as
+    18,300 fictitious ones.
+
+    Second attempt fixed that with gap-closing and then claimed the result
+    SEGMENTED the series into raw and adjusted. It does not. PTBA's pre-2017
+    history is divided by 5, and every session where the real price was a
+    multiple of Rp 50 lands on the grid - 122 consecutive sessions of it across
+    the 2008 crash. Those read as a clean raw stretch and split one adjusted
+    region into thirteen, of which twelve are fiction. Across the spine that
+    produced 2,760 "defects".
+
+So there is no segmentation function here, deliberately. There is a rate, which
+is a LOWER BOUND, and there is :func:`suspect_islands`, which reports only what
+:func:`level_shifts` independently agrees is a break. A whole-number factor
+(MAPI's 10, ELTY's proposed 10) leaves every price on the grid and is invisible
+to this test entirely. It complements the ratio tests; it does not replace them.
 """
 
 from __future__ import annotations
@@ -49,7 +98,8 @@ from typing import Dict, List, Optional, Sequence
 import numpy as np
 import pandas as pd
 
-from .reference import (COVERAGE_START, OutsideCoverage,
+from . import reference as _ref
+from .reference import (COVERAGE_START, EARLY_START, OutsideCoverage,
                         auto_rejection, infer_board, tick_size,
                         was_locked)
 
@@ -155,6 +205,241 @@ def decimal_spikes(df: pd.DataFrame, tol: float = 0.02,
     out[1:-1] = (reverts & clean & impossible
                  & np.isfinite(r_in) & np.isfinite(r_out))
     return pd.Series(out, index=df.index, name="spike")
+
+
+# --------------------------------------------------------------------------
+# the tick grid
+# --------------------------------------------------------------------------
+#: Relative slack when asking whether a price sits on its tick. Prices arrive
+#: as float32 from the cache, so an exact multiple can be off by ~1e-7 of its
+#: own size. Anything looser starts accepting genuinely off-grid prices: the
+#: smallest real offence in the spine is half a tick.
+GRID_TOL = 1e-4
+
+#: The longest run of on-grid bars that may sit INSIDE an adjusted stretch
+#: without ending it, when gathering off-grid bars into islands.
+BASIS_GAP = 5
+
+#: How long the clean stretch on each side of an island should be before the
+#: island is worth reporting at all - and the shortest flank still accepted
+#: when the island sits against the start or the end of the series. Insisting
+#: on the full 60 at the end of the series makes any defect in the last three
+#: months invisible, which is the opposite of the priority: SINI's island is
+#: eight weeks old and it is the one that would be traded on.
+ISLAND_CLEAN_BARS = 60
+ISLAND_MIN_FLANK = 5
+
+#: Longest island still shaped like the defect. SCCO's is 23 sessions, SINI's
+#: 8, PYFA's 4.
+ISLAND_MAX_BARS = 120
+
+
+def tick_grid(prices, dates) -> np.ndarray:
+    """The tick size for each (price, date) pair. Vectorised over regimes.
+
+    NaN where the date is outside the tick schedule's coverage, so a caller
+    gets an absence rather than a wrong grid. :func:`off_tick` treats NaN as
+    "cannot say", never as "on grid".
+    """
+    p = np.asarray(prices, dtype=float)
+    d = pd.to_datetime(pd.Series(dates)).to_numpy()
+    out = np.full(p.shape, np.nan)
+    for r in _ref._TICK:
+        end = np.datetime64(r.end) if r.end is not None else None
+        m = d >= np.datetime64(r.start)
+        if end is not None:
+            m &= d < end
+        if not m.any():
+            continue
+        # bands are (upper_exclusive, tick) ascending, so walking them
+        # BACKWARDS lets each cheaper band overwrite the dearer one and the
+        # lowest matching ceiling wins - the same rule as Regime.value_for.
+        px = p[m]
+        sub = np.full(px.shape, np.nan)
+        for ceiling, value in reversed(r.bands):
+            if ceiling is None:
+                sub[:] = value
+            else:
+                sub = np.where(px < ceiling, value, sub)
+        out[m] = sub
+    out[~np.isfinite(p) | (p <= 0)] = np.nan
+    return out
+
+
+def off_tick(df: pd.DataFrame, tol: float = GRID_TOL) -> pd.Series:
+    """True where any of open/high/low/close is not a multiple of its tick.
+
+    A True bar was not traded at that price - it is a vendor back-adjustment.
+    Bars outside the tick schedule's coverage come back False, because "no rule
+    encoded" is not evidence of a defect.
+    """
+    if df.empty or "date" not in df:
+        return pd.Series(dtype=bool, name="off_tick")
+    d = pd.to_datetime(df["date"])
+    bad = np.zeros(len(df), dtype=bool)
+    for c in ("open", "high", "low", "close"):
+        if c not in df:
+            continue
+        v = pd.to_numeric(df[c], errors="coerce").to_numpy(dtype=float)
+        g = tick_grid(v, d)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            r = np.abs(v / g - np.round(v / g))
+        bad |= np.isfinite(r) & (r > tol)
+    return pd.Series(bad, index=df.index, name="off_tick")
+
+
+def _runs(mask: np.ndarray):
+    """(start, stop) index pairs of each maximal True run, stop exclusive."""
+    e = np.flatnonzero(np.diff(np.r_[0, mask.astype(np.int8), 0]))
+    return list(zip(e[::2], e[1::2]))
+
+
+def off_grid_rate(df: pd.DataFrame) -> float:
+    """Share of bars proven to be on a vendor-adjusted basis.
+
+    A LOWER BOUND on how much of the series is adjusted, never an estimate of
+    it, and the asymmetry is the whole point. Off-grid proves adjustment;
+    on-grid proves nothing. PTBA's entire pre-2017 history is divided by five,
+    and about a quarter of it lands on the grid anyway - every session where
+    the real price was a multiple of Rp 50. Read this as "at least this much",
+    and read a zero as "nothing proven", not as "clean".
+    """
+    if df.empty:
+        return float("nan")
+    b = off_tick(df)
+    return float(b.mean()) if len(b) else float("nan")
+
+
+def adjustment_islands(df: pd.DataFrame, gap: int = BASIS_GAP,
+                       clean: int = ISLAND_CLEAN_BARS,
+                       max_bars: int = ISLAND_MAX_BARS,
+                       min_flank: int = ISLAND_MIN_FLANK) -> pd.DataFrame:
+    """Short off-grid stretches with long clean history on BOTH sides.
+
+    This is the shape of the SCCO defect: a vendor that back-adjusts a whole
+    history leaves one long adjusted region, which is consistent and corrupts
+    no single return, while a vendor that adjusts only the last few sessions
+    before an ex-date leaves an ISLAND that corrupts the return at both of its
+    edges - a fake crash going in, a fake rally coming out.
+
+    CANDIDATES, NOT VERDICTS. Because on-grid proves nothing, a stretch of a
+    divided history that happens to land on the grid looks exactly like clean
+    flanking data, and PTBA alone produces a dozen such islands that are not
+    defects. Confirmation comes from :func:`level_shifts` agreeing there is a
+    break at an edge and from :func:`factor_fits` accepting an announced
+    factor - see :func:`suspect_islands`.
+    """
+    cols = ["start", "end", "bars", "off_grid_rate"]
+    if df.empty or "date" not in df:
+        return pd.DataFrame(columns=cols)
+    d = pd.to_datetime(df["date"]).reset_index(drop=True)
+    # A zero-volume bar is the previous quote repeated, so its being off-grid
+    # is inherited and says nothing new. Counting them made WIKA - suspended
+    # from November 2023 to April 2024, its stale quote re-marked once for a
+    # rights issue - look like a ten-session vendor adjustment. It is one
+    # forward-filled number, and stale_bars already reports it.
+    bad = (off_tick(df) & ~stale_bars(df)).to_numpy()
+    if not len(bad) or not bad.any():
+        return pd.DataFrame(columns=cols)
+    state = bad.copy()
+    for s, e in _runs(~bad):
+        if 0 < s and e < len(bad) and (e - s) <= gap:
+            state[s:e] = True                       # close the small gaps
+    rows = []
+    for s, e in _runs(state):
+        if (e - s) > max_bars:
+            continue
+        left, right = s, len(state) - e
+        if min(left, right) < min_flank:
+            continue
+        if (state[max(0, s - clean):s].any()
+                or state[e:e + clean].any()):
+            continue                                # flanks must be clean
+        rows.append({"start": d[s], "end": d[e - 1], "bars": int(e - s),
+                     "off_grid_rate": float(bad[s:e].mean())})
+    return pd.DataFrame(rows, columns=cols)
+
+
+def suspect_islands(df: pd.DataFrame, **kw) -> pd.DataFrame:
+    """Islands that :func:`level_shifts` also calls a break. The real defects.
+
+    The conjunction is what makes this usable. An island on its own is a
+    candidate and there are thousands of them; a level shift on its own says a
+    break happened but not that a vendor caused it. Both together say the
+    series changed basis and the new basis was never traded, which is the SCCO
+    defect and nothing else.
+
+    Adds ``shift_date`` and ``shift_ratio`` from the matching break.
+    """
+    isl = adjustment_islands(df, **kw)
+    cols = list(isl.columns) + ["shift_date", "shift_ratio"]
+    if isl.empty:
+        return pd.DataFrame(columns=cols)
+    sh = level_shifts(df)
+    if sh.empty:
+        return pd.DataFrame(columns=cols)
+    sd = pd.to_datetime(sh["date"])
+    rows = []
+    for _, r in isl.iterrows():
+        # a break at either edge, allowing the gap-closing's slack in days
+        near = sh[(sd >= r["start"] - pd.Timedelta(days=7))
+                  & (sd <= r["end"] + pd.Timedelta(days=7))]
+        if near.empty:
+            continue
+        rows.append({**r, "shift_date": near.iloc[0]["date"],
+                     "shift_ratio": float(near.iloc[0]["ratio"])})
+    return pd.DataFrame(rows, columns=cols)
+
+
+def factor_fits(df: pd.DataFrame, start, end, factor: float,
+                tol: float = GRID_TOL, lot: int = 100) -> Dict[str, object]:
+    """Test a CANDIDATE adjustment factor against the tick and lot grids.
+
+    ``factor`` is what the vendor multiplied prices by, so dividing by it
+    should recover what the exchange printed. The candidate must come from an
+    announcement. Deriving it from the price move and then testing it here
+    would be circular - the move is the thing being explained - so the value of
+    this test is precisely that the announcement fixes the factor and the grid
+    then gets a free vote.
+
+    Returns the worst grid error over every price, the share of prices that
+    land exactly, and the same for volume against the 100-share lot. A real
+    factor scores 1.0 on both; a wrong one scores at chance, which is the tick
+    spacing itself.
+    """
+    d = pd.to_datetime(df["date"])
+    w = df[(d >= pd.Timestamp(start)) & (d <= pd.Timestamp(end))]
+    if w.empty or not factor:
+        return {"prices": 0, "price_exact": float("nan"),
+                "max_grid_error": float("nan"), "volumes": 0,
+                "volume_exact": float("nan")}
+    wd = pd.to_datetime(w["date"])
+    errs, n_ok, n = [], 0, 0
+    for c in ("open", "high", "low", "close"):
+        if c not in w:
+            continue
+        v = pd.to_numeric(w[c], errors="coerce").to_numpy(dtype=float) / factor
+        g = tick_grid(v, wd)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            r = np.abs(v / g - np.round(v / g))
+        r = r[np.isfinite(r)]
+        errs.extend(r.tolist())
+        n_ok += int((r <= tol).sum())
+        n += len(r)
+    vol = pd.to_numeric(w.get("volume"), errors="coerce").to_numpy(dtype=float)
+    vol = vol[np.isfinite(vol) & (vol > 0)] * factor
+    # Volume is checked in SHARES, not in units of the lot, and to about one
+    # share. The vendor rounds the adjusted volume to a whole share before
+    # storing it, so dividing by a factor of 0.67 recovers the true figure only
+    # to +-0.7 shares. Demanding exactness here failed SINI on a discrepancy of
+    # 0.22 shares in 3.4 million - which is the rounding, not the factor.
+    slack = np.maximum(1.0, 2e-6 * np.abs(vol))
+    v_ok = int((np.abs(vol - np.round(vol / lot) * lot) <= slack).sum())
+    return {"prices": n,
+            "price_exact": (n_ok / n) if n else float("nan"),
+            "max_grid_error": max(errs) if errs else float("nan"),
+            "volumes": len(vol),
+            "volume_exact": (v_ok / len(vol)) if len(vol) else float("nan")}
 
 
 def level_shifts(df: pd.DataFrame, window: int = 5) -> pd.DataFrame:

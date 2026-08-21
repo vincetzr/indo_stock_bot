@@ -39,6 +39,50 @@ boundary reads +0.2%, and the split has silently vanished from the series.
 price that moved early. That asymmetry is the actual harm: for ~25 sessions
 price x volume understates traded value four-fold while both columns look
 entirely reasonable on their own.
+
+IT IS NOT ONE CASE. IT IS A SHAPE, AND THE TICK GRID FINDS IT
+--------------------------------------------------------------
+SCCO looked like a one-off until the same shape turned up twice more. In all
+three the vendor back-adjusted only the last few sessions before an ex-date
+instead of the whole history, leaving an ISLAND on a basis nothing was ever
+traded on, with a fake crash going in and a fake rally coming out.
+
+    SCCO  2024-02-01..2024-03-07  23 sessions   1:4 split
+    PYFA  2024-04-16..2024-04-19   4 sessions   1:20 rights at Rp 100
+    SINI  2026-06-29..2026-07-08   8 sessions   2:3 rights at Rp 5,000
+
+:func:`idxbot.spine.quality.suspect_islands` now looks for the shape directly -
+an off-tick-grid stretch that :func:`~idxbot.spine.quality.level_shifts` also
+calls a break - and across 937 tickers and 2.85 million bars it returns exactly
+these three and nothing else. SCCO appears only in the unrepaired cache, which
+is the repair proving itself: applying it puts every bar back on the tick grid.
+
+WHERE THE FACTORS CAME FROM, AND WHY NOT FROM THE CHART
+--------------------------------------------------------
+Both rights factors are the announced terms, not a ratio read off the price
+move - reading it off the move would be circular, since the move is the thing
+being explained. The announcement fixes the factor, and the TICK GRID then gets
+an independent vote:
+
+    PYFA  1 old share : 20 new at Rp 100, cum 2024-04-19, ex 2024-04-22.
+          TERP = (P + 20x100)/21, so the vendor's factor is TERP/P and the last
+          cum bar's adjusted close IS TERP. That reads 122.380951, which pins
+          P = Rp 570 - an exact Rp 5 tick. Dividing the window by the resulting
+          factor puts all 16 open/high/low/close values on the tick grid
+          (1,040 / 1,170 / 940 / 950 / 980 / 750 / 775 / 735 / 815 / 675 / 685
+          / 515 / 570) and all 4 volumes on a whole 100-share lot. A factor 2%
+          away scores zero on both.
+
+    SINI  2 old shares : 3 new at Rp 5,000, DPS 2026-07-10, so cum 2026-07-08
+          on T+2. TERP = (2P + 3x5,000)/5. Solving for the one tick-valued P
+          consistent with the block gives P = Rp 10,950 and TERP = Rp 7,380 -
+          and Rp 7,380.00 is exactly what sits on 2026-07-08, a bar that was
+          not used to fit it. 32 prices land on the grid, 4 volumes on the lot.
+
+Both windows also carry the vendor's volume adjustment, unlike SCCO: their
+volumes are not multiples of 100, which no IDX print ever is. So these two
+repair BOTH columns and SCCO repairs only price. That difference is not a
+style choice - it is what the lot grid says happened.
 """
 
 from __future__ import annotations
@@ -85,6 +129,41 @@ REPAIRS: List[Repair] = [
                 "last day old nominal 2024-03-07, first day new nominal "
                 "2024-03-08"),
     ),
+    Repair(
+        ticker="PYFA",
+        start=pd.Timestamp("2024-04-16"),
+        end=pd.Timestamp("2024-04-19"),
+        # vendor factor = TERP/P_cum = ((570 + 20*100)/21) / 570 = 257/1197
+        price_factor=1197 / 257,
+        volume_factor=257 / 1197,
+        reason=("the last four CUM sessions were back-adjusted for the 1:20 "
+                "rights issue while the rest of the series was left raw. The "
+                "window shows Rp 204-223 where PYFA traded at Rp 570-1,040. "
+                "Undoing it restores all 16 prices to the Rp 5 tick grid and "
+                "all 4 volumes to whole lots. Volume IS repaired here, unlike "
+                "SCCO: the vendor divided it too, which is why those four "
+                "figures are not multiples of 100."),
+        source=("PMHMETD I: 1 old share : 20 HMETD at Rp 100, cum date "
+                "2024-04-19, ex date 2024-04-22 in the regular market; "
+                "10.70bn new shares raising Rp 1.07tn"),
+    ),
+    Repair(
+        ticker="SINI",
+        start=pd.Timestamp("2026-06-29"),
+        end=pd.Timestamp("2026-07-08"),
+        # vendor factor = TERP/P_cum = 7,380 / 10,950 = 246/365
+        price_factor=365 / 246,
+        volume_factor=246 / 365,
+        reason=("the last eight CUM sessions were back-adjusted for the 2:3 "
+                "rights issue while the rest of the series was left raw. Four "
+                "of the eight are a trading halt carried at the adjusted "
+                "quote. Undoing it restores all 32 prices to the Rp 25 tick "
+                "grid - 9,125 / 9,250 / 9,000 / 9,075 / 9,975 / 10,950 - and "
+                "the volumes to whole lots."),
+        source=("PMHMETD: every 2 old shares carry 3 HMETD at Rp 5,000, "
+                "721.5m new shares for ~Rp 3.61tn, DPS 2026-07-10 so cum "
+                "2026-07-08 and ex 2026-07-09 under T+2; PTRO standby buyer"),
+    ),
 ]
 
 
@@ -109,22 +188,12 @@ class Suspect:
 #: Moving a row from here to REPAIRS or to verified_actions.VERIFIED requires
 #: reading an announcement, not looking at the chart harder.
 SUSPECT: List[Suspect] = [
-    Suspect("SINI", pd.Timestamp("2026-06-29"), 1.50,
-            "Rp 9,775 -> 6,723, a 31% fall against a 20% band at that price, "
-            "so it cannot be an ordinary day. No announcement found for "
-            "Singaraja Putra around this date. Cause genuinely unknown."),
-    Suspect("PYFA", pd.Timestamp("2024-04-16"), 5.10,
-            "CAUSE KNOWN, FACTOR NOT. Pyridam Farma announced a rights issue "
-            "on 2024-04-04: up to 10.70 billion new shares at Rp 100, raising "
-            "Rp 1.07 trillion - and 10.70bn x Rp 100 does equal Rp 1.07tn, so "
-            "the terms are internally consistent. The ex-date lands on this "
-            "shift. But the RATIO was not confirmed from any source read here, "
-            "and deriving it from the price move would be circular - the move "
-            "is the thing being explained. So the event is documented and the "
-            "window stays quarantined rather than adjusted on a guessed "
-            "factor. The window 2024-04-16..2024-04-19 also carries fractional "
-            "prices between round ones, so an adjustment was applied to four "
-            "days and nothing else."),
+    # PYFA (2024-04-16) and SINI (2026-06-29) were quarantined here because
+    # their cause was known and their factor was not. Both are now REPAIRS:
+    # the announced ratios were found, and dividing each window by the factor
+    # those ratios imply puts every price back on the tick grid and every
+    # volume on a whole lot. The grid was the missing evidence - it is what
+    # let the factor be confirmed without reading it off the move it explains.
     Suspect("ELTY", pd.Timestamp("2018-06-07"), 10.00,
             "NOT a corporate action. Bakrieland's 10:1 reverse split was "
             "proposed in June 2018 and REJECTED by shareholders - there were "

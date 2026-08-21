@@ -123,15 +123,46 @@ def test_a_split_sized_move_on_the_wrong_date_is_still_capped():
 # quarantine
 # --------------------------------------------------------------------------
 def test_a_quarantined_window_is_left_visibly_odd():
-    """Near an unverified shift the truth is unknown, so nothing is smoothed."""
-    d = series(["2024-04-15", "2024-04-16"], [820.0, 164.0])
-    r = _cap_impossible(d, "PYFA")
+    """Near an unverified shift the truth is unknown, so nothing is smoothed.
+
+    ELTY, not PYFA: PYFA left quarantine once its 1:20 rights ratio was found,
+    and a repaired window is no longer left odd on purpose.
+    """
+    d = series(["2018-06-06", "2018-06-07"], [500.0, 50.0])
+    r = _cap_impossible(d, "ELTY")
     assert r.iloc[1] < -0.5, "quarantined windows must not be quietly capped"
 
 
 def test_outside_quarantine_the_same_ticker_is_capped_normally():
     d = series(["2023-01-10", "2023-01-11"], [820.0, 164.0])
-    assert _cap_impossible(d, "PYFA").iloc[1] >= -0.35
+    assert _cap_impossible(d, "ELTY").iloc[1] >= -0.35
+
+
+def test_a_rights_ex_date_is_divided_by_its_factor_not_capped():
+    """PYFA's 1:20 rights: cum Rp 570, ex close Rp 164, TERP Rp 122.38.
+
+    The raw step is -71%, far past the ARB, so a cap turns a corporate action
+    into a 25% loss no holder took. Dividing by the factor gives what a holder
+    who took up their rights actually experienced: +34%, which is the market
+    repricing the diluted share above its theoretical value - inside the 35%
+    band IDX draws around TERP at that price.
+    """
+    d = series(["2024-04-19", "2024-04-22"], [570.0, 164.0])
+    r = _cap_impossible(d, "PYFA")
+    assert r.iloc[1] == pytest.approx(164.0 / (570.0 * 257 / 1197) - 1.0,
+                                      abs=1e-9)
+    assert r.iloc[1] > 0.0
+
+
+def test_a_split_ex_date_still_demands_the_tight_match():
+    """The rights latitude must not leak into splits, which ARE mechanical.
+
+    A 1:4 split that did not move the price by a quarter is a defect, and it
+    has to stay one. Here the step is -40% against an expected -75%, so it is
+    capped at the band rather than divided by 0.25 into a fake +140%.
+    """
+    d = series(["2024-03-07", "2024-03-08"], [10175.0, 6105.0])
+    assert _cap_impossible(d, "SCCO").iloc[1] < 0.0
 
 
 def test_the_first_bar_has_no_return():

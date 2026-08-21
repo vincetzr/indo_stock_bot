@@ -118,6 +118,23 @@ VERIFIED: List[VerifiedAction] = [
                    source="cum-right 2024-04-16, ex-right 2024-04-17 regular "
                           "market; published theoretical price Rp 204",
                    note="suspended either side of the ex-date"),
+    VerifiedAction("PYFA", "rights", pd.Timestamp("2024-04-22"),
+                   factor=257.0 / 1197.0,
+                   announced=pd.Timestamp("2024-04-04"),
+                   source="PMHMETD I: 1 old share : 20 HMETD at Rp 100, cum "
+                          "2024-04-19, ex 2024-04-22 regular market; 10.70bn "
+                          "new shares for Rp 1.07tn",
+                   note="extreme dilution - TERP is 21.5% of the cum price, "
+                        "the kind of case CLAUDE.md 5 asks for as a fixture. "
+                        "The vendor adjusted only the last four cum sessions; "
+                        "see repairs.PYFA"),
+    VerifiedAction("SINI", "rights", pd.Timestamp("2026-07-09"),
+                   factor=246.0 / 365.0,
+                   source="PMHMETD: 2 old shares : 3 HMETD at Rp 5,000, DPS "
+                          "2026-07-10 so cum 2026-07-08 under T+2; 721.5m new "
+                          "shares for ~Rp 3.61tn, PTRO standby buyer",
+                   note="the vendor adjusted only the last eight cum "
+                        "sessions, four of them a halt; see repairs.SINI"),
     VerifiedAction("DSSA", "split", pd.Timestamp("2024-07-18"), ratio=10.0,
                    source="last day old nominal 2024-07-17, first day new "
                           "nominal 2024-07-18"),
@@ -175,7 +192,40 @@ def classify(prices: pd.DataFrame, action: VerifiedAction) -> Dict[str, object]:
             f"step {step:.4f} matches neither 1.0 nor the factor "
             f"{fac if fac else float('nan'):.4f}")
 
-    # 3. Where does the action-sized step actually fall?
+    # 3. A RIGHTS issue does not have to land on its factor, and demanding
+    #    that it does is a category error this check made at first.
+    #
+    #    A split is mechanical: four shares for one, the price is a quarter,
+    #    to the tick. A theoretical ex-rights price is a VALUATION, and the
+    #    market is free to disagree with it the moment trading opens. PYFA
+    #    opened its 1:20 ex-day 14% above TERP and closed 34% above it, which
+    #    is not a data defect - it is the market repricing a share that had
+    #    just been diluted twentyfold.
+    #
+    #    The exchange's own rule is the right test, and this repo already
+    #    encodes it: on an ex-date IDX resets the reference price to the
+    #    theoretical one and the auto-rejection band applies AROUND THAT. So
+    #    the question is whether the first ex price is inside the band around
+    #    TERP. PYFA closed at Rp 164 against a TERP of Rp 122 with a 35% ARA
+    #    at that price level - inside, and legal. Widening the tolerance
+    #    instead would have been the wrong fix twice over: it would have let
+    #    a genuinely broken split through as well.
+    rights_ok = False
+    if fac and action.kind == "rights" and state == "unclear":
+        terp = prev * fac
+        rband = _band(terp, d["date"].iloc[i])
+        if abs(now / terp - 1.0) <= rband:
+            rights_ok = True
+            state, reason = "unadjusted_consistent", (
+                f"first ex price {now:,.0f} is inside the {rband:.0%} band "
+                f"around the theoretical ex-rights price {terp:,.0f} "
+                f"(cum {prev:,.0f} x {fac:.4f})")
+        else:
+            reason = (
+                f"first ex price {now:,.0f} is outside the {rband:.0%} band "
+                f"around the theoretical ex-rights price {terp:,.0f}")
+
+    # 4. Where does the action-sized step actually fall?
     #
     # Scoped to a window around the ex-date on purpose. An action-sized step
     # years away is a DIFFERENT corporate action, not a misdating of this one -
@@ -203,7 +253,12 @@ def classify(prices: pd.DataFrame, action: VerifiedAction) -> Dict[str, object]:
         state = "unadjusted_consistent"
         reason = (f"action-sized step {fac:.4f} falls on the announced "
                   f"ex-date (within {DATE_TOLERANCE_DAYS} days)")
-    elif mis is not None:
+    elif mis is not None and not rights_ok:
+        # A rights issue already confirmed against the band around its own
+        # theoretical price is not overturned by a factor-sized step weeks
+        # away. It IS still overturned for a split, which is how SCCO's
+        # misdating is caught - there the ex-date looks clean and the step
+        # sits five weeks earlier.
         state = "misdated"
         reason = (f"an action-sized step ({fac:.4f}) falls on "
                   f"{mis:%Y-%m-%d}, {abs((mis - ex).days)} days from the "

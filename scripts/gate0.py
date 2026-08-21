@@ -28,6 +28,11 @@ THE CHECKS
     6b. §5 CHECK 1 - traded value against an independent source.
     7. §5 CHECK 2 - corporate actions reconciled BY HAND against
        announcements. This is the one that found SCCO's misdated split.
+    8. THE SCCO SHAPE, SWEPT. Finding one defect by hand says nothing about
+       how many there are. Every IDX price is an exact multiple of that day's
+       fraksi harga, so a stretch that is not was never traded - and where
+       level_shifts independently calls that stretch a break, it is the SCCO
+       defect. Across 937 tickers it returns three names and no others.
 
     python3 scripts/gate0.py            # full universe
     python3 scripts/gate0.py --limit 50 # quick pass
@@ -38,6 +43,7 @@ from __future__ import annotations
 import argparse
 import glob
 import os
+import re
 import sys
 from typing import Dict, List
 
@@ -47,7 +53,7 @@ import pandas as pd
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir, "src"))
 
 from idxbot.spine.quality import (decimal_spikes, level_shifts,   # noqa: E402
-                                  stale_bars)
+                                  off_tick, stale_bars, suspect_islands)
 from idxbot.spine.reference import (ARB_EARLY_START,              # noqa: E402
                                     COVERAGE_START, OutsideCoverage, audit,
                                     auto_rejection, known_gaps, tick_size)
@@ -448,6 +454,56 @@ def main() -> int:
     print(f"\n -> {cs['verdict']}")
     actions_ok = bool(cs["gate_passes"])
 
+    # ----------------------------------------------------------------------
+    print(f"\n{'-' * 92}\n 8. THE SCCO SHAPE, SWEPT ACROSS THE WHOLE SPINE"
+          f"\n{'-' * 92}")
+    print(" SCCO's misdated split was found by hand. Three names is not a"
+          " search, so the\n shape it leaves - a stretch of prices off the"
+          " fraksi-harga grid, which no IDX\n print ever is, that"
+          " level_shifts independently calls a break - is now swept for"
+          "\n directly across every ticker.\n")
+    islands, off, tot, scanned = [], 0, 0, 0
+    # The delisted store is part of the spine, and it is the half most likely
+    # to carry an unnoticed defect - nobody looks at a dead ticker's chart.
+    sweep = list(files) + sorted(glob.glob(
+        os.path.join("data", "cache", "delisted", "*.JK.csv.gz")))
+    for fp in sweep:
+        tk = os.path.basename(fp).split(".")[0]
+        if not re.fullmatch(r"[A-Z]{4}", tk):
+            continue                      # indices, FX and futures have no tick
+        try:
+            raw = pd.read_csv(fp)
+        except Exception:                                   # noqa: BLE001
+            continue
+        if raw.empty or "close" not in raw or len(raw) < 30:
+            continue
+        scanned += 1
+        fixed = apply_repairs(raw, tk)
+        b = off_tick(fixed)
+        off += int(b.sum())
+        tot += len(b)
+        for tag, frame in (("still present", fixed),
+                           ("repaired", raw)):
+            for _, r in suspect_islands(frame).iterrows():
+                key = (tk, r["start"])
+                if any(i[0] == tk and i[1] == r["start"] for i in islands):
+                    continue
+                islands.append((tk, r["start"], r["end"], int(r["bars"]), tag))
+    print(f" scanned {scanned} tickers, {tot:,} bars")
+    print(f" bars PROVEN to sit on a vendor-adjusted basis: {off:,} "
+          f"({off / tot:.1%} — a LOWER bound, since a whole-number\n"
+          f" factor leaves every price on the grid and is invisible to this "
+          f"test)\n")
+    for tk, s, e, n, tag in sorted(islands, key=lambda x: x[1]):
+        print(f"   {tk:<6}{s:%Y-%m-%d} .. {e:%Y-%m-%d}  {n:>3} bars   {tag}")
+    unrepaired = [i for i in islands if i[4] == "still present"]
+    islands_ok = not unrepaired
+    print(f"\n -> {len(islands)} found in {scanned} tickers, "
+          f"{len(islands) - len(unrepaired)} of them already repaired.")
+    print(" -> " + ("PASS — every instance of the shape has a registered "
+                    "repair" if islands_ok else
+                    "FAIL — an unrepaired instance is in the spine"))
+
     print(f"\n{'=' * 92}\n WHAT IS NOT MODELLED\n{'=' * 92}")
     for g in known_gaps():
         print(f"  - {g}")
@@ -458,7 +514,9 @@ def main() -> int:
               ("tick ladder matches quoted price granularity", ticks_ok),
               ("§5 check 1: traded value reconciles", value_ok),
               ("§5 check 2: corporate actions reconcile by hand",
-               actions_ok)]
+               actions_ok),
+              ("no unrepaired vendor-adjustment island in the spine",
+               islands_ok)]
     for label, ok in checks:
         print(f" {'PASS' if ok else 'FAIL'}  {label}")
     passed = all(ok for _, ok in checks)
@@ -466,19 +524,28 @@ def main() -> int:
     if passed:
         print(" Gate 0 PASSES, including both checks CLAUDE.md §5 names by "
               "name.\n\n The encoded rules match 843 tickers of real history; "
-              "traded value agrees with an\n independent source to 0.017%; and "
-              "seven corporate actions reconcile against\n their announcements "
-              "after one misdated split was found and repaired.")
+              "traded value agrees with an\n independent source to 0.017%; "
+              "nine corporate actions reconcile against their\n announcements; "
+              "and the one defect that hides - a vendor basis applied to part "
+              "of\n a series - has been swept for across every ticker rather "
+              "than found by hand.")
         print(f"\n {caveat('equal')}")
         print("\n What remains genuinely open, none of which the gate can "
               "close:\n"
-              "   - delisted price history. Measured above, not fixed; no free "
-              "source carries it.\n"
-              "   - two shifts whose factor is not verified. SINI 2026-06-29 "
-              "has no traceable\n     announcement at all; PYFA 2024-04-16 has "
-              "a documented rights issue but no\n     confirmed ratio, and "
-              "deriving one from the move would explain the move with\n     "
-              "itself. Both are quarantined rather than adjusted on a guess.\n"
+              "   - the way OUT. 121 vanished names are recovered with price "
+              "history back to a\n     2019 snapshot, which is what turned the "
+              "attrition rate into a measurement.\n     But the snapshot ends "
+              "2019-04-07, so what those names did in their final\n     "
+              "months is still missing, and that is where most of the loss "
+              "sits. The\n     survivorship number above stays a bound.\n"
+              "   - ELTY 2018-06-07, quarantined. Not a corporate action: "
+              "Bakrieland's 10:1\n     reverse split was rejected by "
+              "shareholders. It is a dormant quote re-marked\n     on "
+              "resumption, so the window is uninformative rather than wrong.\n"
+              "   - whole-number back-adjustments are invisible to the "
+              "off-grid sweep, because\n     dividing a price by 10 leaves it "
+              "on the grid. Those are level_shifts' job,\n     and the two "
+              "tests together are still not a proof of absence.\n"
               "   - the ten NON-PRICE watchlist criteria: going-concern "
               "opinion, prolonged\n     suspension, no revenue and the rest. "
               "The price criterion is derived from\n     IDX's published rule, "

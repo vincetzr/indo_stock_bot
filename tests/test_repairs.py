@@ -54,9 +54,30 @@ def test_every_repair_cites_a_reason_and_a_source():
         assert r.reason and r.source, f"{r.ticker} repair is unjustified"
 
 
-def test_the_only_registered_repair_is_scco():
-    """If this grows, each addition must be a deliberate, sourced decision."""
-    assert {r.ticker for r in REPAIRS} == {"SCCO"}
+def test_the_registry_holds_exactly_the_three_swept_defects():
+    """If this grows, each addition must be a deliberate, sourced decision.
+
+    It grew once, from SCCO alone, and only because the SHAPE was swept for:
+    quality.suspect_islands finds off-tick-grid stretches that level_shifts
+    also calls a break, and across 937 tickers it returns these three names
+    and nothing else.
+    """
+    assert {r.ticker for r in REPAIRS} == {"SCCO", "PYFA", "SINI"}
+
+
+def test_the_rights_repairs_touch_volume_and_the_split_repair_does_not():
+    """Not a style choice - it is what the 100-share lot grid says happened.
+
+    SCCO's early basis change moved the price only; share count did not change
+    until the split took effect. PYFA's and SINI's windows carry volumes that
+    are not multiples of 100, which no IDX print ever is, so the vendor scaled
+    those too and undoing the price alone would leave traded value wrong.
+    """
+    by = {r.ticker: r for r in REPAIRS}
+    assert by["SCCO"].volume_factor == 1.0
+    for t in ("PYFA", "SINI"):
+        assert by[t].volume_factor != 1.0
+        assert by[t].price_factor * by[t].volume_factor == pytest.approx(1.0)
 
 
 def test_a_ticker_with_no_repair_is_untouched():
@@ -273,11 +294,21 @@ def test_every_verified_action_cites_a_source():
 # --------------------------------------------------------------------------
 def test_an_unverified_shift_is_quarantined_not_trusted():
     """SCCO proved a detected shift can be confidently wrong about its date."""
-    from idxbot.spine.repairs import SUSPECT, suspect_mask, suspects_for
+    from idxbot.spine.repairs import SUSPECT, suspect_mask
     assert SUSPECT, "the unverified shifts must be recorded somewhere"
-    d = frame(pd.to_datetime(["2024-04-16", "2024-08-01"]), [100.0, 100.0])
-    m = suspect_mask(d, "PYFA")
+    d = frame(pd.to_datetime(["2018-06-07", "2018-10-01"]), [100.0, 100.0])
+    m = suspect_mask(d, "ELTY")
     assert bool(m.iloc[0]) and not bool(m.iloc[1])
+
+
+def test_a_shift_leaves_quarantine_only_when_its_factor_is_confirmed():
+    """PYFA and SINI sat in SUSPECT while their cause was known and their
+    factor was not. Both left only once the announced ratio was found - never
+    by reading the factor off the move it was supposed to explain."""
+    from idxbot.spine.repairs import suspects_for
+    for t in ("PYFA", "SINI"):
+        assert not suspects_for(t)
+        assert any(r.ticker == t and r.source for r in REPAIRS)
 
 
 def test_a_clean_ticker_has_no_quarantine():
