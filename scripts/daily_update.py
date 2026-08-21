@@ -121,6 +121,11 @@ def main() -> int:
                     help="pre = 2h before the open; post = 2h after the close")
     ap.add_argument("--min-mcap", type=float, default=1e13)
     ap.add_argument("--names", type=int, default=60)
+    ap.add_argument("--no-broker", action="store_true",
+                    help="skip the broker-flow section (it makes network "
+                         "requests to a third-party public page)")
+    ap.add_argument("--broker-names", type=int, default=5)
+    ap.add_argument("--broker-days", type=int, default=20)
     ap.add_argument("--no-refresh", action="store_true",
                     help="report from cache without touching the network")
     args = ap.parse_args()
@@ -196,6 +201,39 @@ def main() -> int:
               f"{int(r.get('daily_bars_in_leg', 0)):>7}d"
               f"{r.get('above_200d', float('nan')):>+10.1%}"
               f"{r.get('ret_1m', float('nan')):>+8.1%}")
+
+    if not args.no_broker:
+        print(f"\n{'=' * 92}\n BROKER FLOW — bounded, not guessed\n{'=' * 92}")
+        try:
+            from broker_flow import fetch_views
+            from idxbot.broker_bounds import (certain_sign, cumulative_bounds,
+                                              midpoint, settled_flow_share)
+            watch = [t for t in universe[:args.broker_names]]
+            bdays = pd.bdate_range(end=asof, periods=args.broker_days)
+            print(f" top {len(watch)} by market cap, last {args.broker_days} "
+                  f"sessions, combined view. Everything is cached, so a\n "
+                  f"daily run fetches one new session a name.")
+            for tk in watch:
+                frames, _ = fetch_views(tk, bdays, Cache(
+                    cfg.path("data.cache_dir", "data/cache")), single=True)
+                cum = cumulative_bounds(frames)
+                if cum.empty:
+                    print(f" {tk:<6} no data")
+                    continue
+                cum["mid"] = midpoint(cum)
+                sure = certain_sign(cum)
+                top = cum.reindex(cum["mid"].abs().sort_values(
+                    ascending=False).index).head(3)
+                who = ", ".join(
+                    f"{r.broker} {r.mid:+,.0f}"
+                    + ("" if r.net_lo > 0 or r.net_hi < 0 else "?")
+                    for r in top.itertuples())
+                print(f" {tk:<6} {settled_flow_share(cum):>4.0%} of flow proven"
+                      f"   {who}")
+            print(" A trailing ? means the bracket spans zero — direction not "
+                  "settled by this source.")
+        except Exception as e:                              # noqa: BLE001
+            print(f" broker flow unavailable: {e}")
 
     print(f"\n{'=' * 92}\n THE PLAN — the part of this repo with a measured "
           f"premium behind it\n{'=' * 92}")
