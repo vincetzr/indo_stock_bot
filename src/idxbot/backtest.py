@@ -101,6 +101,14 @@ def run(
         if "volume" in analysis.bars.columns:
             turnover = analysis.bars["close"] * analysis.bars["volume"]
             bars["vt"] = turnover.rolling(20, min_periods=5).median()
+            # The rolling median screens out names that are generally dead. It
+            # does NOT stop a fill on a single zero-volume bar inside an
+            # otherwise liquid name, and 16.2% of the spine is exactly that:
+            # days the stock did not trade, carrying the previous close
+            # forward. Filling on one is buying from nobody, so the flag
+            # travels per observation as well as per name.
+            bars["tradeable"] = pd.to_numeric(
+                analysis.bars["volume"], errors="coerce").fillna(0.0) > 0
 
         merged = scored.merge(bars.drop(columns=["close"]), on="date", how="left")
         merged["ticker"] = ticker

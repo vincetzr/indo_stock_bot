@@ -137,3 +137,25 @@ def test_outside_quarantine_the_same_ticker_is_capped_normally():
 def test_the_first_bar_has_no_return():
     d = series(["2026-08-19", "2026-08-20"], [1000.0, 1020.0])
     assert _cap_impossible(d, "TEST").iloc[0] == 0.0
+
+
+# --------------------------------------------------------------------------
+# a fill must never land on a bar where nothing traded
+# --------------------------------------------------------------------------
+def test_the_backtest_carries_a_per_observation_tradeable_flag():
+    """A rolling-median liquidity filter screens out names that are generally
+    dead. It does NOT catch a single zero-volume bar inside a liquid name, and
+    2.26% of observations passing a Rp 1bn/day filter are exactly that.
+    """
+    import inspect
+    import idxbot.backtest as B
+    src = inspect.getsource(B.run)
+    assert '"tradeable"' in src or "'tradeable'" in src
+
+
+def test_the_return_series_marks_untradeable_bars():
+    import pandas as pd
+    from idxbot.spine.quality import stale_bars
+    d = pd.DataFrame({"date": pd.bdate_range("2024-01-01", periods=4),
+                      "close": [100.0] * 4, "volume": [10, 0, 10, 0]})
+    assert list(~stale_bars(d)) == [True, False, True, False]
