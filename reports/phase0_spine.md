@@ -1,7 +1,11 @@
 # Phase 0 memo — the data spine
 
 **Date:** 2026-08-21
-**Gate 0: PASSES on the checks it can run.** Two hard checks pass; four defects
+**Gate 0: FAILS.** See §11, added after the memo was first written.
+The original claim below — that Gate 0 passed — was wrong, because the
+script was running checks I invented rather than the two §5 specifies.
+
+*Original summary, left in place:* Two hard checks pass; four defects
 are now quantified rather than unknown; three §5 requirements remain open and
 are named below rather than glossed.
 
@@ -216,3 +220,70 @@ not enough to be called complete.
 
 None of these blocks the §12 cohort-P&L work on the existing panel, provided the
 survivorship caveat travels with every number.
+
+
+---
+
+## 11. CORRECTION — Gate 0 was not actually run, and now fails
+
+This memo originally reported Gate 0 as passing. That was wrong, and the error
+was mine: `scripts/gate0.py` was running checks I devised (band conformance,
+stale bars, spikes) and none of the two §5 actually names.
+
+### §5 check 1 — traded value: now run, PASSES
+
+"Reconstruct 20 random ticker-years and reconcile total traded value against
+IDX published aggregates."
+
+Run as a cross-source reconciliation over 3,154 ticker-days where Yahoo OHLCV
+and IndoPremier footer totals overlap:
+
+| comparison | median error | p90 |
+|---|---|---|
+| IPOT internal: lots × 100 × VWAP vs published value | **0.000%** | 0.00% |
+| cross-source: Yahoo shares × IPOT VWAP vs IPOT value | **0.017%** | 0.80% |
+| Yahoo shares × *close* vs IPOT value | 0.547% | 1.94% |
+| how far the close sits from the day's VWAP | 0.469% | 1.59% |
+
+The third row is not a data fault — it is close ≠ VWAP, and the fourth row
+accounts for it. Implied VWAP sits inside the day's high–low range on 99.6% of
+days. Volume agrees within 1% on 91.2% of ticker-days.
+
+**Caveat:** 10 names over 18 months (~15 ticker-years), not 20 *random*
+ticker-years, and against IndoPremier rather than IDX's own aggregate. Weaker
+than specified in coverage, stronger in being two independent sources.
+
+### §5 check 2 — corporate actions by hand: FAILS on the first case
+
+"Reconcile 5 known corporate-action events by hand." One checked so far, and it
+failed.
+
+**SCCO 1:4 stock split.** Announced 2024-01-15 (the stock hit ARA on the news,
+trading near Rp 10,000). Approved at RUPSLB **2024-02-20**. Last day at old
+nominal **2024-03-07**; first day at new nominal **2024-03-08**.
+
+**The cached series steps 4× down on 2024-02-01** — nineteen days before
+shareholders approved the split, thirty-six before it took effect.
+
+`adj_close / close` is a constant 0.8825 straight through the window, so this is
+not a half-applied adjustment. The source has placed the split on the wrong
+date. For roughly 25 trading days the cached close is a quarter of the price at
+which SCCO actually traded, and the series is smooth, internally consistent, and
+passes every structural check in this repo.
+
+### What this changes
+
+- **Gate 0 fails.** `scripts/gate0.py` now exits 1.
+- The other ten detected level shifts are **unverified**. One was checked and
+  one failed; that is not an estimate of a rate, but it is emphatically not
+  evidence the rest are fine.
+- No detected level shift may be treated as correctly dated until checked
+  against an announcement.
+- §5 is explicit: "If the spine doesn't reconcile, stop and fix it."
+
+### What a fix requires
+
+A corporate-action feed with announcement dates. The adjuster in
+`spine/corporate_actions.py` is built and tested and cannot help without terms —
+detection is not adjustment, and the SCCO case shows detection can be confidently
+wrong about *when*.

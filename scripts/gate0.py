@@ -46,6 +46,8 @@ from idxbot.spine.reference import (COVERAGE_START,               # noqa: E402
                                     known_gaps)
 from idxbot.spine.universe import (audit_universe, bias_estimate,  # noqa: E402
                                    caveat, liquidity_shield)
+from idxbot.spine.verified_actions import (reconciliation,        # noqa: E402
+                                           summary as ca_summary)
 
 OHLCV = os.path.join("data", "cache", "ohlcv")
 
@@ -232,13 +234,34 @@ def main() -> int:
     else:
         print(" -> delisted names are present; not survivorship-biased.")
 
+    print(f"\n{'-' * 92}\n 7. GATE 0 CHECK 2 — corporate actions reconciled "
+          f"BY HAND\n{'-' * 92}")
+    R = reconciliation()
+    cs = ca_summary()
+    print(f" §5 requires {cs['required']} events checked against announcements."
+          f" Checked so far: {cs['checked']}.\n")
+    if len(R):
+        print(f" {'ticker':<8}{'kind':<8}{'announced ex':<14}"
+              f"{'data breaks':<14}{'error':>7}  reconciles")
+        for _, r in R.iterrows():
+            print(f" {r['ticker']:<8}{r['kind']:<8}"
+                  f"{r['announced_ex']:%Y-%m-%d    }"
+                  f"{r['observed_break']:%Y-%m-%d    }"
+                  f"{r['error_days']:>6}d  "
+                  f"{'yes' if r['reconciles'] else 'NO'}")
+        for _, r in R[R["reconciles"] == False].iterrows():   # noqa: E712
+            print(f"\n {r['ticker']}: {r['note']}")
+    print(f"\n -> {cs['verdict']}")
+
     print(f"\n{'=' * 92}\n WHAT IS NOT MODELLED\n{'=' * 92}")
     for g in known_gaps():
         print(f"  - {g}")
 
     print(f"\n{'=' * 92}\n VERDICT\n{'=' * 92}")
     checks = [("schedules coherent", schedules_ok),
-              ("real falls respect the encoded bands", bands_ok)]
+              ("real falls respect the encoded bands", bands_ok),
+              ("§5 check 2: corporate actions reconcile by hand",
+               ca_summary()["gate_passes"])]
     for label, ok in checks:
         print(f" {'PASS' if ok else 'FAIL'}  {label}")
     passed = all(ok for _, ok in checks)
