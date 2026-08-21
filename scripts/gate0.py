@@ -44,6 +44,8 @@ from idxbot.spine.quality import (decimal_spikes, level_shifts,   # noqa: E402
 from idxbot.spine.reference import (COVERAGE_START,               # noqa: E402
                                     OutsideCoverage, audit, auto_rejection,
                                     known_gaps)
+from idxbot.spine.universe import (audit_universe, bias_estimate,  # noqa: E402
+                                   caveat, liquidity_shield)
 
 OHLCV = os.path.join("data", "cache", "ohlcv")
 
@@ -204,6 +206,32 @@ def main() -> int:
               + ", ".join(f"{t}({n})" for t, n
                           in P.groupby('ticker').size().items()))
 
+    print(f"\n{'-' * 92}\n 6. SURVIVORSHIP — is the universe made only of "
+          f"winners?\n{'-' * 92}")
+    U = audit_universe(list(stale_by_ticker.keys()))
+    print(f" {U['universe']} tickers. Of {U['checked']} companies known to have"
+          f" been delisted from IDX,\n {len(U['present'])} are present.")
+    if U["survivorship_biased"]:
+        print(f" -> SURVIVORSHIP-BIASED. ~70 companies delisted in 2025 alone, "
+              f"and by construction\n those are the names that went to zero. A "
+              f"backtest here is a backtest on winners.\n")
+        print(f" {'delist rate':>12}{'equal-weight bias':>20}"
+              f"{'cap-weight bias':>18}")
+        for f in (0.01, 0.04, 0.08):
+            eq = bias_estimate(0.10, f, weighting="equal")["bias"] * 100
+            cp = bias_estimate(0.10, f, weighting="cap")["bias"] * 100
+            print(f" {f:>12.0%}{eq:>18.1f}pp{cp:>16.2f}pp")
+        sh = liquidity_shield(pd.Series(stale_by_ticker), 0.10)
+        if sh:
+            print(f"\n The bias is concentrated in illiquid names - a company "
+                  f"stops trading long\n before it delists. Filtering to under "
+                  f"10% stale bars keeps {sh['kept']} of\n {sh['names']} names "
+                  f"({sh['kept_fraction']:.0%}) and removes most of the exposure. "
+                  f"A cap-weighted\n large-cap book carries very little of this; "
+                  f"an equal-weighted small-cap one\n carries nearly all of it.")
+    else:
+        print(" -> delisted names are present; not survivorship-biased.")
+
     print(f"\n{'=' * 92}\n WHAT IS NOT MODELLED\n{'=' * 92}")
     for g in known_gaps():
         print(f"  - {g}")
@@ -220,10 +248,11 @@ def main() -> int:
               "match 843 tickers of\n real history, and the three data defects "
               "above are QUANTIFIED rather than\n unknown - which is what the "
               "gate is for.")
-        print("\n Still outstanding before §5 is fully met: delisted names "
-              "(the spine is\n survivorship-biased as it stands), a "
-              "corporate-action feed to adjust rather\n than merely detect, "
-              "and the broker-code master.")
+        print(f"\n {caveat('equal')}")
+        print("\n Still outstanding before §5 is fully met: delisted price "
+              "history (measured\n above, not fixed), a corporate-action feed "
+              "to ADJUST rather than merely\n detect, and the broker-code "
+              "master.")
     else:
         print(" Gate 0 FAILS. Do not build on this spine until the failing "
               "check above is\n understood — CLAUDE.md §5: stop and fix it.")
