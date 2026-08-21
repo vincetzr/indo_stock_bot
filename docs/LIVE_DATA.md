@@ -516,3 +516,40 @@ this store ever held was filed unusable and the layer-2 protocol never ran. The
 data was not too thin; **the gate was the wrong shape.** It is coverage now, and
 the history is a backfill rather than a year of waiting — the source serves back
 to roughly 2008.
+
+### The backfill, done
+
+`--collect BBCA --days 250 --single-view` took about five minutes and returned
+**228 sessions back to 2025-09-08, 46 brokers, 77% median coverage.** That is the
+panel this repo has been describing as a year of forward collection away.
+
+Bounded over the whole year:
+
+| broker | net (lots) | bracket | sessions seen | verdict |
+|---|---|---|---|---|
+| AK | −18,287,044 | ±4% | 227 | **net seller** |
+| ZP | −13,571,034 | ±4% | 228 | **net seller** |
+| SQ | +10,305,808 | ±64% | 220 | **net buyer** |
+| CC | +2,522,904 | ±9% | 228 | **net buyer** |
+| DX | +7,811,502 | ±232% | 70 | undetermined |
+
+63% of the year's net flow has a proven direction. Brokers that appear
+occasionally — DX on 70 sessions, DR on 10 — are reported as undetermined,
+because over 228 days the accumulated censoring genuinely swamps them.
+
+Note that ZP is a proven net **seller** over the year and a proven net **buyer**
+over the most recent eighteen sessions. Both are correct; they are answers to
+different questions, and the window has to be stated with the claim.
+
+### Four checks, and only one of them is external
+
+| check | what it tests | measured |
+|---|---|---|
+| zero-sum residual | the parse | 0 lots |
+| foreign + domestic = all | the views against each other | 0 lots over 37 broker-sides |
+| reproduces published `F.NVal` | the interpretation | 0.7% median |
+| **agrees with Yahoo's volume** | **the data itself** | **0.01% median** |
+
+The first three would all pass happily if IndoPremier's numbers were simply
+wrong. Only the last one is evidence about the data rather than about the code
+reading it, because Yahoo is a different vendor down a different path.

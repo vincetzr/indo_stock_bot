@@ -81,6 +81,42 @@ from idxbot.broker_bounds import (                        # noqa: E402
 VIEWS = ("all", "F", "D")
 
 
+def tape_agreement(ticker: str, stats: List[Dict]) -> Optional[pd.Series]:
+    """Check the source's own session total against a completely separate feed.
+
+    THE ONLY GENUINELY EXTERNAL CHECK AVAILABLE. Everything else here is
+    internal - the zero-sum residual tests the parse, the foreign/domestic
+    partition tests the views against each other, the net-foreign figure tests
+    the interpretation. All three would pass happily if IndoPremier's numbers
+    were simply wrong.
+
+    Yahoo's daily volume reaches this machine down an entirely different path
+    from a different vendor. Agreement between the two is evidence about the
+    DATA rather than about the code reading it, and it is the only line here
+    that offers that.
+    """
+    try:
+        from idxbot.data.ohlcv import YahooOHLCV
+        cfg = load_config()
+        loader = YahooOHLCV(cfg, Cache(cfg.path("data.cache_dir", "data/cache")))
+        d = loader.get(f"{ticker}.JK", max_age=86400 * 7)
+        if d is None or d.empty:
+            return None
+        tape = d.set_index("date")["volume"].astype(float) / 100.0  # lots
+    except Exception:                                              # noqa: BLE001
+        return None
+    out = {}
+    for row in stats:
+        # a session whose footer gave no total has nothing to compare
+        total = row.get("total_lot")
+        if total is None or not np.isfinite(total):
+            continue
+        day = pd.Timestamp(row["date"]).normalize()
+        if day in tape.index and float(tape[day]) > 0:
+            out[day] = abs(total - float(tape[day])) / float(tape[day])
+    return pd.Series(out) if out else None
+
+
 def fetch_views(ticker: str, days: Sequence[pd.Timestamp], cache,
                 board: str = "RG", delay: float = 1.1, single: bool = False
                 ) -> Tuple[List[pd.DataFrame], List[Dict]]:
@@ -151,6 +187,16 @@ def report(ticker: str, frames: List[pd.DataFrame], stats: List[Dict],
               f"{e.median():.1%} median, {e.max():.1%} worst — an independent "
               f"confirmation\n                           that these three views "
               f"mean what they appear to mean")
+
+    tape = tape_agreement(ticker, stats)
+    if tape is not None and len(tape):
+        print(f" tape cross-check          the session total agrees with "
+              f"Yahoo's volume - a separate\n                           vendor "
+              f"down a separate path - to {tape.median():.2%} median, "
+              f"{tape.max():.2%} worst\n                           over "
+              f"{len(tape)} sessions. The only check here that is about the "
+              f"DATA\n                           rather than about the code "
+              f"reading it.")
 
     cum = cumulative_bounds(frames)
     if cum.empty:
