@@ -1,0 +1,735 @@
+<title>The IDX Yield Book</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  --paper:#EFF1EE; --card:#F7F8F6; --ink:#171D1E; --muted:#5D6866;
+  --rule:#CBD1CC; --rule-soft:#DDE2DD;
+  --brass:#8A6A2F; --brass-soft:#8A6A2F1f;
+  --ok:#2F6B60; --no:#8C3A2E; --cash:#6C6357;
+  --shadow:0 1px 2px #171d1e0d, 0 8px 24px #171d1e0a;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#101617; --card:#161D1E; --ink:#DDE3E0; --muted:#8B9995;
+    --rule:#283132; --rule-soft:#1E2627;
+    --brass:#C9A55E; --brass-soft:#c9a55e26;
+    --ok:#6BA79A; --no:#C97A69; --cash:#9A9184;
+    --shadow:0 1px 2px #0006, 0 8px 24px #0004;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#101617; --card:#161D1E; --ink:#DDE3E0; --muted:#8B9995;
+  --rule:#283132; --rule-soft:#1E2627;
+  --brass:#C9A55E; --brass-soft:#c9a55e26;
+  --ok:#6BA79A; --no:#C97A69; --cash:#9A9184;
+  --shadow:0 1px 2px #0006, 0 8px 24px #0004;
+}
+*{box-sizing:border-box}
+body{
+  background:var(--paper); color:var(--ink);
+  font:400 16.5px/1.65 "IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  margin:0; padding:0 1.25rem 6rem; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1120px;margin:0 auto}
+.col{max-width:68ch;margin-inline:auto}
+h1,h2,h3{font-family:Spectral,Georgia,"Times New Roman",serif;text-wrap:balance;
+  font-weight:600;letter-spacing:-.005em;margin:0}
+h1{font-size:clamp(2.1rem,5.2vw,3.1rem);line-height:1.08}
+h2{font-size:clamp(1.45rem,3vw,1.9rem);line-height:1.18;margin-bottom:.5rem}
+h3{font-size:1.06rem;line-height:1.3;margin:2rem 0 .5rem;font-weight:600}
+p{margin:0 0 1.05em}
+a{color:var(--brass)}
+strong{font-weight:600}
+em{font-style:italic}
+.mono,code,td.n,th.n{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  font-variant-numeric:tabular-nums}
+code{font-size:.9em;background:var(--brass-soft);padding:.1em .35em;border-radius:3px}
+
+/* ---- masthead ---- */
+header.top{border-bottom:1px solid var(--rule);padding:3.5rem 0 2rem;margin-bottom:2.5rem}
+.kicker{font-family:"IBM Plex Mono",monospace;font-size:.72rem;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--brass);margin-bottom:1rem}
+.sub{color:var(--muted);font-size:1.06rem;margin-top:1rem;max-width:60ch}
+.stamp{font-family:"IBM Plex Mono",monospace;font-size:.74rem;color:var(--muted);
+  margin-top:1.5rem;letter-spacing:.03em}
+
+/* ---- verdict ---- */
+.verdict{display:grid;gap:1px;background:var(--rule);border:1px solid var(--rule);
+  grid-template-columns:repeat(auto-fit,minmax(190px,1fr));margin:2.5rem 0}
+.v{background:var(--card);padding:1.35rem 1.4rem}
+.v .lab{font-family:"IBM Plex Mono",monospace;font-size:.68rem;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--muted)}
+.v .num{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;
+  font-size:2rem;font-weight:500;line-height:1.15;margin:.4rem 0 .25rem}
+.v .note{font-size:.83rem;color:var(--muted);line-height:1.45}
+.v.up .num{color:var(--ok)} .v.down .num{color:var(--no)} .v.key .num{color:var(--brass)}
+
+/* ---- sections ---- */
+section{margin:4rem 0}
+.eyebrow{display:flex;align-items:baseline;gap:.7rem;margin-bottom:.9rem}
+.eyebrow .no{font-family:"IBM Plex Mono",monospace;font-size:.78rem;color:var(--brass);
+  font-weight:600;letter-spacing:.06em}
+.lede{color:var(--muted);font-size:1.02rem;margin-bottom:1.4rem}
+
+/* ---- evidence blocks ---- */
+figure{margin:2rem 0}
+figcaption{font-size:.83rem;color:var(--muted);margin-top:.7rem;line-height:1.5}
+.scroll{overflow-x:auto;border:1px solid var(--rule);background:var(--card);
+  box-shadow:var(--shadow)}
+table{border-collapse:collapse;width:100%;font-size:.87rem;
+  font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+caption{text-align:left;font-family:"IBM Plex Sans",sans-serif;font-size:.8rem;
+  color:var(--muted);padding:.85rem 1rem;border-bottom:1px solid var(--rule-soft);
+  letter-spacing:.02em}
+th,td{padding:.5rem .85rem;text-align:right;white-space:nowrap;
+  border-bottom:1px solid var(--rule-soft)}
+th:first-child,td:first-child{text-align:left}
+thead th{font-weight:600;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--muted);border-bottom:1px solid var(--rule)}
+tbody tr:last-child td{border-bottom:0}
+tr.tot td{border-top:1px solid var(--rule);font-weight:600}
+td.pos{color:var(--ok)} td.neg{color:var(--no)}
+td.hi{color:var(--brass);font-weight:500}
+
+/* ---- rails ---- */
+.rail{border-left:2px solid var(--rule);padding-left:1.35rem;margin:1.8rem 0}
+.rail.ok{border-color:var(--ok)}
+.rail.no{border-color:var(--no)}
+.rail.key{border-color:var(--brass)}
+.rail h3{margin-top:0}
+.rail p:last-child{margin-bottom:0}
+
+/* ---- charts ---- */
+.chart{position:relative;background:var(--card);border:1px solid var(--rule);
+  padding:1.1rem 1rem .6rem;box-shadow:var(--shadow)}
+canvas{display:block;width:100%;height:auto}
+.legend{display:flex;flex-wrap:wrap;gap:.35rem 1.3rem;margin:.9rem .25rem .2rem;
+  font-family:"IBM Plex Mono",monospace;font-size:.76rem}
+.legend span{display:inline-flex;align-items:center;gap:.45rem;color:var(--muted)}
+.legend i{width:14px;height:2.5px;border-radius:2px;flex:none}
+
+/* ---- misc ---- */
+ol.kill{counter-reset:k;list-style:none;padding:0;margin:1.2rem 0}
+ol.kill li{counter-increment:k;position:relative;padding-left:2.3rem;margin-bottom:1rem}
+ol.kill li::before{content:counter(k);position:absolute;left:0;top:.1em;
+  font-family:"IBM Plex Mono",monospace;font-size:.78rem;font-weight:600;
+  color:var(--brass);border:1px solid var(--brass);border-radius:50%;
+  width:1.5rem;height:1.5rem;display:grid;place-items:center}
+ul.plain{list-style:none;padding:0;margin:1.2rem 0}
+ul.plain li{position:relative;padding-left:1.4rem;margin-bottom:.7rem}
+ul.plain li::before{content:"";position:absolute;left:.15rem;top:.68em;
+  width:5px;height:5px;background:var(--brass);border-radius:50%}
+.tag{font-family:"IBM Plex Mono",monospace;font-size:.68rem;letter-spacing:.09em;
+  text-transform:uppercase;padding:.2rem .5rem;border:1px solid currentColor;
+  border-radius:2px;white-space:nowrap}
+.tag.ok{color:var(--ok)} .tag.no{color:var(--no)}
+hr.div{border:0;border-top:1px solid var(--rule);margin:4rem 0}
+footer{border-top:1px solid var(--rule);margin-top:4rem;padding-top:1.6rem;
+  font-size:.83rem;color:var(--muted)}
+@media (max-width:640px){
+  body{font-size:16px;padding:0 1rem 4rem}
+  .v .num{font-size:1.65rem}
+  th,td{padding:.45rem .6rem;font-size:.8rem}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+:focus-visible{outline:2px solid var(--brass);outline-offset:3px}
+</style>
+<div class="wrap">
+
+<header class="top">
+  <div class="col">
+    <div class="kicker">IDX research · 2015–2026 · 788 names</div>
+    <h1>The IDX Yield Book</h1>
+    <p class="sub">Thirteen ways to pick Indonesian stocks were tested on eleven
+    years of data. Twelve failed. This is what the one survivor is worth, what it
+    costs to hold, and the three words in the brief that had to go.</p>
+    <div class="stamp">Prepared 20 August 2026 · data through 19 August 2026 ·
+    every figure reproducible from the repository</div>
+  </div>
+</header>
+
+<div class="col">
+  <div class="verdict">
+    <div class="v key">
+      <div class="lab">Planned return</div>
+      <div class="num">6.74<span style="font-size:.55em">%/yr</span></div>
+      <div class="note">Half the measured premium, deliberately. Gross 8.89%.</div>
+    </div>
+    <div class="v down">
+      <div class="lab">Worst drawdown</div>
+      <div class="num">−55.8<span style="font-size:.55em">%</span></div>
+      <div class="note">Rp 475m on Rp 850m. Not a tail case — it happened.</div>
+    </div>
+    <div class="v up">
+      <div class="lab">vs a bank deposit</div>
+      <div class="num">+1.24<span style="font-size:.55em">%/yr</span></div>
+      <div class="note">Domestic holder reinvesting. A foreign holder: −0.12%.</div>
+    </div>
+  </div>
+
+  <div class="rail key">
+    <p><strong>The trade being offered, in one sentence.</strong> You accept the
+    possibility of losing more than half your money in order to earn about one
+    and a quarter points a year over a rupiah time deposit — and only if you are
+    an Indonesian taxpayer reinvesting dividends at home. A foreign holder is
+    projected to lose to the deposit outright and should not run this book.</p>
+    <p>If that trade is not wanted, the deposit is the better answer. Saying so
+    is the job.</p>
+  </div>
+</div>
+
+<section>
+  <div class="col">
+    <div class="eyebrow"><span class="no">01</span><h2>What actually happened</h2></div>
+    <p class="lede">Growth of Rp 1, log scale. The book is the top 30 IDX names by
+    trailing dividend yield, equal weight, rebalanced once a year, dividends
+    reinvested, 0.56% charged on every round trip.</p>
+  </div>
+
+  <figure>
+    <div class="chart">
+      <canvas id="growth" width="1040" height="420"
+        role="img" aria-label="Growth of one rupiah, 2017 to 2026. The yield book
+        ends at 2.27x, a bank deposit at 1.67x, the equal-weight universe at
+        1.54x and the IHSG at 1.20x."></canvas>
+      <div class="legend">
+        <span><i style="background:var(--brass)"></i>Yield book · 8.89%/yr</span>
+        <span><i style="background:var(--cash)"></i>Rupiah deposit · 5.50%/yr</span>
+        <span><i style="background:var(--ok)"></i>Equal-weight universe · 4.60%/yr</span>
+        <span><i style="background:var(--no)"></i>IHSG · 1.88%/yr</span>
+      </div>
+    </div>
+    <figcaption>The deposit line is the one that matters. For most of this
+    sample it is above every equity line, and it crosses below only in the last
+    two years.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="chart">
+      <canvas id="under" width="1040" height="300"
+        role="img" aria-label="Drawdown from peak. All three equity lines fall
+        between 40 and 56 percent; the deposit never falls."></canvas>
+      <div class="legend">
+        <span><i style="background:var(--brass)"></i>Yield book</span>
+        <span><i style="background:var(--ok)"></i>Equal-weight universe</span>
+        <span><i style="background:var(--no)"></i>IHSG</span>
+      </div>
+    </div>
+    <figcaption>Distance below the previous peak, measured daily. The yield book
+    is a <em>return</em> improvement, not a risk one — it falls as far as
+    everything else. Measuring this on annual snapshots instead of daily bars
+    reported −2.6% for the same book; that bug is documented in Result 125.</figcaption>
+  </figure>
+</section>
+
+<hr class="div">
+
+<section>
+  <div class="col">
+    <div class="eyebrow"><span class="no">02</span><h2>What is certain</h2></div>
+    <p class="lede">These are not forecasts. They are properties of the
+    arithmetic, and they are where most of the achievable improvement lives.</p>
+
+    <div class="rail ok">
+      <h3>Cost — 0.56% a round trip</h3>
+      <p>Buy 0.28%, sell 0.18% plus the 0.1% sales tax. The only figure in this
+      project guaranteed to be exactly what it says. <strong>Trading less is the
+      one return improvement that cannot fail</strong>, which is why the book
+      rebalances annually and not monthly: 0.19%/yr against 0.73%, for no
+      measured difference in return.</p>
+    </div>
+
+    <div class="rail ok">
+      <h3>Breadth — roughly fifteen points a year, for free</h3>
+      <p>Books drawn <strong>at random</strong> from the eligible universe, so
+      nothing here is a selection effect.</p>
+    </div>
+  </div>
+
+  <figure>
+    <div class="scroll">
+      <table>
+        <caption>Random equal-weight books, monthly rebalance, 25 draws averaged</caption>
+        <thead><tr><th>Names held</th><th>Arithmetic / mo</th><th>Geometric / mo</th>
+        <th>Variance drag</th><th>Turnover cost</th><th>CAGR</th><th>Max DD</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>0.547%</td><td>−0.412%</td><td>0.959%</td><td>0.551%</td><td class="neg">−10.40%</td><td>−86.5%</td></tr>
+          <tr><td>5</td><td>0.513%</td><td>0.167%</td><td>0.345%</td><td>0.529%</td><td class="neg">−4.08%</td><td>−73.3%</td></tr>
+          <tr><td>10</td><td>0.571%</td><td>0.282%</td><td>0.289%</td><td>0.501%</td><td class="neg">−2.54%</td><td>−66.5%</td></tr>
+          <tr><td>20</td><td>0.578%</td><td>0.350%</td><td>0.229%</td><td>0.445%</td><td class="neg">−1.12%</td><td>−63.0%</td></tr>
+          <tr><td>30</td><td>0.550%</td><td>0.332%</td><td>0.218%</td><td>0.387%</td><td class="neg">−0.64%</td><td>−60.9%</td></tr>
+          <tr><td>50</td><td>0.542%</td><td>0.339%</td><td>0.203%</td><td>0.275%</td><td class="pos">+0.81%</td><td>−58.4%</td></tr>
+          <tr><td>100</td><td>0.569%</td><td>0.371%</td><td>0.198%</td><td>0.083%</td><td class="pos">+3.57%</td><td>−56.0%</td></tr>
+          <tr class="tot"><td>all (~104)</td><td>0.566%</td><td>0.370%</td><td>0.197%</td><td>0.027%</td><td class="pos">+4.26%</td><td>−56.0%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <figcaption>The arithmetic mean is flat across the entire range — as it must
+    be, for random draws. The whole ~15-point gap is variance drag (0.76%/month)
+    plus turnover (0.52%/month). No forecast appears anywhere in this table.</figcaption>
+  </figure>
+
+  <div class="col">
+    <div class="rail ok">
+      <h3>Income — 87% of liquid IDX names pay a dividend</h3>
+      <p>Every study in this repository before this one read the raw close
+      instead of the adjusted close, and therefore silently excluded every
+      dividend ever paid. Correcting it lifts the equal-weight liquid book from
+      <strong>2.23%/yr to 4.26%/yr</strong> — a correction larger than any edge
+      this project had ever claimed to find.</p>
+    </div>
+    <div class="rail ok">
+      <h3>Tax — the exemption is worth more than most signals</h3>
+      <p>Dividends reinvested in Indonesia are exempt under PP 9/2021.
+      Otherwise 10% final for a domestic individual, 20% or the treaty rate for
+      a foreign holder. On this book the exemption is worth about
+      <strong>Rp 5.8m a year per Rp 1bn</strong> deployed — for filing a form.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="div">
+
+<section>
+  <div class="col">
+    <div class="eyebrow"><span class="no">03</span><h2>What the market pays</h2></div>
+    <p class="lede">The hurdle, before any strategy is judged against it.</p>
+  </div>
+
+  <figure>
+    <div class="scroll">
+      <table>
+        <caption>2015–2026, total return where available</caption>
+        <thead><tr><th>Series</th><th>Final</th><th>CAGR</th><th>Real</th><th>Max DD</th></tr></thead>
+        <tbody>
+          <tr><td>Equal-weight liquid, total return</td><td>1.54×</td><td>4.26%</td><td>1.23%</td><td>−56.0%</td></tr>
+          <tr><td>IHSG price index</td><td>1.33×</td><td>2.73%</td><td class="neg">−0.26%</td><td>−34.9%</td></tr>
+          <tr class="tot"><td>Rupiah time deposit (assumed)</td><td>—</td><td class="hi">5.50%</td><td class="hi">2.43%</td><td class="hi">0%</td></tr>
+          <tr><td>Equal-weight liquid, in USD</td><td>1.14×</td><td>1.32%</td><td>—</td><td>−64.6%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <figcaption>The rupiah went 13,365 → 18,030 per USD, −2.90%/yr. Over this
+    sample <strong>a bank deposit beat the Indonesian stock market</strong>, at no
+    drawdown. Any plan that does not begin by admitting that is selling
+    something.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="scroll">
+      <table>
+        <caption>Where the sample stops moves the answer more than anything else does</caption>
+        <thead><tr><th>Measured through</th><th>Equal-weight book</th><th>IHSG</th><th>Beats cash?</th></tr></thead>
+        <tbody>
+          <tr><td>Dec 2019</td><td>4.41%</td><td>6.85%</td><td class="neg">no</td></tr>
+          <tr><td>Dec 2023</td><td>1.61%</td><td>5.16%</td><td class="neg">no</td></tr>
+          <tr><td>Dec 2025</td><td class="pos">5.94%</td><td class="pos">6.14%</td><td class="pos">yes</td></tr>
+          <tr><td>Aug 2026</td><td>4.24%</td><td>2.73%</td><td class="neg">no</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <figcaption><strong>4.33 points of annual return depend only on which year
+    you stop counting.</strong> The IHSG fell from 8,748 in January 2026 to 6,337
+    by August. Any strategy comparison that does not survive this table is a
+    comparison of end dates.</figcaption>
+  </figure>
+
+  <div class="col">
+    <div class="rail no">
+      <h3>And holding periods are a distribution, not a number</h3>
+      <p>Of every five-year holding period in this universe, <strong>36% were
+      negative and 82% came in under the deposit rate</strong>. Money that might
+      be needed inside five years does not belong in this book at all.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="div">
+
+<section>
+  <div class="col">
+    <div class="eyebrow"><span class="no">04</span><h2>What was ruled out</h2></div>
+    <p class="lede">None of this is in the plan, and each was excluded by
+    measurement rather than by taste.</p>
+  </div>
+
+  <figure>
+    <div class="scroll">
+      <table>
+        <caption>The ledger of negative results</caption>
+        <thead><tr><th>Ruled out</th><th style="text-align:left">How it failed</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>Timing at 15m / 1h / 4h / daily</td><td style="text-align:left;white-space:normal">Leg structure indistinguishable from a driftless random walk</td><td>110</td></tr>
+          <tr><td>Every band and multi-timeframe rule</td><td style="text-align:left;white-space:normal">Loses to <em>random</em> timing at the same exposure</td><td>111, 113</td></tr>
+          <tr><td>Fitting the band on a training half</td><td style="text-align:left;white-space:normal">Scores worse on the holdout than not fitting at all</td><td>115</td></tr>
+          <tr><td>Picking the best-performing factor</td><td style="text-align:left;white-space:normal">First-half leader placed <strong>11th of 13</strong> out of sample</td><td>124</td></tr>
+          <tr><td>Concentration</td><td style="text-align:left;white-space:normal">One random name returns −10.40%/yr</td><td>124</td></tr>
+          <tr><td>Twelve of thirteen price factors</td><td style="text-align:left;white-space:normal">None significant after correcting for thirteen looks</td><td>124</td></tr>
+          <tr><td><code>trend</code>, second-best headline</td><td style="text-align:left;white-space:normal">−1.58% first half, +13.86% second — one stretch, not a factor</td><td>124</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <figcaption>Three separate times this project has found that <strong>fitting a
+    choice makes it worse</strong>. That is its most reliable result, and it is why
+    the rule below has essentially no fitted parameters.</figcaption>
+  </figure>
+</section>
+
+<hr class="div">
+
+<section>
+  <div class="col">
+    <div class="eyebrow"><span class="no">05</span><h2>What survived, and how hard it was pushed</h2></div>
+    <p class="lede">Trailing dividend yield is computable point-in-time without
+    any fundamental history: the adjusted-close to raw-close ratio <em>is</em> the
+    accumulated dividend, and its trailing growth is knowable at the decision
+    bar. The implied payouts were checked against the real ones first — BBCA
+    Rp 337, BMRI Rp 475, TLKM Rp 227. They match.</p>
+  </div>
+
+  <figure>
+    <div class="scroll">
+      <table>
+        <caption>Every attempt to kill it</caption>
+        <thead><tr><th style="text-align:left">Attack</th><th style="text-align:left">Result</th><th>Verdict</th></tr></thead>
+        <tbody>
+          <tr><td>Grid: 3 liquidity floors × 3 frequencies × 4 breadths</td><td style="text-align:left;white-space:normal"><strong>36 of 36 cells</strong> beat both the neutral book and the IHSG. Worst +0.79%/yr, median +4.55%</td><td><span class="tag ok">held</span></td></tr>
+          <tr><td>Lookback 6m / 1y / 2y</td><td style="text-align:left;white-space:normal">+1.37% / +5.63% / +3.47% — not a fitted window</td><td><span class="tag ok">held</span></td></tr>
+          <tr><td>Skip the top: ranks 1‑30 → 41‑70</td><td style="text-align:left;white-space:normal">+5.63% → +3.95% → +2.14% → +0.74% → −8.50%. A smooth decay is what a premium looks like; three lucky names would fall off a cliff</td><td><span class="tag ok">held</span></td></tr>
+          <tr><td>Both halves of the sample</td><td style="text-align:left;white-space:normal">+2.29%, then +9.82%</td><td><span class="tag ok">held</span></td></tr>
+          <tr><td>The 2026 crash</td><td style="text-align:left;white-space:normal"><strong>−0.9%</strong> from the index peak, against −16.4% neutral and −27.6% IHSG</td><td><span class="tag ok">held</span></td></tr>
+          <tr><td>Is it one sector in disguise?</td><td style="text-align:left;white-space:normal">Within-book correlation 0.202 against 0.157 for a random book — no</td><td><span class="tag ok">held</span></td></tr>
+          <tr><td>Rank IC, Bonferroni-corrected</td><td style="text-align:left;white-space:normal">0.079, t = 5.55, p &lt; 0.0001 — the only one of thirteen to clear it</td><td><span class="tag ok">held</span></td></tr>
+          <tr><td>Cost to run</td><td style="text-align:left;white-space:normal">89% of the book carries over month to month; yield rank correlates 0.73 with itself a year later</td><td><span class="tag ok">held</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </figure>
+
+  <div class="col">
+    <div class="rail no">
+      <h3>Three things held against it</h3>
+      <ul class="plain">
+        <li><strong>It is trailing, not forward.</strong> It ranks what was
+        already paid. A company that paid well and then cuts still ranks high on
+        the day the cut is announced, and the book will be holding it.</li>
+        <li><strong>It is a value factor wearing an income name.</strong> Yield
+        is dividend over price, so a name whose price halved ranks higher on an
+        unchanged payout. Part of this is simply buying what has fallen.</li>
+        <li><strong>Every name in the test universe still trades today.</strong>
+        Zero delistings are present, so the backtest is a survivor's account and
+        the real figure is lower.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<hr class="div">
+
+<section>
+  <div class="col">
+    <div class="eyebrow"><span class="no">06</span><h2>Year by year</h2></div>
+    <p class="lede">A boom cannot hide inside a CAGR, so here is every calendar
+    year the annual book has lived through, against the two benchmarks and cash.</p>
+  </div>
+  <figure>
+    <div class="scroll"><div id="years"></div></div>
+    <figcaption id="yearsnote"></figcaption>
+  </figure>
+</section>
+
+<hr class="div">
+
+<section>
+  <div class="col">
+    <div class="eyebrow"><span class="no">07</span><h2>The rule, and the book today</h2></div>
+    <p class="lede">Written out in full so it can be followed without me.</p>
+  </div>
+
+  <figure>
+    <div class="scroll">
+      <table>
+        <caption>The rule</caption>
+        <tbody>
+          <tr><td><strong>Universe</strong></td><td style="text-align:left;white-space:normal">IDX equities with median daily turnover ≥ Rp 5bn over the trailing year and at least 250 sessions of history</td></tr>
+          <tr><td><strong>Rank</strong></td><td style="text-align:left;white-space:normal">Dividends paid over the trailing 12 months, divided by price</td></tr>
+          <tr><td><strong>Hold</strong></td><td style="text-align:left;white-space:normal">The top 30, equal weight</td></tr>
+          <tr><td><strong>Rebalance</strong></td><td style="text-align:left;white-space:normal">Once a year, last session of December, executed the next session</td></tr>
+          <tr><td><strong>Cash sleeve</strong></td><td style="text-align:left;white-space:normal">15% on deposit — not a market view, it is what lets the rebalance happen without selling into a fall</td></tr>
+          <tr><td><strong>Minimum capital</strong></td><td style="text-align:left;white-space:normal">Rp 675m to hold 30 names within 10% of equal weight. Below that, hold <em>fewer</em> names rather than uneven ones</td></tr>
+          <tr><td><strong>Never</strong></td><td style="text-align:left;white-space:normal">No timing overlay, no leverage, no shorting, no concentration. Each was tested here and each lost</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </figure>
+
+  <figure>
+    <div class="scroll"><div id="book"></div></div>
+    <figcaption id="booknote"></figcaption>
+  </figure>
+</section>
+
+<hr class="div">
+
+<section>
+  <div class="col">
+    <div class="eyebrow"><span class="no">08</span><h2>When to abandon it</h2></div>
+    <p class="lede">A rule with no exit is a rule that gets rationalised. These
+    are committed to before any money moves, and the twice-daily job checks the
+    last two automatically.</p>
+    <ol class="kill">
+      <li>The book underperforms the equal-weight liquid universe for
+      <strong>three consecutive calendar years</strong>. In the sample it was
+      behind in 3 of 10 and never twice running.</li>
+      <li>The average trailing yield of the top 30 falls <strong>below the
+      deposit rate</strong>. There would then be no income premium left to
+      harvest. It is 6.8% today.</li>
+      <li>The liquidity floor stops clearing 30 names, which would mean the book
+      can no longer be built at the size it is being run.</li>
+    </ol>
+    <p><strong>Nothing else.</strong> Not a bad quarter, not a drawdown, not a
+    headline.</p>
+  </div>
+</section>
+
+<hr class="div">
+
+<section>
+  <div class="col">
+    <div class="eyebrow"><span class="no">09</span><h2>What is still open, and what this does not claim</h2></div>
+    <div class="rail key">
+      <h3>Broker flow has never been tested with enough data</h3>
+      <p>That is a different statement from having been tested and failed, and
+      the difference matters. The hypotheses are frozen and hashed
+      (<code>6b8e0a2c9d1f4e73</code>) so they cannot be edited once the answer is
+      visible, and the daily store accumulates. At 250 complete days on a name
+      the protocol runs and this plan is revisited on the result. Until then the
+      plan assumes nothing about it — which is the entire reason the hypotheses
+      were frozen in advance.</p>
+    </div>
+    <div class="rail no">
+      <h3>What this plan does not claim</h3>
+      <ul class="plain">
+        <li>That the next eleven years resemble the last eleven. The sample
+        holds one commodity cycle, one pandemic and one crash.</li>
+        <li>That the yield premium is permanent. It is a well-documented global
+        effect that has also spent decades at a time not working.</li>
+        <li>Low risk. The drawdown is the same as everything else here.</li>
+        <li>That it beats the deposit rate by much: +1.24%/yr for a domestic
+        reinvesting holder, and <strong>−0.12%/yr for a foreign one</strong> —
+        which is to say, for them, it does not beat it at all.</li>
+      </ul>
+    </div>
+    <p style="margin-top:2rem">What it does claim is that of everything tested
+    here, this is the only construction that survived a Bonferroni correction, a
+    walk-forward, a grid, a split-half, a skip-the-top, a year-by-year, a crash
+    and a tax calculation — and that its two largest components, breadth and low
+    turnover, are arithmetic rather than forecast and therefore cannot stop
+    working.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="col">
+    <p>All figures reproducible: <code>base_rates.py</code> ·
+    <code>factor_study.py</code> · <code>yield_book.py</code> ·
+    <code>the_plan.py</code>. 1,067 tests, including a look-ahead check run twice
+    over every factor. Full working in <code>docs/FINDINGS.md</code>, Results
+    122–127.</p>
+    <p>Not investment advice. A research note about a rule, its measured history
+    and its failure modes.</p>
+  </div>
+</footer>
+</div>
+<script>
+const D = {"start": "2017-01-02", "end": "2026-08-19", "months": ["2017-01-31", "2017-02-28", "2017-03-31", "2017-04-30", "2017-05-31", "2017-06-30", "2017-07-31", "2017-08-31", "2017-09-30", "2017-10-31", "2017-11-30", "2017-12-31", "2018-01-31", "2018-02-28", "2018-03-31", "2018-04-30", "2018-05-31", "2018-06-30", "2018-07-31", "2018-08-31", "2018-09-30", "2018-10-31", "2018-11-30", "2018-12-31", "2019-01-31", "2019-02-28", "2019-03-31", "2019-04-30", "2019-05-31", "2019-06-30", "2019-07-31", "2019-08-31", "2019-09-30", "2019-10-31", "2019-11-30", "2019-12-31", "2020-01-31", "2020-02-29", "2020-03-31", "2020-04-30", "2020-05-31", "2020-06-30", "2020-07-31", "2020-08-31", "2020-09-30", "2020-10-31", "2020-11-30", "2020-12-31", "2021-01-31", "2021-02-28", "2021-03-31", "2021-04-30", "2021-05-31", "2021-06-30", "2021-07-31", "2021-08-31", "2021-09-30", "2021-10-31", "2021-11-30", "2021-12-31", "2022-01-31", "2022-02-28", "2022-03-31", "2022-04-30", "2022-05-31", "2022-06-30", "2022-07-31", "2022-08-31", "2022-09-30", "2022-10-31", "2022-11-30", "2022-12-31", "2023-01-31", "2023-02-28", "2023-03-31", "2023-04-30", "2023-05-31", "2023-06-30", "2023-07-31", "2023-08-31", "2023-09-30", "2023-10-31", "2023-11-30", "2023-12-31", "2024-01-31", "2024-02-29", "2024-03-31", "2024-04-30", "2024-05-31", "2024-06-30", "2024-07-31", "2024-08-31", "2024-09-30", "2024-10-31", "2024-11-30", "2024-12-31", "2025-01-31", "2025-02-28", "2025-03-31", "2025-04-30", "2025-05-31", "2025-06-30", "2025-07-31", "2025-08-31", "2025-09-30", "2025-10-31", "2025-11-30", "2025-12-31", "2026-01-31", "2026-02-28", "2026-03-31", "2026-04-30", "2026-05-31", "2026-06-30", "2026-07-31", "2026-08-31"], "weeks": ["2017-01-08", "2017-01-15", "2017-01-22", "2017-01-29", "2017-02-05", "2017-02-12", "2017-02-19", "2017-02-26", "2017-03-05", "2017-03-12", "2017-03-19", "2017-03-26", "2017-04-02", "2017-04-09", "2017-04-16", "2017-04-23", "2017-04-30", "2017-05-07", "2017-05-14", "2017-05-21", "2017-05-28", "2017-06-04", "2017-06-11", "2017-06-18", "2017-06-25", "2017-07-02", "2017-07-09", "2017-07-16", "2017-07-23", "2017-07-30", "2017-08-06", "2017-08-13", "2017-08-20", "2017-08-27", "2017-09-03", "2017-09-10", "2017-09-17", "2017-09-24", "2017-10-01", "2017-10-08", "2017-10-15", "2017-10-22", "2017-10-29", "2017-11-05", "2017-11-12", "2017-11-19", "2017-11-26", "2017-12-03", "2017-12-10", "2017-12-17", "2017-12-24", "2017-12-31", "2018-01-07", "2018-01-14", "2018-01-21", "2018-01-28", "2018-02-04", "2018-02-11", "2018-02-18", "2018-02-25", "2018-03-04", "2018-03-11", "2018-03-18", "2018-03-25", "2018-04-01", "2018-04-08", "2018-04-15", "2018-04-22", "2018-04-29", "2018-05-06", "2018-05-13", "2018-05-20", "2018-05-27", "2018-06-03", "2018-06-10", "2018-06-17", "2018-06-24", "2018-07-01", "2018-07-08", "2018-07-15", "2018-07-22", "2018-07-29", "2018-08-05", "2018-08-12", "2018-08-19", "2018-08-26", "2018-09-02", "2018-09-09", "2018-09-16", "2018-09-23", "2018-09-30", "2018-10-07", "2018-10-14", "2018-10-21", "2018-10-28", "2018-11-04", "2018-11-11", "2018-11-18", "2018-11-25", "2018-12-02", "2018-12-09", "2018-12-16", "2018-12-23", "2018-12-30", "2019-01-06", "2019-01-13", "2019-01-20", "2019-01-27", "2019-02-03", "2019-02-10", "2019-02-17", "2019-02-24", "2019-03-03", "2019-03-10", "2019-03-17", "2019-03-24", "2019-03-31", "2019-04-07", "2019-04-14", "2019-04-21", "2019-04-28", "2019-05-05", "2019-05-12", "2019-05-19", "2019-05-26", "2019-06-02", "2019-06-09", "2019-06-16", "2019-06-23", "2019-06-30", "2019-07-07", "2019-07-14", "2019-07-21", "2019-07-28", "2019-08-04", "2019-08-11", "2019-08-18", "2019-08-25", "2019-09-01", "2019-09-08", "2019-09-15", "2019-09-22", "2019-09-29", "2019-10-06", "2019-10-13", "2019-10-20", "2019-10-27", "2019-11-03", "2019-11-10", "2019-11-17", "2019-11-24", "2019-12-01", "2019-12-08", "2019-12-15", "2019-12-22", "2019-12-29", "2020-01-05", "2020-01-12", "2020-01-19", "2020-01-26", "2020-02-02", "2020-02-09", "2020-02-16", "2020-02-23", "2020-03-01", "2020-03-08", "2020-03-15", "2020-03-22", "2020-03-29", "2020-04-05", "2020-04-12", "2020-04-19", "2020-04-26", "2020-05-03", "2020-05-10", "2020-05-17", "2020-05-24", "2020-05-31", "2020-06-07", "2020-06-14", "2020-06-21", "2020-06-28", "2020-07-05", "2020-07-12", "2020-07-19", "2020-07-26", "2020-08-02", "2020-08-09", "2020-08-16", "2020-08-23", "2020-08-30", "2020-09-06", "2020-09-13", "2020-09-20", "2020-09-27", "2020-10-04", "2020-10-11", "2020-10-18", "2020-10-25", "2020-11-01", "2020-11-08", "2020-11-15", "2020-11-22", "2020-11-29", "2020-12-06", "2020-12-13", "2020-12-20", "2020-12-27", "2021-01-03", "2021-01-10", "2021-01-17", "2021-01-24", "2021-01-31", "2021-02-07", "2021-02-14", "2021-02-21", "2021-02-28", "2021-03-07", "2021-03-14", "2021-03-21", "2021-03-28", "2021-04-04", "2021-04-11", "2021-04-18", "2021-04-25", "2021-05-02", "2021-05-09", "2021-05-16", "2021-05-23", "2021-05-30", "2021-06-06", "2021-06-13", "2021-06-20", "2021-06-27", "2021-07-04", "2021-07-11", "2021-07-18", "2021-07-25", "2021-08-01", "2021-08-08", "2021-08-15", "2021-08-22", "2021-08-29", "2021-09-05", "2021-09-12", "2021-09-19", "2021-09-26", "2021-10-03", "2021-10-10", "2021-10-17", "2021-10-24", "2021-10-31", "2021-11-07", "2021-11-14", "2021-11-21", "2021-11-28", "2021-12-05", "2021-12-12", "2021-12-19", "2021-12-26", "2022-01-02", "2022-01-09", "2022-01-16", "2022-01-23", "2022-01-30", "2022-02-06", "2022-02-13", "2022-02-20", "2022-02-27", "2022-03-06", "2022-03-13", "2022-03-20", "2022-03-27", "2022-04-03", "2022-04-10", "2022-04-17", "2022-04-24", "2022-05-01", "2022-05-15", "2022-05-22", "2022-05-29", "2022-06-05", "2022-06-12", "2022-06-19", "2022-06-26", "2022-07-03", "2022-07-10", "2022-07-17", "2022-07-24", "2022-07-31", "2022-08-07", "2022-08-14", "2022-08-21", "2022-08-28", "2022-09-04", "2022-09-11", "2022-09-18", "2022-09-25", "2022-10-02", "2022-10-09", "2022-10-16", "2022-10-23", "2022-10-30", "2022-11-06", "2022-11-13", "2022-11-20", "2022-11-27", "2022-12-04", "2022-12-11", "2022-12-18", "2022-12-25", "2023-01-01", "2023-01-08", "2023-01-15", "2023-01-22", "2023-01-29", "2023-02-05", "2023-02-12", "2023-02-19", "2023-02-26", "2023-03-05", "2023-03-12", "2023-03-19", "2023-03-26", "2023-04-02", "2023-04-09", "2023-04-16", "2023-04-23", "2023-04-30", "2023-05-07", "2023-05-14", "2023-05-21", "2023-05-28", "2023-06-04", "2023-06-11", "2023-06-18", "2023-06-25", "2023-07-02", "2023-07-09", "2023-07-16", "2023-07-23", "2023-07-30", "2023-08-06", "2023-08-13", "2023-08-20", "2023-08-27", "2023-09-03", "2023-09-10", "2023-09-17", "2023-09-24", "2023-10-01", "2023-10-08", "2023-10-15", "2023-10-22", "2023-10-29", "2023-11-05", "2023-11-12", "2023-11-19", "2023-11-26", "2023-12-03", "2023-12-10", "2023-12-17", "2023-12-24", "2023-12-31", "2024-01-07", "2024-01-14", "2024-01-21", "2024-01-28", "2024-02-04", "2024-02-11", "2024-02-18", "2024-02-25", "2024-03-03", "2024-03-10", "2024-03-17", "2024-03-24", "2024-03-31", "2024-04-07", "2024-04-21", "2024-04-28", "2024-05-05", "2024-05-12", "2024-05-19", "2024-05-26", "2024-06-02", "2024-06-09", "2024-06-16", "2024-06-23", "2024-06-30", "2024-07-07", "2024-07-14", "2024-07-21", "2024-07-28", "2024-08-04", "2024-08-11", "2024-08-18", "2024-08-25", "2024-09-01", "2024-09-08", "2024-09-15", "2024-09-22", "2024-09-29", "2024-10-06", "2024-10-13", "2024-10-20", "2024-10-27", "2024-11-03", "2024-11-10", "2024-11-17", "2024-11-24", "2024-12-01", "2024-12-08", "2024-12-15", "2024-12-22", "2024-12-29", "2025-01-05", "2025-01-12", "2025-01-19", "2025-01-26", "2025-02-02", "2025-02-09", "2025-02-16", "2025-02-23", "2025-03-02", "2025-03-09", "2025-03-16", "2025-03-23", "2025-03-30", "2025-04-13", "2025-04-20", "2025-04-27", "2025-05-04", "2025-05-11", "2025-05-18", "2025-05-25", "2025-06-01", "2025-06-08", "2025-06-15", "2025-06-22", "2025-06-29", "2025-07-06", "2025-07-13", "2025-07-20", "2025-07-27", "2025-08-03", "2025-08-10", "2025-08-17", "2025-08-24", "2025-08-31", "2025-09-07", "2025-09-14", "2025-09-21", "2025-09-28", "2025-10-05", "2025-10-12", "2025-10-19", "2025-10-26", "2025-11-02", "2025-11-09", "2025-11-16", "2025-11-23", "2025-11-30", "2025-12-07", "2025-12-14", "2025-12-21", "2025-12-28", "2026-01-04", "2026-01-11", "2026-01-18", "2026-01-25", "2026-02-01", "2026-02-08", "2026-02-15", "2026-02-22", "2026-03-01", "2026-03-08", "2026-03-15", "2026-03-22", "2026-03-29", "2026-04-05", "2026-04-12", "2026-04-19", "2026-04-26", "2026-05-03", "2026-05-10", "2026-05-17", "2026-05-24", "2026-05-31", "2026-06-07", "2026-06-14", "2026-06-21", "2026-06-28", "2026-07-05", "2026-07-12", "2026-07-19", "2026-07-26", "2026-08-02", "2026-08-09", "2026-08-16", "2026-08-23"], "growth": {"yield": [1.0029, 1.0228, 1.041, 1.0633, 1.0742, 1.0851, 1.0861, 1.0825, 1.0656, 1.0919, 1.0726, 1.1735, 1.263, 1.2595, 1.1746, 1.1428, 1.1394, 1.0784, 1.1203, 1.1555, 1.1374, 1.0942, 1.1191, 1.1508, 1.3082, 1.2291, 1.1897, 1.2019, 1.1123, 1.1572, 1.1448, 1.1002, 1.0755, 1.0972, 1.0143, 1.0891, 0.9907, 0.8965, 0.6852, 0.7382, 0.7497, 0.7998, 0.8765, 0.8989, 0.8171, 0.8725, 1.028, 1.1196, 1.0498, 1.1012, 1.0453, 1.0533, 1.0088, 0.9649, 0.9737, 0.9967, 1.1036, 1.154, 1.1262, 1.1247, 1.1164, 1.178, 1.2339, 1.3168, 1.3707, 1.3417, 1.4091, 1.4063, 1.4493, 1.5193, 1.4931, 1.4107, 1.4141, 1.4587, 1.4472, 1.4874, 1.374, 1.4313, 1.5335, 1.5174, 1.5486, 1.4405, 1.3947, 1.3843, 1.3955, 1.4324, 1.4848, 1.4769, 1.4645, 1.5057, 1.5756, 1.664, 1.7124, 1.7818, 1.6932, 1.7656, 1.7259, 1.5892, 1.6292, 1.787, 1.8968, 1.843, 1.9458, 2.0434, 2.1444, 2.2651, 2.2729, 2.3082, 2.3074, 2.4649, 2.3185, 2.3386, 2.1083, 2.0236, 2.2555, 2.2633], "neutral": [1.018, 1.0218, 1.0368, 1.0554, 1.0299, 1.0304, 1.0268, 1.0408, 1.0292, 1.0635, 1.0309, 1.0736, 1.2357, 1.2379, 1.1384, 1.1156, 1.1215, 1.0594, 1.0925, 1.0836, 1.0558, 0.9742, 0.9951, 1.0225, 1.1627, 1.1375, 1.111, 1.1294, 1.067, 1.0993, 1.1161, 1.0787, 1.0632, 1.0696, 1.0053, 1.0524, 0.939, 0.8428, 0.6299, 0.6876, 0.6945, 0.7419, 0.7858, 0.8135, 0.7505, 0.8165, 0.9683, 1.1323, 1.0913, 1.1723, 1.087, 1.1011, 1.0511, 1.018, 1.0103, 1.0365, 1.0794, 1.1331, 1.1134, 1.0989, 1.0568, 1.0915, 1.1388, 1.1664, 1.1687, 1.0953, 1.1478, 1.1699, 1.1363, 1.1812, 1.1668, 1.0862, 1.0906, 1.0822, 1.0473, 1.0501, 1.0044, 1.0489, 1.0938, 1.0929, 1.1088, 1.0339, 1.035, 1.0441, 1.0377, 1.0405, 1.0554, 1.0367, 1.0118, 1.0141, 1.0703, 1.1242, 1.1648, 1.2166, 1.1464, 1.151, 1.169, 1.0751, 1.0504, 1.153, 1.2145, 1.2026, 1.3429, 1.4118, 1.5356, 1.5633, 1.7282, 1.815, 1.8342, 1.8722, 1.6288, 1.7059, 1.4659, 1.3379, 1.5128, 1.5368], "ihsg": [0.9967, 1.0141, 1.0483, 1.0704, 1.0803, 1.0975, 1.0997, 1.104, 1.1109, 1.1307, 1.1206, 1.1966, 1.2436, 1.242, 1.1652, 1.1286, 1.1265, 1.0918, 1.1176, 1.1331, 1.1252, 1.0979, 1.1402, 1.1662, 1.2299, 1.2131, 1.2179, 1.2153, 1.169, 1.1971, 1.2031, 1.1914, 1.1614, 1.1726, 1.1318, 1.186, 1.1183, 1.0266, 0.8545, 0.8879, 0.895, 0.9235, 0.9695, 0.9862, 0.9169, 0.9655, 1.0566, 1.1257, 1.1037, 1.1751, 1.1269, 1.1288, 1.1197, 1.1269, 1.1428, 1.1579, 1.1836, 1.2409, 1.2301, 1.2391, 1.2484, 1.2968, 1.3313, 1.361, 1.3459, 1.3012, 1.3087, 1.3515, 1.3256, 1.3365, 1.3332, 1.2898, 1.2876, 1.2884, 1.2812, 1.302, 1.2488, 1.2542, 1.305, 1.3091, 1.3066, 1.2712, 1.3331, 1.3692, 1.357, 1.3774, 1.3722, 1.362, 1.3124, 1.3298, 1.366, 1.4442, 1.4173, 1.4259, 1.3394, 1.3329, 1.3384, 1.1806, 1.2257, 1.274, 1.351, 1.3043, 1.4091, 1.4742, 1.5176, 1.537, 1.6019, 1.6279, 1.5682, 1.5505, 1.327, 1.3097, 1.1536, 1.0624, 1.1741, 1.1931], "deposit": [1.0014, 1.0056, 1.0101, 1.0143, 1.0192, 1.0237, 1.0284, 1.0331, 1.0375, 1.0423, 1.0469, 1.0514, 1.0565, 1.0608, 1.0655, 1.0704, 1.0752, 1.0798, 1.0849, 1.0898, 1.0943, 1.0996, 1.1045, 1.1095, 1.1146, 1.1191, 1.1239, 1.1292, 1.1343, 1.139, 1.1445, 1.1496, 1.1548, 1.1601, 1.165, 1.1703, 1.1758, 1.1806, 1.1862, 1.1914, 1.1965, 1.2021, 1.2074, 1.2131, 1.2185, 1.2233, 1.2294, 1.2348, 1.2403, 1.2454, 1.2514, 1.2569, 1.2626, 1.2682, 1.2738, 1.2798, 1.2854, 1.2909, 1.297, 1.3027, 1.3088, 1.3136, 1.3202, 1.3256, 1.332, 1.3379, 1.3436, 1.3501, 1.3561, 1.3622, 1.3682, 1.3743, 1.3807, 1.3864, 1.3927, 1.3985, 1.4052, 1.4108, 1.4179, 1.4243, 1.4304, 1.4371, 1.4434, 1.4496, 1.4566, 1.4628, 1.4688, 1.476, 1.4827, 1.4888, 1.496, 1.5026, 1.5094, 1.5163, 1.5228, 1.5297, 1.5369, 1.5432, 1.5493, 1.5571, 1.5635, 1.5711, 1.5782, 1.585, 1.5924, 1.5997, 1.6062, 1.6138, 1.6211, 1.6278, 1.6355, 1.6427, 1.6497, 1.6574, 1.665, 1.6696]}, "dd": {"yield": [0.0, -0.0106, -0.0176, -0.0087, -0.007, -0.0064, -0.0163, -0.0117, -0.0239, -0.0252, -0.026, -0.0029, -0.0112, -0.0073, -0.0186, -0.0331, -0.0233, -0.0245, -0.0361, -0.0391, -0.0237, -0.0178, -0.0151, -0.0187, -0.0186, -0.0156, -0.0253, -0.034, -0.0244, -0.0236, -0.0332, -0.0341, -0.0271, -0.0108, -0.0191, -0.0382, -0.0403, -0.0303, -0.0457, -0.034, -0.0227, -0.0204, -0.0191, -0.0131, -0.0052, -0.0286, -0.0202, -0.0341, -0.0258, -0.0193, -0.0122, 0.0, -0.0106, -0.0046, -0.0014, 0.0, -0.0188, -0.0402, -0.0348, -0.0158, -0.0257, -0.0579, -0.0733, -0.0853, -0.0934, -0.084, -0.0634, -0.0584, -0.0728, -0.1428, -0.1491, -0.1323, -0.1344, -0.1092, -0.1047, -0.1047, -0.1508, -0.1818, -0.1853, -0.1625, -0.1564, -0.134, -0.1241, -0.0949, -0.1524, -0.1206, -0.1032, -0.1569, -0.1395, -0.1357, -0.1292, -0.1393, -0.1598, -0.1616, -0.1585, -0.1579, -0.1347, -0.152, -0.1432, -0.1401, -0.114, -0.1099, -0.1046, -0.1094, -0.1046, -0.0592, -0.0461, -0.0165, -0.0104, -0.023, -0.0552, -0.0452, -0.0695, -0.0834, -0.0923, -0.0755, -0.0993, -0.0934, -0.1015, -0.099, -0.1082, -0.1292, -0.1564, -0.2207, -0.2118, -0.1809, -0.1579, -0.1464, -0.1517, -0.1458, -0.1144, -0.1292, -0.1268, -0.1393, -0.1514, -0.1867, -0.173, -0.1817, -0.1824, -0.1746, -0.1469, -0.1634, -0.1911, -0.1991, -0.2002, -0.1821, -0.169, -0.1853, -0.1858, -0.201, -0.2065, -0.2369, -0.2169, -0.1986, -0.1801, -0.1758, -0.182, -0.1823, -0.1759, -0.1956, -0.25, -0.2611, -0.263, -0.2552, -0.3213, -0.3348, -0.4312, -0.5549, -0.5584, -0.5063, -0.4625, -0.4676, -0.4703, -0.4699, -0.4613, -0.4673, -0.4614, -0.4482, -0.4139, -0.4087, -0.4086, -0.395, -0.3952, -0.3778, -0.3603, -0.3598, -0.3367, -0.3619, -0.3245, -0.315, -0.3168, -0.3217, -0.3781, -0.3561, -0.3811, -0.3814, -0.3739, -0.3511, -0.3491, -0.3395, -0.3505, -0.3152, -0.2823, -0.2418, -0.2218, -0.1658, -0.1462, -0.1405, -0.1524, -0.1484, -0.1093, -0.1281, -0.2053, -0.1785, -0.1715, -0.171, -0.1663, -0.1762, -0.1814, -0.1712, -0.19, -0.2086, -0.2084, -0.2233, -0.207, -0.2083, -0.2177, -0.2141, -0.2505, -0.252, -0.2363, -0.2192, -0.2457, -0.2605, -0.2746, -0.2645, -0.2736, -0.2647, -0.2629, -0.2602, -0.2633, -0.2662, -0.2653, -0.2466, -0.2312, -0.2265, -0.2237, -0.2015, -0.1305, -0.1013, -0.0964, -0.1346, -0.1437, -0.1226, -0.1375, -0.1357, -0.1475, -0.1318, -0.14, -0.1543, -0.1486, -0.1462, -0.1465, -0.1555, -0.161, -0.1572, -0.1508, -0.1439, -0.1277, -0.1021, -0.1028, -0.0924, -0.077, -0.069, -0.0609, -0.0636, -0.0482, -0.0363, -0.0476, -0.0238, -0.0128, -0.0034, -0.0225, -0.0556, -0.0537, -0.0585, -0.0712, -0.0488, -0.0367, -0.0129, -0.0044, -0.0023, -0.0163, -0.0219, -0.0215, -0.0108, -0.0024, -0.0051, -0.0221, -0.0193, -0.0174, -0.0284, -0.0056, -0.018, -0.0312, -0.0487, -0.0361, -0.0297, -0.0648, -0.0554, -0.0571, -0.0715, -0.1223, -0.1162, -0.111, -0.0758, -0.0728, -0.0766, -0.0615, -0.0575, -0.0519, -0.0504, -0.1063, -0.0949, -0.0745, -0.0439, -0.0476, -0.0537, -0.0306, -0.0622, -0.0578, -0.0786, -0.0849, -0.0956, -0.0896, -0.07, -0.0616, -0.0579, -0.048, -0.0187, -0.0104, -0.0099, -0.0234, -0.0172, -0.0145, -0.0159, -0.0209, -0.0131, -0.0126, -0.0071, -0.0159, -0.0366, -0.0246, -0.0369, -0.052, -0.1137, -0.1128, -0.1112, -0.1114, -0.1069, -0.1199, -0.1302, -0.1253, -0.1247, -0.1115, -0.1046, -0.0932, -0.119, -0.1137, -0.1113, -0.1013, -0.0971, -0.0902, -0.0845, -0.0718, -0.0668, -0.0492, -0.0597, -0.0666, -0.0877, -0.0695, -0.0548, -0.0486, -0.039, -0.0622, -0.048, -0.0756, -0.0782, -0.0576, -0.0316, -0.0123, -0.0037, -0.027, -0.0142, -0.051, -0.0178, -0.0053, -0.0009, -0.0101, -0.0108, -0.0019, -0.005, -0.0135, -0.0053, -0.0021, -0.0107, -0.0187, -0.0359, -0.0482, -0.0515, -0.0542, -0.0454, -0.0159, -0.0551, -0.0454, -0.0369, -0.0523, -0.0469, -0.0474, -0.0555, -0.0826, -0.0917, -0.0569, -0.1248, -0.1186, -0.1143, -0.1318, -0.1405, -0.1786, -0.0936, -0.0816, -0.0209, -0.0173, 0.0, -0.0102, -0.0057, -0.0163, -0.0044, -0.0404, -0.0591, -0.0469, -0.0463, -0.0183, -0.0089, -0.0138, -0.0023, -0.0083, 0.0, -0.0245, -0.0303, -0.01, -0.006, -0.0135, -0.0168, -0.0127, -0.0308, -0.0094, -0.0044, -0.0109, -0.0166, -0.0095, -0.0117, -0.0086, -0.0252, -0.0091, -0.0017, -0.0019, -0.0062, -0.016, -0.0159, -0.0778, -0.0797, -0.0487, -0.0081, -0.0126, -0.0544, -0.0853, -0.0879, -0.0708, -0.0741, -0.0868, -0.0553, -0.0476, -0.0532, -0.0618, -0.0705, -0.1364, -0.1465, -0.2029, -0.2429, -0.1484, -0.1649, -0.1808, -0.1554, -0.1221, -0.1095, -0.1122, -0.0852, -0.0926, -0.0837], "neutral": [-0.006, -0.0123, -0.0182, -0.0222, -0.0094, -0.0139, -0.0195, -0.0236, -0.0341, -0.0435, -0.0436, -0.0213, -0.021, -0.0085, -0.0087, -0.0193, -0.0107, -0.0269, -0.0472, -0.0539, -0.0391, -0.0379, -0.0358, -0.0342, -0.0334, -0.0275, -0.0354, -0.0441, -0.0367, -0.0431, -0.0408, -0.0427, -0.0309, -0.0149, -0.0177, -0.0332, -0.0314, -0.0221, -0.0385, -0.0303, -0.0161, -0.0081, -0.0102, -0.0112, -0.0066, -0.0224, -0.0214, -0.0459, -0.0644, -0.0687, -0.0402, -0.0313, -0.0098, -0.0066, 0.0, 0.0, -0.0204, -0.0571, -0.0472, -0.0204, -0.0209, -0.0554, -0.0784, -0.0868, -0.0952, -0.0915, -0.0663, -0.0577, -0.0705, -0.1455, -0.1568, -0.1393, -0.139, -0.1031, -0.0981, -0.0896, -0.1312, -0.1731, -0.183, -0.1593, -0.1494, -0.1378, -0.1241, -0.1092, -0.1621, -0.1436, -0.1322, -0.196, -0.183, -0.1808, -0.1676, -0.1912, -0.2089, -0.2201, -0.2192, -0.2267, -0.2133, -0.2212, -0.2143, -0.2198, -0.1856, -0.1876, -0.1856, -0.1905, -0.1832, -0.1383, -0.1164, -0.0962, -0.079, -0.0717, -0.092, -0.0762, -0.0881, -0.1064, -0.1178, -0.0924, -0.1127, -0.1019, -0.1124, -0.1062, -0.1105, -0.1261, -0.1466, -0.2056, -0.1943, -0.1619, -0.1446, -0.1276, -0.1447, -0.1338, -0.1119, -0.1213, -0.1097, -0.1152, -0.1191, -0.1531, -0.1367, -0.1419, -0.1488, -0.1437, -0.1189, -0.1274, -0.1477, -0.1641, -0.17, -0.1454, -0.131, -0.1532, -0.153, -0.1621, -0.1669, -0.1989, -0.1789, -0.17, -0.1575, -0.1586, -0.1641, -0.1703, -0.1729, -0.1947, -0.2472, -0.2591, -0.2642, -0.26, -0.3243, -0.3348, -0.4253, -0.5404, -0.5599, -0.5128, -0.4599, -0.4672, -0.4781, -0.4752, -0.4643, -0.4713, -0.4664, -0.4548, -0.4287, -0.4126, -0.419, -0.4054, -0.406, -0.3912, -0.3782, -0.3824, -0.37, -0.392, -0.3566, -0.347, -0.347, -0.3506, -0.4041, -0.3846, -0.4113, -0.4002, -0.3899, -0.3569, -0.3462, -0.3454, -0.3528, -0.3146, -0.2841, -0.2456, -0.2237, -0.1336, -0.1235, -0.0779, -0.0922, -0.0715, -0.0203, -0.0503, -0.1296, -0.0907, -0.0676, -0.0631, -0.065, -0.0814, -0.0883, -0.0728, -0.1117, -0.133, -0.1303, -0.1442, -0.1321, -0.1319, -0.1304, -0.1254, -0.1699, -0.1786, -0.1616, -0.1536, -0.1816, -0.1849, -0.1975, -0.1847, -0.1989, -0.1945, -0.1942, -0.1894, -0.1954, -0.2031, -0.1942, -0.1755, -0.1708, -0.1609, -0.1664, -0.1628, -0.1191, -0.0972, -0.0779, -0.1058, -0.1066, -0.0852, -0.0891, -0.1038, -0.1202, -0.1095, -0.1213, -0.1306, -0.1235, -0.1275, -0.1442, -0.1617, -0.1784, -0.1571, -0.1352, -0.1388, -0.1349, -0.1256, -0.1338, -0.1335, -0.1143, -0.097, -0.0848, -0.0807, -0.0792, -0.0857, -0.1305, -0.1097, -0.1022, -0.0824, -0.0854, -0.1168, -0.1166, -0.1458, -0.1615, -0.1452, -0.1403, -0.1027, -0.0876, -0.0731, -0.0699, -0.0803, -0.0683, -0.0558, -0.0481, -0.0585, -0.0936, -0.0917, -0.0977, -0.1038, -0.0731, -0.0682, -0.0736, -0.0823, -0.0775, -0.0812, -0.115, -0.1112, -0.1216, -0.1336, -0.1647, -0.1718, -0.1598, -0.1405, -0.1329, -0.1355, -0.1334, -0.1422, -0.14, -0.1629, -0.2125, -0.2022, -0.1804, -0.1688, -0.1712, -0.1735, -0.1665, -0.1799, -0.1745, -0.1878, -0.1869, -0.1989, -0.1919, -0.158, -0.1617, -0.1634, -0.1593, -0.1353, -0.1276, -0.1253, -0.1467, -0.1396, -0.1336, -0.1332, -0.1283, -0.1259, -0.1197, -0.1224, -0.1181, -0.1399, -0.1294, -0.1545, -0.1694, -0.2059, -0.2003, -0.1959, -0.1929, -0.1754, -0.1752, -0.1796, -0.1799, -0.173, -0.1607, -0.1592, -0.1622, -0.1792, -0.1791, -0.1793, -0.1764, -0.1785, -0.1712, -0.1764, -0.1669, -0.1662, -0.1582, -0.1675, -0.1839, -0.1985, -0.1851, -0.1776, -0.1762, -0.1748, -0.193, -0.1925, -0.2219, -0.2303, -0.2065, -0.1844, -0.1589, -0.1531, -0.1623, -0.1525, -0.1817, -0.1469, -0.1297, -0.1105, -0.1027, -0.1013, -0.0831, -0.0714, -0.0772, -0.0704, -0.054, -0.0342, -0.0431, -0.0664, -0.088, -0.0909, -0.0856, -0.0945, -0.058, -0.1108, -0.101, -0.0831, -0.1018, -0.095, -0.0784, -0.0731, -0.0985, -0.1311, -0.0844, -0.1425, -0.1462, -0.1562, -0.189, -0.2044, -0.2431, -0.1494, -0.1412, -0.0849, -0.0727, -0.0572, -0.0455, -0.0313, -0.0392, -0.0143, -0.0415, -0.062, -0.0496, -0.0442, -0.0064, -0.0134, -0.0159, -0.0067, -0.0166, -0.005, -0.0243, -0.0401, -0.0263, 0.0, -0.013, -0.0013, 0.0, -0.0577, -0.033, -0.048, -0.034, -0.0025, -0.0111, -0.0065, 0.0, -0.0021, -0.0199, -0.0239, -0.0189, -0.0062, -0.0067, -0.0122, -0.1049, -0.1469, -0.1352, -0.0819, -0.0794, -0.149, -0.2032, -0.2108, -0.1938, -0.194, -0.1949, -0.135, -0.1465, -0.1558, -0.1741, -0.1863, -0.2795, -0.2746, -0.3491, -0.378, -0.291, -0.3197, -0.3379, -0.3144, -0.2951, -0.2672, -0.2741, -0.2506, -0.2453, -0.2395], "ihsg": [-0.0039, -0.0138, -0.0173, -0.018, -0.0099, -0.0065, -0.0108, -0.0127, -0.0086, -0.0035, -0.0001, -0.0016, -0.0047, -0.0047, -0.0112, -0.0181, -0.0072, -0.0138, -0.0128, -0.0194, -0.0153, -0.017, -0.0201, -0.0173, -0.0088, 0.0, -0.0161, -0.0235, -0.0245, -0.0186, -0.0225, -0.0272, -0.0184, -0.0083, -0.0087, -0.0172, -0.0118, -0.0052, -0.0126, -0.0083, -0.0115, -0.0069, -0.0083, -0.0085, -0.0064, -0.0145, -0.0047, -0.0195, -0.0119, -0.0073, -0.0094, 0.0, -0.0164, -0.0025, -0.0006, -0.003, -0.0157, -0.0302, -0.0235, -0.0144, -0.0201, -0.048, -0.0575, -0.0715, -0.082, -0.0796, -0.0662, -0.0603, -0.1166, -0.1341, -0.1367, -0.1354, -0.1428, -0.1055, -0.104, -0.104, -0.1297, -0.1528, -0.1578, -0.1318, -0.1237, -0.1156, -0.1125, -0.0933, -0.1374, -0.1192, -0.1003, -0.1504, -0.1332, -0.1312, -0.122, -0.1431, -0.1475, -0.1438, -0.1465, -0.1397, -0.1219, -0.1364, -0.1108, -0.1044, -0.0858, -0.0916, -0.0908, -0.0839, -0.076, -0.0637, -0.0528, -0.0356, -0.0378, -0.0311, -0.0449, -0.0291, -0.0368, -0.0458, -0.0502, -0.0312, -0.0416, -0.0354, -0.0424, -0.038, -0.0473, -0.0553, -0.0733, -0.1289, -0.1169, -0.0981, -0.0718, -0.0656, -0.0746, -0.0599, -0.0488, -0.0504, -0.0441, -0.0544, -0.0583, -0.0852, -0.0715, -0.0673, -0.071, -0.0639, -0.0543, -0.0702, -0.0825, -0.0973, -0.103, -0.0841, -0.0733, -0.0721, -0.0783, -0.0883, -0.0881, -0.1101, -0.0862, -0.0822, -0.0714, -0.0573, -0.0607, -0.0693, -0.0607, -0.0681, -0.112, -0.1204, -0.1229, -0.1228, -0.1849, -0.1985, -0.2681, -0.3863, -0.4114, -0.3401, -0.3083, -0.3302, -0.3279, -0.3253, -0.3127, -0.3261, -0.3256, -0.3083, -0.2753, -0.2742, -0.28, -0.2706, -0.2672, -0.2545, -0.2429, -0.2449, -0.2356, -0.2516, -0.2289, -0.2118, -0.2111, -0.2169, -0.2688, -0.2468, -0.276, -0.272, -0.2587, -0.2386, -0.2388, -0.2334, -0.2368, -0.1993, -0.1786, -0.155, -0.161, -0.1134, -0.1015, -0.1017, -0.1062, -0.0932, -0.0472, -0.0571, -0.1236, -0.0965, -0.0759, -0.0731, -0.0669, -0.0644, -0.0732, -0.0616, -0.0847, -0.1052, -0.1075, -0.1139, -0.1041, -0.1091, -0.1138, -0.1123, -0.1388, -0.1384, -0.1109, -0.1031, -0.102, -0.1036, -0.1121, -0.1022, -0.1062, -0.1004, -0.0926, -0.0886, -0.0898, -0.1042, -0.0969, -0.0913, -0.0992, -0.0899, -0.094, -0.0861, -0.06, -0.0343, -0.0084, -0.0247, -0.0293, -0.0085, -0.0113, -0.0241, -0.0321, -0.0262, -0.0191, -0.0288, -0.022, -0.0104, -0.0114, -0.0195, -0.0235, -0.0142, -0.0028, -0.0146, -0.0148, -0.0077, -0.0165, -0.0054, -0.0067, -0.0054, -0.0062, -0.0038, -0.0105, -0.0109, -0.0932, -0.0868, -0.0598, -0.0328, -0.0261, -0.0466, -0.0412, -0.0662, -0.0875, -0.0873, -0.0848, -0.0574, -0.0422, -0.0261, -0.0251, -0.0231, -0.0198, -0.0123, -0.0204, -0.0191, -0.0385, -0.0421, -0.0688, -0.0665, -0.0375, -0.0413, -0.048, -0.0415, -0.0393, -0.0418, -0.0824, -0.0797, -0.0751, -0.0659, -0.0908, -0.1002, -0.0861, -0.0667, -0.0654, -0.0607, -0.0577, -0.0694, -0.0689, -0.0755, -0.1028, -0.0964, -0.0832, -0.0718, -0.0747, -0.0725, -0.0557, -0.0725, -0.0834, -0.0895, -0.0862, -0.0936, -0.0955, -0.0846, -0.0927, -0.0897, -0.0869, -0.0802, -0.0667, -0.0576, -0.0636, -0.0614, -0.0626, -0.0618, -0.0542, -0.0537, -0.0525, -0.0522, -0.0539, -0.0606, -0.0583, -0.0644, -0.0825, -0.0923, -0.0702, -0.0656, -0.0562, -0.0416, -0.0315, -0.0332, -0.0271, -0.0099, -0.0061, -0.0217, -0.0216, -0.0303, -0.0275, -0.0219, -0.0204, -0.0088, -0.0103, -0.0153, -0.0142, -0.0176, -0.0194, -0.0358, -0.0465, -0.0534, -0.0425, -0.0463, -0.047, -0.0333, -0.0622, -0.072, -0.094, -0.095, -0.0741, -0.0415, -0.0245, -0.0281, -0.026, -0.0258, -0.0503, -0.0183, -0.0087, -0.0041, -0.0101, -0.0025, -0.0205, -0.0264, -0.0518, -0.0538, -0.0437, -0.0267, -0.0506, -0.0837, -0.0941, -0.0975, -0.1001, -0.1086, -0.0734, -0.1174, -0.1099, -0.1044, -0.1064, -0.12, -0.0935, -0.1052, -0.1471, -0.1737, -0.1413, -0.2068, -0.1929, -0.1758, -0.2128, -0.2206, -0.2451, -0.1944, -0.1846, -0.1496, -0.1363, -0.1171, -0.1026, -0.0923, -0.1089, -0.0935, -0.1263, -0.1415, -0.1316, -0.1271, -0.1022, -0.0709, -0.0533, -0.0558, -0.0379, -0.0107, -0.0153, -0.0272, -0.0407, -0.0021, -0.0106, -0.0102, -0.0004, -0.0414, -0.0205, -0.022, -0.004, -0.0033, -0.0065, -0.0109, -0.0062, -0.0104, -0.0116, -0.0198, -0.0076, -0.0022, -0.0067, -0.0201, -0.0988, -0.1327, -0.1207, -0.0945, -0.0985, -0.1705, -0.2187, -0.2313, -0.2231, -0.2308, -0.2369, -0.1789, -0.2195, -0.2384, -0.237, -0.264, -0.3328, -0.3292, -0.3875, -0.4152, -0.3243, -0.3559, -0.3822, -0.357, -0.339, -0.3217, -0.3332, -0.3175, -0.3138, -0.3063], "deposit": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]}, "stats": {"yield": {"cagr": 0.0889, "dd": -0.5584, "final": 2.27}, "neutral": {"cagr": 0.046, "dd": -0.5599, "final": 1.541}, "ihsg": {"cagr": 0.0188, "dd": -0.4152, "final": 1.196}, "deposit": {"cagr": 0.055, "dd": 0.0, "final": 1.674}}, "years": [{"y": 2017, "yield": 0.1768, "neutral": 0.0766, "ihsg": 0.1999, "deposit": 0.0543}, {"y": 2018, "yield": -0.0193, "neutral": -0.0476, "ihsg": -0.0254, "deposit": 0.0553}, {"y": 2019, "yield": -0.0536, "neutral": 0.0292, "ihsg": 0.017, "deposit": 0.0548}, {"y": 2020, "yield": 0.028, "neutral": 0.076, "ihsg": -0.0509, "deposit": 0.0551}, {"y": 2021, "yield": 0.0045, "neutral": -0.0295, "ihsg": 0.1008, "deposit": 0.055}, {"y": 2022, "yield": 0.2543, "neutral": -0.0115, "ihsg": 0.0409, "deposit": 0.055}, {"y": 2023, "yield": -0.0187, "neutral": -0.0388, "ihsg": 0.0616, "deposit": 0.0548}, {"y": 2024, "yield": 0.2754, "neutral": 0.1024, "ihsg": -0.0265, "deposit": 0.0553}, {"y": 2025, "yield": 0.3073, "neutral": 0.5769, "ihsg": 0.2213, "deposit": 0.055}, {"y": 2026, "yield": -0.0194, "neutral": -0.1533, "ihsg": -0.2671, "deposit": 0.0346}], "book": [{"t": "SIDO", "px": 348, "y": 0.0717, "lots": 814, "val": 28327200, "w": 0.03333}, {"t": "AMRT", "px": 1355, "y": 0.0311, "lots": 209, "val": 28319500, "w": 0.03332}, {"t": "TOWR", "px": 422, "y": 0.0313, "lots": 671, "val": 28316200, "w": 0.03331}, {"t": "EXCL", "px": 2860, "y": 0.0589, "lots": 99, "val": 28314000, "w": 0.03331}, {"t": "UNVR", "px": 1780, "y": 0.1102, "lots": 159, "val": 28302000, "w": 0.0333}, {"t": "BFIN", "px": 910, "y": 0.1034, "lots": 311, "val": 28301000, "w": 0.0333}, {"t": "PGAS", "px": 1505, "y": 0.0788, "lots": 188, "val": 28294000, "w": 0.03329}, {"t": "MTEL", "px": 440, "y": 0.0541, "lots": 643, "val": 28292000, "w": 0.03328}, {"t": "UNTR", "px": 23575, "y": 0.0591, "lots": 12, "val": 28290000, "w": 0.03328}, {"t": "CTRA", "px": 620, "y": 0.0674, "lots": 456, "val": 28272000, "w": 0.03326}, {"t": "ESSA", "px": 620, "y": 0.0915, "lots": 456, "val": 28272000, "w": 0.03326}, {"t": "JSMR", "px": 2770, "y": 0.0542, "lots": 102, "val": 28254000, "w": 0.03324}, {"t": "PGEO", "px": 1050, "y": 0.0509, "lots": 269, "val": 28245000, "w": 0.03323}, {"t": "ISAT", "px": 2740, "y": 0.0491, "lots": 103, "val": 28222000, "w": 0.0332}, {"t": "AKRA", "px": 1390, "y": 0.0696, "lots": 203, "val": 28217000, "w": 0.0332}, {"t": "MEDC", "px": 1425, "y": 0.0497, "lots": 198, "val": 28215000, "w": 0.03319}, {"t": "PTBA", "px": 2370, "y": 0.0466, "lots": 119, "val": 28203000, "w": 0.03318}, {"t": "ANTM", "px": 3030, "y": 0.0732, "lots": 93, "val": 28179000, "w": 0.03315}, {"t": "GGRM", "px": 20125, "y": 0.0526, "lots": 14, "val": 28175000, "w": 0.03315}, {"t": "ADRO", "px": 2560, "y": 0.1341, "lots": 110, "val": 28160000, "w": 0.03313}, {"t": "BMRI", "px": 4140, "y": 0.1106, "lots": 68, "val": 28152000, "w": 0.03312}, {"t": "BBNI", "px": 3560, "y": 0.0865, "lots": 79, "val": 28124000, "w": 0.03309}, {"t": "CPIN", "px": 2960, "y": 0.0464, "lots": 95, "val": 28120000, "w": 0.03308}, {"t": "TLKM", "px": 2600, "y": 0.0815, "lots": 108, "val": 28080000, "w": 0.03304}, {"t": "BBRI", "px": 3080, "y": 0.1047, "lots": 91, "val": 28028000, "w": 0.03297}, {"t": "ASII", "px": 4730, "y": 0.0685, "lots": 59, "val": 27907000, "w": 0.03283}, {"t": "BBCA", "px": 6300, "y": 0.0507, "lots": 44, "val": 27720000, "w": 0.03261}, {"t": "INDF", "px": 7275, "y": 0.0439, "lots": 38, "val": 27645000, "w": 0.03252}, {"t": "ICBP", "px": 7675, "y": 0.0398, "lots": 36, "val": 27630000, "w": 0.03251}, {"t": "ITMG", "px": 25000, "y": 0.0749, "lots": 11, "val": 27500000, "w": 0.03235}], "asof": "2026-08-19", "planned": 0.0674};
+
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const SERIES = [
+  {k:"yield",   c:"--brass", w:2.4},
+  {k:"deposit", c:"--cash",  w:1.6, dash:[5,4]},
+  {k:"neutral", c:"--ok",    w:1.6},
+  {k:"ihsg",    c:"--no",    w:1.6},
+];
+const pct = v => (v*100).toFixed(1) + "%";
+const sign = v => (v>0?"+":"") + (v*100).toFixed(1) + "%";
+
+// Push overlapping endpoint labels apart, keeping their order, so two lines
+// that finish a few pixels apart do not print one number on top of another.
+function declash(tags, gap, top, bottom){
+  tags.sort((a,b) => a.y - b.y);
+  for (let i = 1; i < tags.length; i++)
+    if (tags[i].y - tags[i-1].y < gap) tags[i].y = tags[i-1].y + gap;
+  const over = tags.length ? tags[tags.length-1].y - bottom : 0;
+  if (over > 0) tags.forEach(t => t.y -= over);
+  if (tags.length && tags[0].y < top){
+    const under = top - tags[0].y;
+    tags.forEach(t => t.y += under);
+  }
+  return tags;
+}
+
+function fit(cv){
+  const r = cv.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio||1, 2);
+  const w = Math.max(320, r.width), h = +cv.dataset.h || 420;
+  cv.width = w*dpr; cv.height = h*dpr; cv.style.height = h+"px";
+  const g = cv.getContext("2d"); g.setTransform(dpr,0,0,dpr,0,0);
+  return {g, w, h};
+}
+
+function frame(g, w, h, pad, ticks, fmt, ink, rule, muted){
+  g.clearRect(0,0,w,h);
+  g.font = '500 11px "IBM Plex Mono", monospace';
+  g.textBaseline = "middle";
+  ticks.forEach(t => {
+    const y = t.y;
+    g.strokeStyle = t.zero ? rule : rule;
+    g.globalAlpha = t.zero ? 0.9 : 0.45;
+    g.beginPath(); g.moveTo(pad.l, y); g.lineTo(w-pad.r, y); g.stroke();
+    g.globalAlpha = 1;
+    g.fillStyle = muted; g.textAlign = "right";
+    g.fillText(fmt(t.v), pad.l-8, y);
+  });
+}
+
+function xAxis(g, w, h, pad, labels, n, muted, rule){
+  g.textAlign = "center"; g.fillStyle = muted;
+  const years = {};
+  labels.forEach((s,i) => { const y = s.slice(0,4); if(!(y in years)) years[y]=i; });
+  Object.entries(years).forEach(([y,i]) => {
+    if (+y % 2) return;
+    const x = pad.l + (w-pad.l-pad.r) * i/(n-1);
+    g.strokeStyle = rule; g.globalAlpha=.45;
+    g.beginPath(); g.moveTo(x, pad.t); g.lineTo(x, h-pad.b); g.stroke();
+    g.globalAlpha=1;
+    g.fillText(y, x, h-pad.b+14);
+  });
+}
+
+function drawGrowth(){
+  const cv = document.getElementById("growth"); cv.dataset.h = 420;
+  const {g,w,h} = fit(cv);
+  const pad = {l:52, r:64, t:14, b:28};
+  const all = SERIES.flatMap(s => D.growth[s.k]);
+  const base = D.growth.yield[0];
+  const lo = Math.min(...all)/base, hi = Math.max(...all)/base;
+  const L = v => Math.log(v);
+  const Y = v => pad.t + (h-pad.t-pad.b) * (L(hi*1.06)-L(v)) / (L(hi*1.06)-L(lo*0.94));
+  const n = D.months.length;
+  const X = i => pad.l + (w-pad.l-pad.r) * i/(n-1);
+  const ink=css("--ink"), rule=css("--rule"), muted=css("--muted");
+  const marks = [0.5,0.75,1,1.5,2,3].filter(v => v>=lo*0.94 && v<=hi*1.06);
+  frame(g,w,h,pad, marks.map(v=>({y:Y(v), v})), v => v.toFixed(2)+"x", ink, rule, muted);
+  xAxis(g,w,h,pad,D.months,n,muted,rule);
+  const tags = [];
+  SERIES.forEach(s => {
+    const v = D.growth[s.k];
+    g.strokeStyle = css(s.c); g.lineWidth = s.w;
+    g.setLineDash(s.dash||[]); g.lineJoin="round";
+    g.beginPath();
+    v.forEach((p,i) => i ? g.lineTo(X(i), Y(p/base)) : g.moveTo(X(i), Y(p/base)));
+    g.stroke(); g.setLineDash([]);
+    const last = v[v.length-1]/base;
+    tags.push({y:Y(last), c:css(s.c), t:last.toFixed(2)+"x"});
+  });
+  declash(tags, 13, pad.t, h-pad.b);
+  g.textAlign="left"; g.textBaseline="middle";
+  g.font='600 11px "IBM Plex Mono", monospace';
+  tags.forEach(t => { g.fillStyle = t.c; g.fillText(t.t, w-pad.r+7, t.y); });
+}
+
+function drawUnder(){
+  const cv = document.getElementById("under"); cv.dataset.h = 300;
+  const {g,w,h} = fit(cv);
+  const pad = {l:52, r:64, t:14, b:28};
+  const keys = ["yield","neutral","ihsg"];
+  const lo = Math.min(...keys.flatMap(k => D.dd[k]));
+  const Y = v => pad.t + (h-pad.t-pad.b) * (0 - v) / (0 - lo*1.05);
+  const n = D.weeks.length;
+  const X = i => pad.l + (w-pad.l-pad.r) * i/(n-1);
+  const ink=css("--ink"), rule=css("--rule"), muted=css("--muted");
+  const marks=[0,-0.15,-0.30,-0.45,-0.60].filter(v => v>=lo*1.05);
+  frame(g,w,h,pad, marks.map(v=>({y:Y(v), v, zero:v===0})), v => (v*100).toFixed(0)+"%", ink, rule, muted);
+  xAxis(g,w,h,pad,D.weeks,n,muted,rule);
+  keys.forEach((k,ix) => {
+    const v = D.dd[k], c = css(SERIES.find(s=>s.k===k).c);
+    if (k === "yield"){
+      g.fillStyle = c; g.globalAlpha = .16;
+      g.beginPath(); g.moveTo(X(0), Y(0));
+      v.forEach((p,i) => g.lineTo(X(i), Y(p)));
+      g.lineTo(X(n-1), Y(0)); g.closePath(); g.fill(); g.globalAlpha = 1;
+    }
+    g.strokeStyle = c; g.lineWidth = k==="yield" ? 2.2 : 1.4; g.lineJoin="round";
+    g.beginPath();
+    v.forEach((p,i) => i ? g.lineTo(X(i), Y(p)) : g.moveTo(X(i), Y(p)));
+    g.stroke();
+  });
+  // The worst points cluster within a few percent of each other, so labelling
+  // them on the plot would just stack three numbers on top of one another.
+  // They go in the legend instead, where they can be read.
+  const leg = cv.parentElement.querySelector(".legend");
+  if (leg) leg.innerHTML = keys.map(k => {
+    const nm = {yield:"Yield book", neutral:"Equal-weight universe", ihsg:"IHSG"}[k];
+    return `<span><i style="background:${css(SERIES.find(s=>s.k===k).c)}"></i>` +
+           `${nm} · worst ${(Math.min(...D.dd[k])*100).toFixed(0)}%</span>`;
+  }).join("");
+}
+
+function tableYears(){
+  const rows = D.years.map(r => {
+    const edge = (r.yield!=null && r.neutral!=null) ? r.yield-r.neutral : null;
+    const cell = v => v==null ? "<td>—</td>"
+      : `<td class="${v<0?'neg':'pos'}">${sign(v)}</td>`;
+    return `<tr><td>${r.y}</td>${cell(r.yield)}${cell(r.neutral)}${cell(r.ihsg)}
+      <td>${r.deposit!=null?sign(r.deposit):"—"}</td>
+      ${edge==null?"<td>—</td>":`<td class="${edge<0?'neg':'pos'}"><strong>${sign(edge)}</strong></td>`}</tr>`;
+  }).join("");
+  document.getElementById("years").innerHTML =
+    `<table><caption>Calendar-year returns of the annual book</caption>
+     <thead><tr><th>Year</th><th>Yield book</th><th>Equal weight</th><th>IHSG</th>
+     <th>Deposit</th><th>Edge vs EW</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const wins = D.years.filter(r => r.yield!=null && r.neutral!=null && r.yield>r.neutral).length;
+  const tot = D.years.filter(r => r.yield!=null && r.neutral!=null).length;
+  document.getElementById("yearsnote").innerHTML =
+    `Ahead of the neutral book in <strong>${wins} of ${tot}</strong> calendar years,
+     and never behind two years running. 2025 is the year to look at: the book
+     made 30.7% and still lost to an equal-weight universe that made 57.7%. A
+     yield book gives up the melt-up; that is the same property that limited it
+     to −1.9% in the 2026 collapse.`;
+}
+
+function tableBook(){
+  const total = D.book.reduce((a,r)=>a+r.val,0);
+  const rows = D.book.map(r =>
+    `<tr><td><strong>${r.t}</strong></td><td>${r.px.toLocaleString()}</td>
+     <td class="hi">${pct(r.y)}</td><td>${r.lots.toLocaleString()}</td>
+     <td>${r.val.toLocaleString()}</td><td>${(r.w*100).toFixed(2)}%</td></tr>`).join("");
+  document.getElementById("book").innerHTML =
+    `<table><caption>The book as it stands on ${D.asof} — Rp 850m of equity, whole lots</caption>
+     <thead><tr><th>Ticker</th><th>Price</th><th>Trailing yield</th><th>Lots</th>
+     <th>Value (IDR)</th><th>Weight</th></tr></thead><tbody>${rows}
+     <tr class="tot"><td>30 names</td><td></td><td></td><td></td>
+     <td>${total.toLocaleString()}</td><td>${(total/850e6*100).toFixed(2)}%</td></tr>
+     </tbody></table>`;
+  const avg = D.book.reduce((a,r)=>a+r.y,0)/D.book.length;
+  document.getElementById("booknote").innerHTML =
+    `Average trailing yield <strong>${pct(avg)}</strong>, throwing off about
+     <strong>Rp ${(D.book.reduce((a,r)=>a+r.val*r.y,0)/1e6).toFixed(1)}m a year</strong>
+     in dividends — tax-free if reinvested in Indonesia. Entry commission
+     Rp ${(total*0.0028/1e6).toFixed(2)}m. IDX trades in lots of 100 shares, so
+     the weights are equal only to the nearest lot; ITMG at Rp 25,000 a share is
+     the name that sets the minimum capital.`;
+}
+
+function draw(){ drawGrowth(); drawUnder(); }
+tableYears(); tableBook(); draw();
+
+let t; addEventListener("resize", () => { clearTimeout(t); t = setTimeout(draw, 120); });
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", draw);
+new MutationObserver(draw).observe(document.documentElement,
+  {attributes:true, attributeFilter:["data-theme"]});
+document.fonts && document.fonts.ready.then(draw);
+</script>

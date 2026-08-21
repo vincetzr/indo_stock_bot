@@ -3,6 +3,11 @@
 *What the evidence in this repository supports, what it rules out, and what
 it refuses to promise.*
 
+A read-only visual version of this document, with the equity and drawdown
+curves drawn, is published at
+<https://claude.ai/code/artifact/742ee7d3-466b-4f4a-b4c3-cf7f23d17ab5>
+(source: `docs/idx_yield_book.html`).
+
 Everything below is reproducible from the repository:
 
 ```bash
