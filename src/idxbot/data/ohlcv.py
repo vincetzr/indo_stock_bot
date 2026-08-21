@@ -138,14 +138,36 @@ class YahooOHLCV:
         return df[OHLCV_COLUMNS]
 
     # -- public API ---------------------------------------------------------
+    @staticmethod
+    def _repaired(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
+        """Apply any registered spine repair on the way OUT.
+
+        Repairs are applied on read and never written to the cache, so the
+        cache stays a faithful copy of what the source served and every repair
+        remains auditable and reversible. It also means a corrected registry
+        takes effect immediately instead of needing the cache rebuilt.
+
+        Every return path in :meth:`get` goes through here. A repair that
+        covers only some of them is worse than no repair at all - it would make
+        the same ticker return different prices depending on whether the cache
+        happened to be warm.
+        """
+        if df is None or df.empty:
+            return df
+        try:
+            from ..spine.repairs import apply_repairs      # noqa: PLC0415
+        except Exception:                                   # noqa: BLE001
+            return df
+        return apply_repairs(df, str(ticker))
+
     def get(self, ticker: str, max_age: float = 3600.0,
             force_refresh: bool = False) -> pd.DataFrame:
-        """Return the full daily history for one ticker."""
+        """Return the full daily history for one ticker, repairs applied."""
         symbol = to_yahoo_symbol(ticker)
         if not force_refresh:
             cached = self.cache.read("ohlcv", symbol, max_age=max_age)
             if cached is not None and not cached.empty:
-                return cached
+                return self._repaired(cached, ticker)
 
         payload = self._fetch_json(symbol)
         df = self._parse(payload) if payload else pd.DataFrame(columns=OHLCV_COLUMNS)
@@ -156,11 +178,11 @@ class YahooOHLCV:
             stale = self.cache.read("ohlcv", symbol)
             if stale is not None and not stale.empty:
                 print(f"  ! {symbol}: fetch failed, using cached data")
-                return stale
+                return self._repaired(stale, ticker)
             return df
 
-        self.cache.write("ohlcv", symbol, df)
-        return df
+        self.cache.write("ohlcv", symbol, df)      # cache the RAW source
+        return self._repaired(df, ticker)
 
     def get_many(self, tickers: List[str], max_age: float = 3600.0,
                  force_refresh: bool = False, pause: float = 0.35,

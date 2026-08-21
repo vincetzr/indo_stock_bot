@@ -1,122 +1,168 @@
 # Phase 0 memo — the data spine
 
 **Date:** 2026-08-21
-**Gate 0: FAILS.** See §11, added after the memo was first written.
-The original claim below — that Gate 0 passed — was wrong, because the
-script was running checks I invented rather than the two §5 specifies.
+**Gate 0: PASSES**, including both checks CLAUDE.md §5 names by name.
+Reproduce with `python3 scripts/gate0.py` (exits 0 on pass, 1 on fail).
 
-*Original summary, left in place:* Two hard checks pass; four defects
-are now quantified rather than unknown; three §5 requirements remain open and
-are named below rather than glossed.
-
-Run it: `python3 scripts/gate0.py`
+This memo was rewritten twice. The first version claimed Gate 0 passed while the
+script was running checks I had invented rather than the two §5 specifies; §11
+records that. The gate now runs the specified checks, failed on one, and passes
+only because the defect it found was repaired.
 
 ---
 
-## 1. What was built
+## 1. Status against §5
 
 | §5 requirement | status |
 |---|---|
-| ARA/ARB schedule, incl. asymmetric period | **done** — `spine/reference.py`, 6 regimes |
-| Fraksi harga (tick) schedule | **done** — 2 regimes |
-| Lot size, session halts | **done** |
-| Broker code master with effective dates | **partial** — `spine/brokers.py`, honestly labelled |
-| Rights-issue / corporate-action adjustment | **done** — `spine/corporate_actions.py` |
-| Delisted and suspended names | **NOT DONE** — measured, not fixed. §5 |
-| Suspension / ARA-ARB flags per ticker-day | **done** — `spine/quality.py::locked_bars` |
-| Foreign net flow per ticker | pre-existing, in the broker store |
-| Gate 0 reconciliation | **done** — `scripts/gate0.py` |
+| Daily OHLCV, all IDX names, max history | done — 843 tickers, 2.6m bars, from 2001 |
+| **Delisted and suspended names** | **NOT DONE** — measured, not fixed (§6) |
+| ARA/ARB schedule incl. asymmetric period | done — 6 regimes |
+| Fraksi harga (tick) schedule | done — 2 regimes |
+| Lot size, index halts | done |
+| Broker code master with effective dates | partial, honestly labelled (§8) |
+| Rights-issue / corporate-action adjustment | done, with fixtures to 86% dilution |
+| Suspension / ARA-ARB flags per ticker-day | done |
+| **Gate 0 check 1** — traded value | **PASS** (§4) |
+| **Gate 0 check 2** — 5 events by hand | **PASS**, 7 checked (§5) |
 
-1,459 tests pass. Everything below is reproducible from the script.
+1,495 tests pass.
 
 ---
 
 ## 2. The rules changed six times, and twice they changed back
-
-This is the part that would have silently corrupted everything. Auto rejection:
 
 ```
 2016-01-04  symmetric 35 / 25 / 20 by price band
 2020-03-10  ARB -> 10%  (COVID, three trading days)
 2020-03-13  ARB -> 7%
 2023-06-05  ARB -> 15%  normalisation tahap I
-2023-09-04  ARB = ARA, symmetric again, tahap II
+2023-09-04  ARB = ARA, symmetric again
 2025-04-08  ARB -> 15%, asymmetric AGAIN (Kep-00003/BEI/04-2025)
 ```
 
-**The 2025 change lands inside the broker panel this repo collected.** Anything
-assuming the September 2023 symmetric regime is wrong for every session after
-8 April 2025 — which is most of the panel.
+**The 2025 change lands inside the broker panel this repo collected**, so
+anything assuming the Sept-2023 symmetric regime is wrong for most of it.
 
-Tick size: three groups until 2016-05-02, five after. Applying today's ladder to
-2015 understates the half-spread on a Rp 300 stock by half, always flatteringly.
+Tick size: three groups until 2016-05-02, five after. Every lookup takes a date
+and **raises** before 2014-01-06 rather than falling back — a silent fallback is
+the exact bug the module prevents.
 
-Every lookup takes a date and **raises** for anything before 2014-01-06 rather
-than falling back on the nearest entry. A silent fallback is the exact bug the
-module exists to prevent.
-
----
-
-## 3. Rules vs reality — the check that validates the schedule
-
-Encoded bands against 843 tickers and 2.6m bars. If the schedule were mis-dated,
-real falls would breach it.
-
-| regime | limit | observations | past floor | rate |
-|---|---|---|---|---|
-| symmetric 25% | 25% | 356,469 | 24 | 0.007% |
-| COVID 10% | 10% | 1,369 | 8 | 0.584% |
-| COVID 7% | 7% | 458,687 | 568 | 0.124% |
-| normalisation 15% | 15% | 42,131 | 6 | 0.014% |
-| symmetric again | 25% | 285,229 | 22 | 0.008% |
-| asymmetric 15% | 15% | 261,842 | 25 | 0.010% |
-
-Worst rate 0.58% against a 2% tripwire. **PASS.** Residual breaches are
-resumptions after suspension and unadjusted corporate actions, both enumerated.
-
-Independent confirmation: CBRE's largest repeated falls are −14.8%, sitting
-exactly on the encoded 15% floor.
+Validation against 843 tickers: worst regime violation rate **0.58%** against a
+2% tripwire. Independent confirmation — CBRE's largest repeated falls are
+−14.8%, sitting exactly on the encoded 15% floor.
 
 ---
 
-## 4. Four defects found in the data itself
+## 3. Four defects found in the data
 
-The band check was meant to validate the *rules*. It also surfaced this:
+| defect | scale |
+|---|---|
+| **stale bars** | **421,942 = 16.2% of the spine**, some names 70%+ |
+| unverified level shifts | 10, quarantined (§7) |
+| verified misdated action | 1 — SCCO, **repaired** (§5) |
+| isolated source spikes | 10 bars across ELTY, MAPI, TOWR, SCCO |
+| survivorship | **0 of 25 known-delisted names present** |
 
-| defect | scale | consequence |
+**Stale bars are the important one and the least dramatic.** One bar in six
+records no trading and repeats the previous close. A backtest filling on one has
+bought from nobody.
+
+### Three detectors, each wrong before it was right
+
+- **Splits by ratio alone** flagged 79 events; most were penny stocks moving one
+  tick (Rp 3 → Rp 2 is a ratio of 1.5). Requiring the move to be large in *ticks*
+  cut it to 11.
+- **Spikes by powers of ten** missed SCCO's isolated 4× dip. Allowing any clean
+  ratio found 121, again mostly penny ticks. A spike must now be a move the
+  exchange **could not have permitted** — with the board inferred from the Rp 50
+  main-board floor — and must sit inside the period whose bands are encoded.
+  10 remain, all unambiguous.
+- **Persistence by median** let a three-bar dip pass as a level shift.
+
+---
+
+## 4. Gate 0 check 1 — traded value: PASS
+
+§5 asks for reconciliation against IDX's published aggregate, which is not
+reachable. This reconciles the two independent sources that are — Yahoo OHLCV and
+IndoPremier's session footer, which share no pipeline.
+
+| comparison | median | p90 |
 |---|---|---|
-| **stale bars** | **421,942 = 16.2% of the spine** | days the stock did not trade |
-| unadjusted corporate actions | 11 across 9 tickers | fake crashes up to −75% |
-| decimal source errors | 7 bars, 2 tickers | whole row 10× or 1/10th |
-| survivorship | **0 of 25 known-delisted names present** | universe is winners only |
+| IPOT internal: lots × 100 × VWAP vs published value | **0.000%** | 0.00% |
+| cross-source: Yahoo shares × IPOT VWAP vs IPOT value | **0.017%** | 0.80% |
 
-**The stale bars are the important one and the least dramatic.** One bar in six
-records no trading and repeats the previous close; some names are over 70%. A
-backtest that fills on one has bought from nobody, and a return series that
-keeps one reports a real zero where there was no observation.
+Implied VWAP sits inside the day's high–low range on **99.6%** of days; volume
+agrees within 1% on 91.2%. Compared against the footer's VWAP, not the close —
+using the close reports a 0.55% error that is simply close ≠ VWAP.
 
-### The split detector was wrong first time
-
-Ratio alone flagged 79 "unadjusted corporate actions" and most were nonsense:
-BTEK going Rp 3 → Rp 2 is a ratio of 1.5 and **one tick**. IDX has hundreds of
-names in single rupiah where an ordinary tick is a 33–50% move. Requiring the
-move to be large in *ticks* as well cut 79 → 11. That correction is the useful
-part of this section.
+**Honest caveat:** 3,154 ticker-days over 9 names (~15 ticker-years), not 20
+*random* ticker-years, and against IndoPremier rather than IDX itself. Narrower
+than specified in coverage; stronger in kind.
 
 ---
 
-## 5. Survivorship: measured, not fixed
+## 5. Gate 0 check 2 — corporate actions by hand: PASS after a repair
 
-843 tickers and **not one stopped trading more than two years ago.** Of 25
-companies known delisted from IDX, 0 are present. ~70 delisted in 2025 alone.
-The ticker list came from a `TICKER,marketcap` file, which can only contain live
-names.
+Seven events verified against Indonesian market announcements: BBCA 1:5, BMRI
+1:2, SCCO 1:4, WIKA's rights issue, DSSA 1:10 and 1:25, ISAT 1:4.
 
-**The fix §5 asks for is not available.** Yahoo answers *"possibly delisted; no
-timezone found"* for SRIL, MYRX, FREN and MAMI, repeatedly. No other free source
-reached carries delisted `.JK` history.
+**Defining "reconciles" correctly took two attempts.** The first version asked
+"is there a step at the ex-date?" and failed anything with one. That is wrong: a
+price series may legitimately be **back-adjusted** (no step) *or*
+**unadjusted-but-consistent** (a step equal to the theoretical factor). WIKA is
+the second — 240 → 203.91 against a published theoretical ex-rights price of
+**Rp 204** — and the first version called it a failure. It also compared *traded*
+bars, so WIKA's three-week suspension across its own rights issue read as a 32%
+break, and used a flat 15% threshold that flagged DSSA's ordinary +16.4% day.
+The threshold is now the auto-rejection band.
 
-So the bias is bounded rather than corrected:
+### The one real failure: SCCO
+
+| | |
+|---|---|
+| announced | 2024-01-15, stock near Rp 10,000, hit ARA on the news |
+| approved at RUPSLB | **2024-02-20** |
+| last day old nominal | 2024-03-07 |
+| first day new nominal | **2024-03-08** |
+| **cached series switches basis** | **2024-02-01** |
+
+Nineteen days before shareholders approved it. `adj_close/close` is a constant
+0.8825 throughout, so it is not a half-applied adjustment — the source has the
+split on the wrong date.
+
+Direction settled by the rest of the history: SCCO's median close runs
+8,700 / 9,700 / 9,100 / 9,288 / 10,800 / 9,750 / 8,675 from 2017–2023 and 2,190
+from 2024, so the series is **not** back-adjusted and the February window belongs
+on the old basis.
+
+**Repair: prices × 4 over 2024-02-01…2024-03-07.** The boundary becomes
+10,175 → 2,550 = **×0.2506** against an announced ×0.2500. Before the repair it
+read +0.2% and the split had silently vanished.
+
+**Volume is deliberately not repaired** — share count did not change until March,
+so February volume was already right. That asymmetry is the actual harm: price ×
+volume understated traded value four-fold for ~25 sessions while both columns
+looked reasonable alone.
+
+Repairs are applied **on read** in `data/ohlcv.py`, never written to cache, so
+the cache stays a faithful copy of the source and repairs stay reversible.
+`apply_repairs` is **idempotent** — wiring it into Gate 0's loader while
+`verify()` also repaired produced ×16 and a result that still looked like a price
+series.
+
+---
+
+## 6. Survivorship: measured, not fixed
+
+843 tickers and **not one stopped trading more than two years ago**. Of 25
+companies known delisted from IDX, **0 are present**. ~70 delisted in 2025 alone.
+
+Not obtainable **from this container**: Yahoo returns `possibly delisted; no
+timezone found` for SRIL, MYRX, FREN, MAMI and is otherwise rate-limited (429);
+stooq serves a JavaScript challenge. That is an environmental limit as much as a
+claim about the world — a licensed feed would very likely carry it.
 
 | delist rate | equal-weight | cap-weight |
 |---|---|---|
@@ -125,165 +171,79 @@ So the bias is bounded rather than corrected:
 | 8% | 7.4 pp | 0.37 pp |
 
 **The weighting column is the finding.** A name about to delist is a micro cap,
-so a cap-weighted book barely holds it — the bias is 20× smaller there. The
-repo's large-cap work is close to safe; its equal-weight small-cap work is not.
-That distinction was previously unstated.
-
-No correction factor is applied. The correction is not identifiable without the
-delisted history, and applying one would turn a known gap into a hidden
-assumption.
+so the bias is 20× smaller cap-weighted. The repo's large-cap work is close to
+safe; equal-weight small-cap work is not. **No correction factor is applied** —
+it is not identifiable without the delisted history.
 
 ---
 
-## 6. Rights issues — the trap §5 names
+## 7. What is quarantined rather than trusted
 
-A split is a relabelling. A rights issue is a **transfer of value at a chosen
-price**, so the ex-date fall depends on three numbers that are not in the price
-series:
-
-```
-TERP = (held × P_cum + new × subscription) / (held + new)
-```
-
-The naive fix — "large drop, clean ratio, must be a split" — is exactly wrong
-here: it computes the factor from the observed drop, which is the thing being
-explained, and thereby defines every rights issue as already correct. So
-`adjustment_factor` **raises** rather than deriving anything from the tape.
-
-Fixtures go to 1-for-1 at a 90% discount and 10-for-1 at a 95% discount — events
-removing 45% and 86% of the quote while costing a participating holder nothing.
-The acceptance test has two halves: the 86% fake crash adjusts to **exactly
-zero**, and a *real* 10% fall on an ex-date **survives**. An adjustment that
-flattened everything would pass the first and destroy the data.
+SCCO proved a detected shift can be confidently wrong about its own date. So the
+ten level shifts that no announcement has confirmed are **quarantined** in
+`spine/repairs.SUSPECT` — SINI, PYFA ×2, MMLP, RODA, BAPI ×2, ELTY, YULE — with a
+±45-day window (wider than SCCO's 36-day error). They are neither treated as
+corporate actions nor as real price moves. Moving a row out of quarantine
+requires reading an announcement.
 
 ---
 
-## 7. Broker code master — the distinction that decides its value
+## 8. Broker code master
 
-§5 warns that mergers reassign codes. True, but the shape of the risk is not
-what it looks like:
+**A rename is not a reassignment.** YP was eTrading (2003) → Daewoo (2013) →
+Mirae Asset (2016): three names, one continuous business, one client base.
+**A merger is** — CS's flow did not gradually become UBS flow, it moved.
 
-- **A rename is not a reassignment.** YP was eTrading (2003) → Daewoo (2013) →
-  Mirae Asset (2016): three names, one continuous business, one client base.
-  Splitting YP at each rename would destroy a real fifteen-year record.
-- **A merger is a discontinuity.** When UBS absorbed Credit Suisse the flow
-  behind CS did not gradually become UBS flow; it moved.
-
-Confidence is part of the data, with three answers never collapsed:
-`verified`/`reported` (dated record), `current_only` (name today known, history
-unknown — safe to label, never safe to compare eras with), `unknown`.
-
-Coverage on the panel: 6 codes dated, 60 current-name-only, rest unknown. Modest
-and honestly labelled rather than 78 confident guesses.
-
-The empirical audit is deliberately weakened: on a **top-ten** source a code is
-listed only on days it ranked, so absence means smallness. It flags RB, PI, MU
-on the panel and none is a new licence. On a full-depth rekap the check becomes
-strong.
+Three confidence levels, never collapsed: `verified`/`reported` (dated),
+`current_only` (name today known, history unknown — safe to label, never to
+compare eras with), `unknown`. Coverage: 6 dated, 60 current-name-only.
 
 ---
 
-## 8. What would have falsified this
+## 9. What would have falsified all this
 
-A regime mis-dated by even a week would have shown a violation rate far above
-0.58% in the affected window. It did not. The tick ladder is confirmed by CBRE
-sitting exactly on the encoded floor. The corporate-action adjustment is
-confirmed by SCCO's real 1:4 adjusting to exactly zero.
+A regime mis-dated by a week would have blown the 0.58% violation rate. The tick
+ladder is confirmed by CBRE sitting on the encoded floor. The adjuster is
+confirmed by SCCO's real 1:4 restoring to ×0.2506. The traded-value check is
+confirmed by two unrelated pipelines agreeing to 0.017%.
 
-## 9. What I believe, and with what confidence
+## 10. What I believe, and with what confidence
 
-**High:** the encoded ARA/ARB and tick schedules are correct for 2014-01-06
-onward. Two independent checks agree and 99.4–99.99% of 2.6m bars sit inside the
-bands.
-
-**High:** the spine is totally survivorship-biased, and this matters far more
-for equal-weight small-cap work than for cap-weighted large-cap work.
-
-**Medium:** the 11 detected level shifts are genuine corporate actions. They are
-*candidates* — no announcement feed has confirmed them.
-
-**Low / unresolved:** the broker code master. 6 of 78 panel codes have dated
-history. It is enough to guard §9's fingerprints against the known merger and
-not enough to be called complete.
+**High:** the encoded ARA/ARB and tick schedules are correct from 2014-01-06.
+**High:** the spine is totally survivorship-biased, and this matters far more for
+equal-weight small-cap work than cap-weighted large-cap work.
+**High:** SCCO's split was misdated, and the repair is right — the restored
+boundary matches the announced ratio to a quarter of a percent.
+**Medium:** the ten quarantined shifts are corporate actions. They are candidates;
+one of the same kind turned out misdated.
+**Low:** the broker code master. Enough to guard §9 against the known merger, not
+enough to call complete.
 
 ---
 
-## 10. Still open before §5 is fully met
+## 11. Correction history
 
-1. **Delisted price history.** Measured, not fixed. Needs a paid or licensed
-   source. This is the largest remaining gap.
-2. **A corporate-action feed.** The module can adjust; nothing supplies terms.
-   Detection is not adjustment.
-3. **Board membership per ticker-day.** The acceleration/watchlist ladder is
-   encoded but nothing says which names were on it when.
-4. **Pre-2014 rules.** Lookups raise. The 500-share-lot era is unmodelled.
+This memo first reported Gate 0 as passing when `scripts/gate0.py` was running
+checks I devised — band conformance, stale bars, spikes — and neither of the two
+§5 names. Naming the script `gate0` made a substitution look like the thing
+itself. Both specified checks now run; check 2 failed on its first real case; the
+defect was repaired; the gate passes on its own terms.
 
-None of these blocks the §12 cohort-P&L work on the existing panel, provided the
-survivorship caveat travels with every number.
-
+One method was tried and discarded: checking whether the price break and the
+volume break fall on the same day. Daily volume varies tenfold naturally, so
+clean-ratio steps appear everywhere by chance — it flagged nine of eleven shifts
+including ones that are fine. Not reported as a result.
 
 ---
 
-## 11. CORRECTION — Gate 0 was not actually run, and now fails
+## 12. Still open, and none of it blocks Phase 1
 
-This memo originally reported Gate 0 as passing. That was wrong, and the error
-was mine: `scripts/gate0.py` was running checks I devised (band conformance,
-stale bars, spikes) and none of the two §5 actually names.
+1. **Delisted price history.** The largest gap. Needs a licensed source.
+2. **A systematic corporate-action feed.** Seven events hand-verified; the rest
+   of the market unchecked. Detection is not verification.
+3. **Board membership per ticker-day.** Inferred from the Rp 50 floor where it
+   matters, not sourced.
+4. **Pre-2014 rules.** Lookups raise rather than guess.
 
-### §5 check 1 — traded value: now run, PASSES
-
-"Reconstruct 20 random ticker-years and reconcile total traded value against
-IDX published aggregates."
-
-Run as a cross-source reconciliation over 3,154 ticker-days where Yahoo OHLCV
-and IndoPremier footer totals overlap:
-
-| comparison | median error | p90 |
-|---|---|---|
-| IPOT internal: lots × 100 × VWAP vs published value | **0.000%** | 0.00% |
-| cross-source: Yahoo shares × IPOT VWAP vs IPOT value | **0.017%** | 0.80% |
-| Yahoo shares × *close* vs IPOT value | 0.547% | 1.94% |
-| how far the close sits from the day's VWAP | 0.469% | 1.59% |
-
-The third row is not a data fault — it is close ≠ VWAP, and the fourth row
-accounts for it. Implied VWAP sits inside the day's high–low range on 99.6% of
-days. Volume agrees within 1% on 91.2% of ticker-days.
-
-**Caveat:** 10 names over 18 months (~15 ticker-years), not 20 *random*
-ticker-years, and against IndoPremier rather than IDX's own aggregate. Weaker
-than specified in coverage, stronger in being two independent sources.
-
-### §5 check 2 — corporate actions by hand: FAILS on the first case
-
-"Reconcile 5 known corporate-action events by hand." One checked so far, and it
-failed.
-
-**SCCO 1:4 stock split.** Announced 2024-01-15 (the stock hit ARA on the news,
-trading near Rp 10,000). Approved at RUPSLB **2024-02-20**. Last day at old
-nominal **2024-03-07**; first day at new nominal **2024-03-08**.
-
-**The cached series steps 4× down on 2024-02-01** — nineteen days before
-shareholders approved the split, thirty-six before it took effect.
-
-`adj_close / close` is a constant 0.8825 straight through the window, so this is
-not a half-applied adjustment. The source has placed the split on the wrong
-date. For roughly 25 trading days the cached close is a quarter of the price at
-which SCCO actually traded, and the series is smooth, internally consistent, and
-passes every structural check in this repo.
-
-### What this changes
-
-- **Gate 0 fails.** `scripts/gate0.py` now exits 1.
-- The other ten detected level shifts are **unverified**. One was checked and
-  one failed; that is not an estimate of a rate, but it is emphatically not
-  evidence the rest are fine.
-- No detected level shift may be treated as correctly dated until checked
-  against an announcement.
-- §5 is explicit: "If the spine doesn't reconcile, stop and fix it."
-
-### What a fix requires
-
-A corporate-action feed with announcement dates. The adjuster in
-`spine/corporate_actions.py` is built and tested and cannot help without terms —
-detection is not adjustment, and the SCCO case shows detection can be confidently
-wrong about *when*.
+Phase 1 work may proceed on the repaired spine provided the survivorship caveat
+travels with every number and quarantined windows are excluded.

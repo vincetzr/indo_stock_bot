@@ -88,6 +88,63 @@ REPAIRS: List[Repair] = [
 ]
 
 
+@dataclass(frozen=True)
+class Suspect:
+    """A detected level shift that has NOT been checked against an announcement.
+
+    SCCO proved that a detected shift can be confidently wrong about its own
+    date, so an unverified one may not be treated as a corporate action and may
+    not be treated as a real price move either. It is quarantined: research can
+    exclude the window, and nothing silently assumes it is fine.
+    """
+
+    ticker: str
+    date: pd.Timestamp
+    ratio: float
+    note: str = ""
+
+
+#: Level shifts found by :func:`idxbot.spine.quality.level_shifts` that no
+#: announcement has confirmed. Every one is a candidate for the SCCO defect.
+#: Moving a row from here to REPAIRS or to verified_actions.VERIFIED requires
+#: reading an announcement, not looking at the chart harder.
+SUSPECT: List[Suspect] = [
+    Suspect("SINI", pd.Timestamp("2026-06-29"), 1.50),
+    Suspect("PYFA", pd.Timestamp("2024-04-16"), 5.10,
+            "the window 2024-04-16..2024-04-19 carries fractional prices "
+            "between round ones, so an adjustment was applied to four days "
+            "and nothing else"),
+    Suspect("PYFA", pd.Timestamp("2024-04-25"), 1.53),
+    Suspect("MMLP", pd.Timestamp("2020-03-09"), 1.53),
+    Suspect("RODA", pd.Timestamp("2019-11-27"), 1.52),
+    Suspect("BAPI", pd.Timestamp("2019-09-27"), 1.52),
+    Suspect("BAPI", pd.Timestamp("2019-10-03"), 1.48),
+    Suspect("ELTY", pd.Timestamp("2018-06-07"), 10.00),
+    Suspect("YULE", pd.Timestamp("2015-01-13"), 1.52),
+]
+
+#: How wide a quarantine to place around a suspect shift. SCCO's error spanned
+#: 36 days, so a window narrower than that would have missed it.
+SUSPECT_WINDOW_DAYS = 45
+
+
+def suspect_mask(df: pd.DataFrame, ticker: str) -> pd.Series:
+    """True on bars near an unverified level shift for this ticker."""
+    d = pd.to_datetime(df["date"]) if "date" in df else pd.Series(dtype="datetime64[ns]")
+    out = pd.Series(False, index=df.index)
+    t = str(ticker).upper().replace(".JK", "")
+    w = pd.Timedelta(days=SUSPECT_WINDOW_DAYS)
+    for s in SUSPECT:
+        if s.ticker == t:
+            out |= (d >= s.date - w) & (d <= s.date + w)
+    return out.rename("suspect")
+
+
+def suspects_for(ticker: str) -> List[Suspect]:
+    t = str(ticker).upper().replace(".JK", "")
+    return [s for s in SUSPECT if s.ticker == t]
+
+
 def repairs_for(ticker: str) -> List[Repair]:
     t = str(ticker).upper().replace(".JK", "")
     return [r for r in REPAIRS if r.ticker == t]

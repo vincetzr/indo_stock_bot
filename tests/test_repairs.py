@@ -266,3 +266,62 @@ def test_the_verified_registry_meets_the_five_event_requirement():
 def test_every_verified_action_cites_a_source():
     for a in VERIFIED:
         assert a.source, f"{a.ticker} {a.ex_date} has no source"
+
+
+# --------------------------------------------------------------------------
+# quarantining what has NOT been verified
+# --------------------------------------------------------------------------
+def test_an_unverified_shift_is_quarantined_not_trusted():
+    """SCCO proved a detected shift can be confidently wrong about its date."""
+    from idxbot.spine.repairs import SUSPECT, suspect_mask, suspects_for
+    assert SUSPECT, "the unverified shifts must be recorded somewhere"
+    d = frame(pd.to_datetime(["2024-04-16", "2024-08-01"]), [100.0, 100.0])
+    m = suspect_mask(d, "PYFA")
+    assert bool(m.iloc[0]) and not bool(m.iloc[1])
+
+
+def test_a_clean_ticker_has_no_quarantine():
+    from idxbot.spine.repairs import suspect_mask
+    d = frame(pd.to_datetime(["2024-04-16"]), [100.0])
+    assert not suspect_mask(d, "BBCA").any()
+
+
+def test_the_quarantine_is_wider_than_the_scco_error():
+    """SCCO's error spanned 36 days; a narrower window would have missed it."""
+    from idxbot.spine.repairs import SUSPECT_WINDOW_DAYS
+    assert SUSPECT_WINDOW_DAYS > 36
+
+
+def test_a_verified_action_is_not_also_a_suspect():
+    """Once checked, a shift leaves quarantine. SCCO is repaired, not suspect."""
+    from idxbot.spine.repairs import suspects_for
+    assert not suspects_for("SCCO")
+
+
+# --------------------------------------------------------------------------
+# the loader applies repairs on every path
+# --------------------------------------------------------------------------
+def test_the_loader_repairs_on_read_and_leaves_the_cache_raw(tmp_path):
+    import idxbot.data.ohlcv as O
+    from idxbot.data.cache import Cache
+    cache = Cache(str(tmp_path))
+    raw = frame(pd.to_datetime(["2024-02-15", "2024-03-08"]), [2500.0, 2550.0])
+    cache.write("ohlcv", "SCCO.JK", raw)
+    loader = O.YahooOHLCV.__new__(O.YahooOHLCV)
+    loader.cache = cache
+    out = loader.get("SCCO", max_age=1e12)
+    assert out["close"].iloc[0] == pytest.approx(10000.0)
+    assert out["close"].iloc[1] == pytest.approx(2550.0)
+    back = cache.read("ohlcv", "SCCO.JK")
+    assert back["close"].iloc[0] == pytest.approx(2500.0), "cache must stay raw"
+
+
+def test_a_ticker_with_no_repair_passes_through_the_loader_unchanged(tmp_path):
+    import idxbot.data.ohlcv as O
+    from idxbot.data.cache import Cache
+    cache = Cache(str(tmp_path))
+    raw = frame(pd.to_datetime(["2024-02-15"]), [2500.0])
+    cache.write("ohlcv", "BBCA.JK", raw)
+    loader = O.YahooOHLCV.__new__(O.YahooOHLCV)
+    loader.cache = cache
+    assert loader.get("BBCA", max_age=1e12)["close"].iloc[0] == pytest.approx(2500.0)
