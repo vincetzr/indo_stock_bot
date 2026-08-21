@@ -169,11 +169,41 @@ def attach_returns(P: pd.DataFrame, loader: YahooOHLCV) -> pd.DataFrame:
                 entry, exit_ = s.iloc[i + 1], s.iloc[i + h]
                 vals.append(exit_ / entry - 1.0 if entry > 0 and h > 1 else np.nan)
             P.loc[g.index, f"fwd{h}"] = vals
-    # excess = minus the equal-weight mean of the panel that day, so a signal
-    # cannot win by simply being long on days the whole market rose
+    # Excess = minus the equal-weight mean of the panel that day, so a signal
+    # cannot win by simply being long on days the whole market rose.
+    #
+    # With a thin panel that subtraction is degenerate - on ONE name the mean is
+    # the name itself and every excess return is exactly zero, which would make
+    # a broken test look like a null result. Below five names the IHSG stands in
+    # as the market instead.
+    n_names = P["ticker"].nunique()
+    bench = None
+    if n_names < 5:
+        try:
+            from factor_study import load_index
+            idx = load_index(loader, "^JKSE", pd.DatetimeIndex(
+                sorted(P["date"].unique())))
+            bench = idx.dropna()
+        except Exception:                                  # noqa: BLE001
+            bench = None
     for h in horizons:
-        m = P.groupby("date")[f"fwd{h}"].transform("mean")
+        if n_names >= 5:
+            m = P.groupby("date")[f"fwd{h}"].transform("mean")
+        elif bench is not None and len(bench) > h + 2:
+            b = bench.sort_index()
+            pos = {d: i for i, d in enumerate(b.index)}
+            mv = []
+            for d in P["date"]:
+                i = pos.get(pd.Timestamp(d))
+                mv.append(float(b.iloc[i + h] / b.iloc[i + 1] - 1.0)
+                          if i is not None and i + h < len(b) and i + 1 < len(b)
+                          and h > 1 else np.nan)
+            m = pd.Series(mv, index=P.index)
+        else:
+            m = 0.0
         P[f"ex{h}"] = P[f"fwd{h}"] - m
+    P.attrs["benchmark"] = ("panel equal-weight" if n_names >= 5
+                            else "IHSG (panel too thin)")
     return P
 
 
