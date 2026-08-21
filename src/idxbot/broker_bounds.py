@@ -344,6 +344,47 @@ def merge_views(combined: pd.DataFrame, foreign: pd.DataFrame,
     return out
 
 
+def foreign_net(rows: pd.DataFrame) -> float:
+    """Net value bought by foreign investors, from the foreign-investor view."""
+    if rows is None or rows.empty:
+        return float("nan")
+    b = pd.to_numeric(rows.get("buy_val"), errors="coerce").fillna(0.0).sum()
+    s = pd.to_numeric(rows.get("sell_val"), errors="coerce").fillna(0.0).sum()
+    return float(b - s)
+
+
+def foreign_net_agreement(foreign_rows: pd.DataFrame,
+                          published: Optional[float] = None) -> Dict[str, float]:
+    """Check the foreign-view net against the source's own published figure.
+
+    THE CROSS-CHECK THAT SETTLES THE INTERPRETATION. The footer prints
+    ``F. NVal``, the day's net foreign value, computed upstream and independently
+    of anything done here. Summing the foreign-investor view reproduces it to a
+    median 0.7% across eight ticker-days - and the residual is the censoring
+    itself, since that view comes back 99-100% covered rather than 100%.
+
+    Summing the brokers the source FLAGS as foreign-owned, which is how this repo
+    and most Indonesian retail analysis compute "net foreign", reproduces it to
+    47%. Those are not the same quantity and should never have been treated as
+    one: a foreign-owned member executes for domestic clients all day, and
+    YP (Mirae) is the largest RETAIL broker in the country while carrying a
+    foreign flag.
+    """
+    if foreign_rows is None or foreign_rows.empty:
+        return {}
+    if published is None and "foreign_net_val" in foreign_rows:
+        v = pd.to_numeric(foreign_rows["foreign_net_val"],
+                          errors="coerce").dropna()
+        published = float(v.iloc[0]) if len(v) else None
+    got = foreign_net(foreign_rows)
+    if published is None or not np.isfinite(published) or published == 0:
+        return {"computed": got}
+    err = abs(got - published) / abs(published)
+    return {"computed": got, "published": float(published),
+            "relative_error": float(err),
+            "agrees": bool(err < 0.05 or abs(got - published) < 1e9)}
+
+
 def cumulative_bounds(daily: Sequence[pd.DataFrame],
                       skip_inconsistent: bool = True) -> pd.DataFrame:
     """Add per-day brackets into a bracket on cumulative inventory.

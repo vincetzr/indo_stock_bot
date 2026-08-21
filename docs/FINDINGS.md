@@ -5465,3 +5465,115 @@ it came from an arithmetic error rather than from new data.
 The grid still passes 36 of 36 and the median cell is +4.55%/yr rather than
 +4.90%, so the finding survives; the margin over cash does not survive as
 comfortably, and the plan now says so in the row where a reader will see it.
+
+---
+
+# Part XXXIII — Broker flow: the source was better than the reading of it
+
+## Result 128 — correcting Result 121: the investor-type split does exist
+
+Result 121 says, of the domestic/foreign flag:
+
+> The domestic/foreign flag on each *order* lives in the licensed ITCH feed, not
+> in the public rekap. A platform showing a retail line is either licensed to
+> investor-type data or applying this same proxy — the field does not exist in a
+> broker summary and inventing it would be a lie about provenance.
+
+**That is wrong.** The public IndoPremier module takes an undocumented `fd`
+parameter that returns the foreign-only and domestic-only rekap. The provider in
+this repo already had a `session_type` argument wired to it; nobody had ever
+called it with a value.
+
+The two views **partition the whole exactly** — 37 broker-sides across three
+tickers and two dates, maximum difference **zero lots**. Totals partition too:
+BBCA 792,092 + 357,199 = 1,149,291 against a stated 1,149,404 (0.01%, display
+rounding).
+
+### The correction that follows, and it is not small
+
+`F. NVal` in the footer is the day's net foreign value, computed upstream.
+Reproducing it decides which reading of "net foreign" is correct:
+
+| computed as | median relative error |
+|---|---|
+| the **foreign-investor view** | **0.7%** |
+| brokers **flagged foreign-owned** | **47%** |
+
+The second is what this repo has been doing. It is not a noisy version of the
+first, it is a different quantity — a foreign-owned member executes for domestic
+clients all day, and YP (Mirae) is Indonesia's largest **retail** broker while
+carrying a foreign flag.
+
+## Result 129 — a top-10 table can be bounded instead of guessed
+
+Two more things the source was already giving away.
+
+**The footer's totals were parsed and thrown away.** `parse_totals` existed;
+`fetch_day` never called it. And `T.Lot` is printed through the abbreviator
+(`1.1 M`) while `T.Val` carries four figures and `Avg` is exact — so
+value / (100 × average) recovers 1,149,404 where the cell says 1.1 M, **0.03%
+against up to 5%**.
+
+With the totals, the table is a **censored** sample of known size rather than a
+biased one of unknown size:
+
+| | |
+|---|---|
+| listed on a side | that side is measured |
+| not listed on a side | that side lies in `[0, min(rank-10, hidden pool)]` |
+
+Measured coverage is **85.8% buy / 82.3% sell** median, so the brackets are
+narrow. On BBCA over 18 sessions with three views:
+
+| broker | net (lots) | bracket | plain reading | error |
+|---|---|---|---|---|
+| ZP | +2,948,267 | width **0** | +2,948,267 | — |
+| AK | −885,331 | width **0** | −873,447 | **11,884** |
+| CC | −577,305 | ±240 (0.04%) | −590,240 | **12,815** |
+| SQ | −150,178 | ±11,383 | −205,894 | **50,025** |
+
+**84% of net flow has a proven direction.** The plain reading — an unlisted side
+counted as zero — falls **outside** the proven bracket for 5 of 38 brokers.
+Everything else is reported as undetermined rather than given a confident number.
+
+### Four soundness bugs, each caught by randomised tests against known truth
+
+The test generates complete rekaps where every broker's buy and sell is known,
+truncates them to exactly what the free source publishes, and requires the
+recovered brackets to contain what they were built without. Each of these would
+have produced a confident wrong answer:
+
+1. **Absent ≠ flat.** Summing only the days a broker appears treats every other
+   day as a net of zero. The recovered lower bound came out *above* the truth.
+2. **Absent from a view ≠ unbounded in it.** A broker in one view and not the
+   others returned an infinite bracket instead of that view's ceiling.
+3. **Contradictions must not invert.** Lot counts above a million print to two
+   or three figures, so `all` can miss `foreign + domestic` by a few thousand.
+   Intersecting regardless gave BBCA's ZP a width of **−10,571 lots**. An
+   intersection now refuses rather than inverts.
+4. **A flat 5% tolerance destroyed the exact derivations.** The allowance is the
+   real display granularity — half of the last printed decimal of the magnitude
+   unit — which is exactly **zero** below a million, where the source prints in
+   full.
+
+## Result 130 — the layer-2 blocker was the gate, not the data
+
+`broker_collect` required 250 days of a **complete** rekap: total buy lots equal
+to total sell lots. A top-ten table can never satisfy that, so **every row this
+store has ever held was filed as unusable**, and the frozen protocol H1–H4 never
+ran once.
+
+The data was not too thin. The gate was the wrong shape. It is coverage now
+(≥70%), and the second half of the old framing was wrong too — "at one session a
+day that is about 12 months of collection" assumed forward accumulation, while
+the source serves history back to roughly **2008**. 250 sessions is a five-minute
+backfill per ticker per view, not a year of waiting.
+
+```bash
+python3 scripts/broker_collect.py --collect BBCA --days 250
+```
+
+A store-key bug found on the way: the three views were filed under one
+`(ticker, date)` name and merged into a single row-group, whose lots were then
+counted three times against one session total — reporting a coverage of **254%**.
+The view is part of the key now.

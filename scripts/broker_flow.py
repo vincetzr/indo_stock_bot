@@ -74,9 +74,9 @@ from idxbot.config import load_config                     # noqa: E402
 from idxbot.data.cache import Cache                       # noqa: E402
 from idxbot.data.ipot import IpotBrokerSummary            # noqa: E402
 from idxbot.broker_bounds import (                        # noqa: E402
-    certain_sign, cumulative_bounds, day_bounds, merge_views, midpoint,
-    naive_error, relative_width, settled_flow_share, settled_fraction,
-    visibility, zero_sum_residual)
+    certain_sign, cumulative_bounds, day_bounds, foreign_net_agreement,
+    merge_views, midpoint, naive_error, relative_width, settled_flow_share,
+    settled_fraction, visibility, zero_sum_residual)
 
 VIEWS = ("all", "F", "D")
 
@@ -106,9 +106,19 @@ def fetch_views(ticker: str, days: Sequence[pd.Timestamp], cache,
         if "all" not in got:
             continue
         vis = visibility(got["all"])
+        fv = pd.to_numeric(pd.Series(got["all"].get("foreign_net_val")),
+                           errors="coerce").dropna()
+        vis["fnval"] = float(fv.iloc[0]) if len(fv) else None
         vis["date"] = d
         vis["views"] = len(got)
         vis["residual"] = zero_sum_residual(got["all"])
+        # An INDEPENDENT check, not another way of restating the same rows: the
+        # footer's own net-foreign figure is computed upstream, so reproducing
+        # it from the foreign view validates the whole reading end to end.
+        if "F" in got:
+            agree = foreign_net_agreement(got["F"], vis.get("fnval"))
+            if "relative_error" in agree:
+                vis["fnval_error"] = agree["relative_error"]
         stats.append(vis)
         if len(got) == 3:
             frames.append(merge_views(got["all"], got["F"], got["D"]))
@@ -134,6 +144,13 @@ def report(ticker: str, frames: List[pd.DataFrame], stats: List[Dict],
     worst = float(np.nanmax(np.abs(S["residual"]))) if len(S) else float("nan")
     print(f" zero-sum check            worst residual {worst:,.0f} lots "
           f"(must be 0; this tests the parse, not the data)")
+    if "fnval_error" in S and S["fnval_error"].notna().any():
+        e = S["fnval_error"].dropna()
+        print(f" net-foreign cross-check   the foreign view reproduces the "
+              f"source's own published\n                           F.NVal to "
+              f"{e.median():.1%} median, {e.max():.1%} worst — an independent "
+              f"confirmation\n                           that these three views "
+              f"mean what they appear to mean")
 
     cum = cumulative_bounds(frames)
     if cum.empty:

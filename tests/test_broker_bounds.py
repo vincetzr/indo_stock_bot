@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir, "src"))
 
 from idxbot.broker_bounds import (                                # noqa: E402
     bracket_frame, certain_sign, cumulative_bounds, day_bounds, merge_views,
-    midpoint, naive_error,
+    foreign_net, foreign_net_agreement, midpoint, naive_error,
     relative_width, settled_flow_share, settled_fraction, visibility,
     zero_sum_residual)
 
@@ -568,3 +568,40 @@ def test_midpoint_sits_inside_its_own_bracket():
                     view(t, "buy_D", "sell_D"))
     mid = midpoint(m)
     assert (mid >= m["net_lo"] - 1e-9).all() and (mid <= m["net_hi"] + 1e-9).all()
+
+
+# --------------------------------------------------------------------------
+# 7. the independent cross-check
+# --------------------------------------------------------------------------
+def test_foreign_net_is_buy_value_less_sell_value():
+    rows = pd.DataFrame({"broker": ["AA", "BB"], "buy_val": [100.0, 50.0],
+                         "sell_val": [30.0, 20.0]})
+    assert foreign_net(rows) == pytest.approx(100.0)
+
+
+def test_agreement_with_the_published_figure_is_reported_as_a_fraction():
+    rows = pd.DataFrame({"broker": ["AA"], "buy_val": [1.0e11],
+                         "sell_val": [5.5e10], "foreign_net_val": [4.5e10]})
+    a = foreign_net_agreement(rows)
+    assert a["computed"] == pytest.approx(4.5e10)
+    assert a["relative_error"] == pytest.approx(0.0)
+    assert a["agrees"]
+
+
+def test_a_figure_that_is_half_out_does_not_agree():
+    """The foreign-BROKER proxy misses the published net by about this much."""
+    rows = pd.DataFrame({"broker": ["AA"], "buy_val": [1.0e11],
+                         "sell_val": [7.75e10], "foreign_net_val": [4.5e10]})
+    a = foreign_net_agreement(rows)
+    assert a["relative_error"] == pytest.approx(0.5)
+    assert not a["agrees"]
+
+
+def test_agreement_without_a_published_figure_reports_only_what_it_computed():
+    rows = pd.DataFrame({"broker": ["AA"], "buy_val": [10.0], "sell_val": [4.0]})
+    a = foreign_net_agreement(rows)
+    assert a == {"computed": pytest.approx(6.0)}
+
+
+def test_agreement_of_nothing_is_empty():
+    assert foreign_net_agreement(pd.DataFrame()) == {}

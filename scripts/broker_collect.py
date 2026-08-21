@@ -59,6 +59,7 @@ import argparse
 import glob
 import hashlib
 import os
+import re
 import sys
 from typing import Dict, List, Optional, Tuple
 
@@ -75,6 +76,11 @@ from idxbot.data.ohlcv import YahooOHLCV                  # noqa: E402
 STORE = os.path.join("data", "cache", "broker_daily")
 BALANCE_TOL = 1e-6
 
+#: Coverage below which the censored remainder is too large to bracket usefully.
+#: Measured across real sessions the combined view runs 82-92%, so this admits
+#: ordinary days and excludes the ones where the table went thin.
+MIN_COVERAGE = 0.70
+
 
 def is_complete(g: pd.DataFrame) -> bool:
     """A full rekap balances exactly; a truncated top-N table does not."""
@@ -82,6 +88,29 @@ def is_complete(g: pd.DataFrame) -> bool:
     if max(b, s) <= 0:
         return False
     return abs(b - s) / max(b, s) < BALANCE_TOL
+
+
+def day_coverage(g: pd.DataFrame) -> float:
+    """Share of the session's volume the rows actually account for.
+
+    THE FLAG THAT REPLACED A BINARY ONE. ``is_complete`` asks whether the rekap
+    balances, which a top-ten table can never do, so every row this store ever
+    held was filed as unusable and the layer-2 protocol never ran - not because
+    the data was too thin but because the gate was the wrong shape.
+
+    Coverage is the useful question. At 85% the censored remainder is small
+    enough to bracket (see :mod:`idxbot.broker_bounds`); at 30% it would not be.
+    Returns NaN when the source did not publish a total to measure against.
+    """
+    if "total_lot" not in g:
+        return float("nan")
+    t = pd.to_numeric(g["total_lot"], errors="coerce").dropna()
+    if not len(t) or float(t.iloc[0]) <= 0:
+        return float("nan")
+    total = float(t.iloc[0])
+    b = float(pd.to_numeric(g["buy_lot"], errors="coerce").fillna(0).sum())
+    s = float(pd.to_numeric(g["sell_lot"], errors="coerce").fillna(0).sum())
+    return min(b, s) / total
 
 
 def price_sane(g: pd.DataFrame, ticker: str, date: pd.Timestamp,
@@ -124,8 +153,18 @@ def price_sane(g: pd.DataFrame, ticker: str, date: pd.Timestamp,
                    f"{lo:,.0f}-{hi:,.0f} range")
 
 
-def store_path(ticker: str, date: pd.Timestamp) -> str:
-    return os.path.join(STORE, f"{ticker}_{date:%Y%m%d}.csv.gz")
+def store_path(ticker: str, date: pd.Timestamp, source: str = "") -> str:
+    """One file per ticker-day-VIEW.
+
+    The view has to be in the key. The same session has a combined, a
+    foreign-only and a domestic-only rekap, and filing all three under one name
+    merges them into a single row-group whose lots are then counted three times
+    against one session total - which is exactly how this first reported a
+    coverage of 254%.
+    """
+    tag = re.sub(r"[^A-Za-z0-9]+", "-", str(source)).strip("-")
+    suffix = f"_{tag}" if tag and tag != "ipot" else ""
+    return os.path.join(STORE, f"{ticker}_{date:%Y%m%d}{suffix}.csv.gz")
 
 
 def save(df: pd.DataFrame) -> Tuple[int, int]:
@@ -133,8 +172,11 @@ def save(df: pd.DataFrame) -> Tuple[int, int]:
     with a truncated one - a full rekap outranks a top-N table for the same day."""
     os.makedirs(STORE, exist_ok=True)
     written = skipped = 0
-    for (tk, dt), g in df.groupby(["ticker", "date"]):
-        path = store_path(str(tk), pd.Timestamp(dt))
+    keys = ["ticker", "date"] + (["source"] if "source" in df else [])
+    for key, g in df.groupby(keys):
+        tk, dt = key[0], key[1]
+        src = key[2] if len(key) > 2 else ""
+        path = store_path(str(tk), pd.Timestamp(dt), str(src))
         g = g.copy()
         ok, why = price_sane(g, str(tk), pd.Timestamp(dt))
         if not ok:
@@ -142,6 +184,7 @@ def save(df: pd.DataFrame) -> Tuple[int, int]:
             skipped += 1
             continue
         g["complete"] = is_complete(g)
+        g["coverage"] = day_coverage(g)
         if os.path.exists(path):
             try:
                 old = pd.read_csv(path)
@@ -180,6 +223,9 @@ def coverage(df: pd.DataFrame) -> pd.DataFrame:
         brokers=("broker", "nunique"))
     comp = df.groupby(["ticker", "date"])["complete"].first().groupby("ticker")
     g["complete_days"] = comp.sum().astype(int)
+    if "coverage" in df:
+        cov = df.groupby(["ticker", "date"])["coverage"].first().groupby("ticker")
+        g["coverage"] = cov.median()
     return g.sort_values("days", ascending=False)
 
 
@@ -197,6 +243,12 @@ def main() -> int:
     ap.add_argument("--ingest", default=None,
                     help="folder of exports to fold into the daily store")
     ap.add_argument("--report", action="store_true")
+    ap.add_argument("--collect", default=None,
+                    help="comma-separated tickers to pull from the IndoPremier "
+                         "public module into the daily store")
+    ap.add_argument("--days", type=int, default=60)
+    ap.add_argument("--single-view", action="store_true",
+                    help="combined view only, one request a session")
     ap.add_argument("--need-days", type=int, default=250,
                     help="days per name the protocol needs before it will run")
     args = ap.parse_args()
@@ -231,6 +283,33 @@ def main() -> int:
         else:
             print(" nothing ingestible found.")
 
+    if args.collect:
+        sys.path.insert(0, os.path.dirname(__file__))
+        from idxbot.data.ipot import IpotBrokerSummary
+        views = ("all",) if args.single_view else ("all", "F", "D")
+        cache = Cache(cfg.path("data.cache_dir", "data/cache"))
+        end = pd.Timestamp.now(tz="Asia/Jakarta").tz_localize(None).normalize()
+        days = pd.bdate_range(end=end, periods=args.days)
+        for tk in [t.strip().upper() for t in args.collect.split(",") if t.strip()]:
+            got = []
+            for v in views:
+                p = IpotBrokerSummary(cache=cache, board="RG", session_type=v)
+                for d in days:
+                    try:
+                        f = p.fetch_day(tk, d)
+                    except Exception:                       # noqa: BLE001
+                        continue
+                    if f is not None and not f.empty:
+                        f = f.copy()
+                        f["source"] = f"ipot:{v}"
+                        got.append(f)
+            if got:
+                w, sk = save(pd.concat(got, ignore_index=True))
+                print(f" {tk}: stored {w} ticker-day-views"
+                      + (f", {sk} skipped" if sk else ""))
+            else:
+                print(f" {tk}: nothing returned")
+
     hosts = allowed_hosts(cfg)
     df = load_store()
     C = coverage(df)
@@ -250,22 +329,43 @@ def main() -> int:
 
     print(f"\n{'=' * 92}\n HOW FAR OFF IS AN ANSWER?\n{'=' * 92}")
     need = args.need_days
-    have = int(C["complete_days"].max()) if not C.empty else 0
-    names_ready = int((C["complete_days"] >= need).sum()) if not C.empty else 0
-    print(f" the protocol needs {need} complete days on a name before it will "
-          f"report anything.")
-    print(f" best-covered name has {have}; names at or past the bar: {names_ready}")
-    if have < need:
-        left = need - have
-        print(f" at one session a day that is about {left} trading days "
-              f"(~{left / 21:.0f} months) of collection.")
+    usable = 0
+    if not C.empty and "coverage" in C:
+        usable = int((C["coverage"] >= MIN_COVERAGE).sum())
+    have = int(C["days"].max()) if not C.empty else 0
+    print(f" THE GATE CHANGED, AND THE OLD ONE WAS THE BLOCKER.")
+    print(f" This used to require {need} days of a COMPLETE rekap - one where "
+          f"total buy lots equal\n total sell lots. A top-ten table can never "
+          f"satisfy that, so every row ever stored\n here was filed as unusable "
+          f"and the layer-2 protocol never ran. The data was not\n too thin; "
+          f"the gate was the wrong shape.")
+    print(f"\n The question that matters is COVERAGE - what share of the "
+          f"session's volume the\n rows account for. At {MIN_COVERAGE:.0%}+ the "
+          f"censored remainder is small enough to bracket\n rigorously "
+          f"(idxbot.broker_bounds); below it, it is not.")
+    if not C.empty and "coverage" in C:
+        med = float(C["coverage"].median())
+        print(f"\n best-covered name has {have} sessions stored; median coverage "
+              f"{med:.0%}; names at or\n past the {MIN_COVERAGE:.0%} bar: {usable}")
+    print(f"\n AND THE HISTORY IS NOT A WAITING GAME. The source serves back to "
+          f"roughly 2008, so\n {need} sessions is a backfill, not a year of "
+          f"collection:")
+    print(f"     python3 scripts/broker_collect.py --collect BBCA "
+          f"--days {need}")
+    print(f" At the polite 1.2s spacing that is about "
+          f"{need * 1.2 / 60:.0f} minutes a ticker for one view,\n "
+          f"{need * 3 * 1.2 / 60:.0f} for all three. Keep it to the names you "
+          f"actually need - this is someone\n else's server and it must not "
+          f"become a bulk harvester.")
+
     print(f"\n fetching is restricted to hosts in config "
           f"data.broker_allowed_hosts: "
           f"{hosts if hosts else 'EMPTY — nothing will be fetched'}")
-    print(" Checked 2026-08-20: no third-party IDX API verifiably serves a "
+    print(" Checked 2026-08-21: no third-party IDX API verifiably serves a "
           "buyer+seller\n broker code per trade, none is on IDX's authorised "
-          "redistributor list, and a\n popular open repo is a scraper of "
-          "idx.co.id. Add a host only if YOU have\n verified its licensing.")
+          "redistributor list, and every\n open-source project that appears to "
+          "have running trade is replaying a Stockbit\n session token. Add a "
+          "host only if YOU have verified its licensing.")
 
     print(f"\n{'=' * 92}\n WHAT TO FEED IT\n{'=' * 92}")
     print(" Best  : a RUNNING TRADE export (every print carries a buyer and a")

@@ -400,3 +400,119 @@ the default chain**, because the condition that justified it no longer holds. It
 *assumes* institutions buy weakness, so analysing its output and concluding
 "institutions buy weakness" is circular and proves nothing. It is now only for
 exercising the pipeline offline: `--providers synthetic`, deliberately.
+
+---
+
+## 4. The 2026-08 audit: what is free, what is licensed, what is off-limits
+
+Re-run from scratch as a sourcing exercise rather than a coding one. The
+conclusion divides cleanly, and the dividing line is not technical skill.
+
+### Running trade, trade by trade — not available free, and now conclusively so
+
+A print carrying **both** a buyer and a seller member code exists in exactly two
+places:
+
+| route | what it costs |
+|---|---|
+| IDX ITCH Basic / Total View | Rp 17.9–44m a month, a signed IDX licence, a limited company, a leased line from an authorised NSP, and a security deposit of 300% of the fee |
+| Licensed redistributor (LSEG et al.) | one RIC per broker per instrument (`<OD-BBCA.JK>`, buy volume on FID 731) at terminal prices |
+
+Every open-source project that appears to have solved this — Pulse-CLI,
+`indonesia-stocks-scraper`, `New-Composite-API`, the several `idx-*` scrapers —
+turns out to be replaying a **Stockbit session token**. That is a credential
+this repo will not reuse, and "data mining, robots, spiders, or similar" is
+prohibited by that platform's terms. There is no clever request left to
+reverse-engineer, because the platforms are not making one either: they are
+licensed subscribers.
+
+Retail brokers do not fill the gap. Mandiri Sekuritas (MOST), Mirae, Phillip,
+Ajaib and BRIDS publish **no** developer API; the search returns consumer app
+listings and a support email.
+
+### End-of-day broker summary — free, and three things were being missed
+
+The IndoPremier public module was already wired up. Three properties of it were
+not being used, and each is worth more than the last:
+
+**1. The footer publishes the day's totals, and they were parsed and discarded.**
+`parse_totals` existed; `fetch_day` never called it. With `T.Val`, `T.Lot` and
+the VWAP in hand, a top-10 table stops being a biased sample of unknown size and
+becomes a **censored sample of known size**.
+
+**2. `T.Lot` is recoverable more precisely than it is printed.** It goes through
+the same abbreviator as everything else — BBCA on a busy day reads `1.1 M` — but
+`T.Val` carries four figures and `Avg` is exact, and value = lots × 100 ×
+average. Dividing recovers 1,149,404 where the printed cell says 1.1 M: **0.03%
+against up to 5%.**
+
+**3. An undocumented `fd` parameter splits the rekap by investor type.**
+
+```
+...&code=BBCA&board=RG&fd=F     foreign investors only
+...&code=BBCA&board=RG&fd=D     domestic investors only
+```
+
+They partition the whole **exactly** — 37 broker-sides across three tickers,
+maximum difference **zero lots**:
+
+| | all | F | D | F+D | diff |
+|---|---|---|---|---|---|
+| ZP buy | 446,187 | 434,042 | 12,145 | 446,187 | 0 |
+| AK sell | 88,288 | 71,559 | 16,729 | 88,288 | 0 |
+| CC sell | 84,914 | 44,228 | 40,686 | 84,914 | 0 |
+
+What that buys:
+
+- **Wider.** Each view ranks its own top ten and they are not the same ten. BBCA
+  lists 14 brokers combined and **20** across the three.
+- **Deeper.** The foreign view came back **99–100% covered** — foreign buying is
+  concentrated enough that its top ten is essentially all of it.
+- **Exact.** Two known sides give the third by subtraction, converting censored
+  quantities into measured ones.
+
+### The correction this forces: "net foreign" was being computed wrong
+
+The footer also prints `F. NVal`, the day's net foreign value, computed
+upstream. Reproducing it is an independent end-to-end check, and it settles
+which of two readings is right:
+
+| how net foreign is computed | agreement with the published figure |
+|---|---|
+| sum over the **foreign-investor view** | **0.7% median error** |
+| sum over brokers **flagged foreign-owned** | **47% median error** |
+
+The second is how this repo, and most Indonesian retail analysis, has computed
+it. They are not the same quantity and never were: a foreign-owned member
+executes for domestic clients all day, and YP (Mirae) is the country's largest
+**retail** broker while carrying a foreign flag.
+
+### What accuracy is actually achievable, for nothing
+
+Measured on BBCA over 18 sessions, three views a session:
+
+- visible share of volume: **85.8% buy / 82.3% sell** (median)
+- **84% of net flow** has a **proven** direction
+- ZP: **+2,948,267 lots, bracket width zero** — listed both sides every session
+- AK: **−885,331 lots, width zero** — derived through the identity; the plain
+  reading was off by 11,884
+- CC: −577,305 **± 240 lots** (0.04%)
+- SQ: the plain reading says −205,894; the data rules that out and pins it in
+  [−155,869, −144,486] — a **50,025-lot** error
+
+The plain reading — an unlisted side counted as zero — lands **outside** the
+proven bracket for 5 of 38 brokers.
+
+```bash
+python3 scripts/broker_flow.py BBCA --days 20          # bounded flow report
+python3 scripts/broker_collect.py --collect BBCA --days 250   # backfill
+```
+
+### And the gate that was blocking everything
+
+`broker_collect` required 250 days of a **complete** rekap — total buy lots
+equal to total sell lots. A top-ten table can never satisfy that, so every row
+this store ever held was filed unusable and the layer-2 protocol never ran. The
+data was not too thin; **the gate was the wrong shape.** It is coverage now, and
+the history is a backfill rather than a year of waiting — the source serves back
+to roughly 2008.
