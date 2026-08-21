@@ -30,8 +30,9 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir, "scripts"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir, "src"))
 
-from broker_economics import (edge_persistence, edge_vs_size,       # noqa: E402
-                              execution_edge, persistence, zero_sum_check)
+from broker_economics import (cross_name_persistence,             # noqa: E402
+                              edge_persistence, edge_vs_size, execution_edge,
+                              persistence, shrink, zero_sum_check)
 
 
 def day(brokers, buy_lot, buy_avg, sell_lot, sell_avg, vwap=1000.0,
@@ -203,6 +204,79 @@ def test_size_test_finds_a_planted_size_effect():
 def test_size_test_reports_nothing_when_size_does_not_matter():
     sz = edge_vs_size(execution_edge(planted(n_days=5)))
     assert sz == {} or sz["p"] > 0.05
+
+
+# --------------------------------------------------------------------------
+# does the edge belong to the broker or to the stock
+# --------------------------------------------------------------------------
+def two_names(carry=1.0, seed=1, n_days=120, noise=0.002, n_brokers=12,
+              spread=0.02):
+    """The same brokers on two tickers, with a KNOWN carry-over.
+
+    Broker i's edge on the first name is ``e_i``, evenly spread around zero.
+    On the second it is ``carry * e_i`` plus a per-broker offset that belongs
+    to the stock rather than the broker. So the true regression slope of the
+    second name on the first IS ``carry``, and the test can check that the
+    function recovers it - which is the whole point of reporting a slope.
+
+    The stock-specific offset is drawn ONCE per broker, not once per day: it is
+    a standing property of that member on that name, and re-rolling it daily
+    would make it ordinary noise that averages away over 120 sessions and
+    leaves nothing for the slope to be attenuated by.
+    """
+    rng = np.random.default_rng(seed)
+    base = np.linspace(spread, -spread, n_brokers)
+    # scaled so a carry of 0 leaves a second name whose edges are comparable in
+    # size to the first, rather than dwarfing or vanishing against it
+    offset = rng.normal(0, spread * 0.6, n_brokers) * (1.0 - carry)
+    rows = []
+    for tk, edges in (("AAAA", base), ("BBBB", base * carry + offset)):
+        for d in pd.bdate_range("2025-01-01", periods=n_days):
+            for i, e in enumerate(edges):
+                rows.append({"ticker": tk, "date": d, "broker": f"B{i}",
+                             "buy_lot": 1e6,
+                             "buy_avg": 1000.0 * (1 - e - rng.normal(0, noise)),
+                             "sell_lot": 0.0, "sell_avg": np.nan,
+                             "vwap": 1000.0})
+    return pd.DataFrame(rows)
+
+
+def test_an_edge_that_belongs_to_the_broker_carries_to_another_name():
+    c = cross_name_persistence(two_names(carry=1.0), "AAAA", "BBBB",
+                               min_lots=0, min_days=5)
+    assert c["spearman"] > 0.8 and c["p"] < 0.05
+    assert c["slope"] > 0.7          # nearly all of it survives
+
+
+def test_an_edge_that_belongs_to_the_stock_does_not_carry():
+    c = cross_name_persistence(two_names(carry=0.0, seed=7), "AAAA", "BBBB",
+                               min_lots=0, min_days=5)
+    assert c["p"] > 0.05
+
+
+def test_the_slope_reports_how_much_of_the_edge_actually_survives():
+    """The number that stops the raw edge being quoted as a forecast."""
+    c = cross_name_persistence(two_names(carry=0.25, seed=3), "AAAA", "BBBB",
+                               min_lots=0, min_days=5)
+    assert 0.1 < c["slope"] < 0.5
+
+
+def test_shrinking_never_becomes_magnifying():
+    assert shrink(0.02, 0.2) == pytest.approx(0.004)
+    assert shrink(0.02, 1.8) == pytest.approx(0.02)   # capped at 1
+    assert shrink(0.02, -0.5) == pytest.approx(0.0)   # and floored at 0
+    assert np.isnan(shrink(np.nan, 0.2))
+
+
+def test_a_missing_name_is_reported_not_invented():
+    assert cross_name_persistence(two_names(), "AAAA", "NOPE",
+                                  min_lots=0, min_days=5) == {}
+
+
+def test_too_few_shared_brokers_gives_no_correlation():
+    d = two_names(n_brokers=3)
+    c = cross_name_persistence(d, "AAAA", "BBBB", min_lots=0, min_days=5)
+    assert c.get("spearman") is None
 
 
 # --------------------------------------------------------------------------
