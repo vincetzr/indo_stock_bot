@@ -17,16 +17,17 @@ only because the defect it found was repaired.
 |---|---|
 | Daily OHLCV, all IDX names, max history | done — 843 tickers, 2.6m bars, from 2001 |
 | **Delisted and suspended names** | **NOT DONE** — measured, not fixed (§6) |
-| ARA/ARB schedule incl. asymmetric period | done — 6 regimes |
-| Fraksi harga (tick) schedule | done — 2 regimes |
-| Lot size, index halts | done |
+| ARA/ARB schedule incl. asymmetric period | done — 6 regimes, back to 2010 |
+| Fraksi harga (tick) schedule | done — 3 regimes, back to 2005, validated against 1.3m quoted closes |
+| Lot size (incl. the 500-share era), index halts | done |
+| Board membership per ticker-day | **derived** from IDX's published watchlist criterion (§12) |
 | Broker code master with effective dates | partial, honestly labelled (§8) |
 | Rights-issue / corporate-action adjustment | done, with fixtures to 86% dilution |
 | Suspension / ARA-ARB flags per ticker-day | done |
 | **Gate 0 check 1** — traded value | **PASS** (§4) |
 | **Gate 0 check 2** — 5 events by hand | **PASS**, 7 checked (§5) |
 
-1,495 tests pass.
+1,523 tests pass. Gate 0 runs eight checks and exits non-zero on any failure.
 
 ---
 
@@ -44,9 +45,12 @@ only because the defect it found was repaired.
 **The 2025 change lands inside the broker panel this repo collected**, so
 anything assuming the Sept-2023 symmetric regime is wrong for most of it.
 
-Tick size: three groups until 2016-05-02, five after. Every lookup takes a date
-and **raises** before 2014-01-06 rather than falling back — a silent fallback is
-the exact bug the module prevents.
+Tick size: five groups before 2014, three from 2014-01-06, five again from
+2016-05-02. Every lookup takes a date and **raises** before its own schedule's
+coverage rather than falling back — a silent fallback is the exact bug the
+module prevents. Coverage is per schedule: ticks and lot from 2005,
+auto-rejection from 2010, because that is where the evidence for each begins
+(§12).
 
 Validation against 843 tickers: worst regime violation rate **0.58%** against a
 2% tripwire. Independent confirmation — CBRE's largest repeated falls are
@@ -59,9 +63,9 @@ Validation against 843 tickers: worst regime violation rate **0.58%** against a
 | defect | scale |
 |---|---|
 | **stale bars** | **421,942 = 16.2% of the spine**, some names 70%+ |
-| unverified level shifts | 10, quarantined (§7) |
+| level shifts | 5 total; 3 explained, 2 quarantined (§7, §12) |
 | verified misdated action | 1 — SCCO, **repaired** (§5) |
-| isolated source spikes | 10 bars across ELTY, MAPI, TOWR, SCCO |
+| isolated source spikes | 11 bars across ELTY, MAPI, TOWR, SCCO, NISP |
 | survivorship | **0 of 25 known-delisted names present** |
 
 **Stale bars are the important one and the least dramatic.** One bar in six
@@ -75,10 +79,13 @@ bought from nobody.
   cut it to 11.
 - **Spikes by powers of ten** missed SCCO's isolated 4× dip. Allowing any clean
   ratio found 121, again mostly penny ticks. A spike must now be a move the
-  exchange **could not have permitted** — with the board inferred from the Rp 50
-  main-board floor — and must sit inside the period whose bands are encoded.
-  10 remain, all unambiguous.
+  exchange **could not have permitted**, with the board *derived* from IDX's
+  watchlist rule, and must sit inside the period whose bands are encoded.
+  11 remain, all unambiguous.
 - **Persistence by median** let a three-bar dip pass as a level shift.
+- **Level shifts without an impossibility test** quarantined four names whose
+  falls the exchange had plainly allowed — RODA's −34.3% against a 35% band.
+  Requiring the same impossibility cut 11 shifts to 5.
 
 ---
 
@@ -179,12 +186,14 @@ it is not identifiable without the delisted history.
 
 ## 7. What is quarantined rather than trusted
 
-SCCO proved a detected shift can be confidently wrong about its own date. So the
-ten level shifts that no announcement has confirmed are **quarantined** in
-`spine/repairs.SUSPECT` — SINI, PYFA ×2, MMLP, RODA, BAPI ×2, ELTY, YULE — with a
-±45-day window (wider than SCCO's 36-day error). They are neither treated as
-corporate actions nor as real price moves. Moving a row out of quarantine
-requires reading an announcement.
+SCCO proved a detected shift can be confidently wrong about its own date, so
+anything unconfirmed is **quarantined** in `spine/repairs.SUSPECT` with a
+±45-day window (wider than SCCO's 36-day error) and treated as neither a
+corporate action nor a real price move.
+
+The list is now three entries, not ten. Four former entries were never corporate
+actions at all — see §12 — and ELTY stays only because its window is
+uninformative, not because its cause is unknown.
 
 ---
 
