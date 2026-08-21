@@ -119,7 +119,17 @@ SUSPECT: List[Suspect] = [
     Suspect("RODA", pd.Timestamp("2019-11-27"), 1.52),
     Suspect("BAPI", pd.Timestamp("2019-09-27"), 1.52),
     Suspect("BAPI", pd.Timestamp("2019-10-03"), 1.48),
-    Suspect("ELTY", pd.Timestamp("2018-06-07"), 10.00),
+    Suspect("ELTY", pd.Timestamp("2018-06-07"), 10.00,
+            "NOT a corporate action. Bakrieland's 10:1 reverse split was "
+            "proposed in June 2018 and REJECTED by shareholders - there were "
+            "petitions against it, and a 2019 follow-up confirms it was never "
+            "completed. The series sits at exactly Rp 500 through 2015-2017 on "
+            "near-zero volume and at exactly Rp 50 from 2018-06-07 with real "
+            "volume the next day, so this is a dormant quote being re-marked "
+            "on resumption. Auto-rejection does not bind on resumption after a "
+            "long suspension, so the -90% is legal and real. Stays quarantined "
+            "because the window is genuinely uninformative, not because the "
+            "cause is unknown."),
     Suspect("YULE", pd.Timestamp("2015-01-13"), 1.52),
 ]
 
