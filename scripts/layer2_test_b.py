@@ -75,7 +75,10 @@ def run_b(P: pd.DataFrame, h: Dict, subset: Optional[str] = None,
     if d.empty:
         return {"n": 0}
     events = d[d[col]] if col == "streak3" else d[d[col] >= d[col].quantile(top_q)]
-    out = one_sided(cluster_by_day(events, ex), h["direction"])
+    # The horizon MUST reach one_sided. Without it the overlapping forward
+    # windows are treated as independent and the t-statistic is inflated -
+    # which is exactly how H6 first read p = 0.0041 instead of p = 0.106.
+    out = one_sided(cluster_by_day(events, ex), h["direction"], h["horizon"])
     out["events"] = len(events)
     return out
 
@@ -103,7 +106,9 @@ def main() -> int:
         print(f" no data outside the excluded names {EXCLUDED}. Nothing to test.")
         return 1
 
-    P = panels.get("mid") or next(iter(panels.values()))
+    # `panels.get("mid") or ...` puts a DataFrame in a boolean context, which
+    # pandas refuses. The fallback has to be an explicit None check.
+    P = panels["mid"] if "mid" in panels else next(iter(panels.values()))
     names, days = P["ticker"].nunique(), P["date"].nunique()
     deff = 1.0 + (names - 1) * 0.30
     eff = days * names / deff
@@ -125,11 +130,22 @@ def main() -> int:
           f"{'mean ex':>10}{'d':>8}{'t':>7}{'p':>9}"
           f"{'up-days':>10}{'down-days':>11}")
     survives: Dict[str, List[bool]] = {}
+    #: A signal only responds to the censoring level if it is DERIVED from the
+    #: bracketed net figure. `concentration` and `foreign_net` are computed
+    #: from observed buy lots and the published foreign value, so re-running
+    #: them at three levels re-runs the identical arithmetic three times.
+    #: Reporting that as "survives at every censoring level" would claim three
+    #: independent robustness checks where there is only one.
+    invariant: Dict[str, bool] = {}
     for h in HYPOTHESES_B:
+        seen: List[float] = []
         for lvl, Pl in panels.items():
             r = run_b(Pl, h)
             if not r.get("n"):
                 continue
+            if np.isfinite(r.get("mean", np.nan)):
+                seen.append(round(float(r["mean"]), 12))
+            invariant[h["id"]] = len(panels) > 1 and len(set(seen)) == 1
             up = run_b(Pl, h, "up")
             dn = run_b(Pl, h, "down")
             sig = np.isfinite(r["p"]) and r["p"] < a
@@ -146,17 +162,24 @@ def main() -> int:
     print(f" The last two columns are the required control ({CONTROLS[0]}). A "
           f"real flow effect\n is negative in BOTH; one negative and one "
           f"positive is short-term reversal.")
+    print(f" 't' and 'p' are Newey-West corrected for the overlap between "
+          f"consecutive\n forward windows. At h = 20 that correction is worth "
+          f"about a factor of two.\n")
     for hid, v in survives.items():
+        note = ("  (censoring level does NOT move this signal — the three rows "
+                "above are one\n      check printed three times, not three)"
+                if invariant.get(hid) else "")
         if not ready:
-            print(f" {hid}: no verdict — underpowered.")
+            print(f" {hid}: no verdict — underpowered.{note}")
         elif all(v) and v:
-            print(f" {hid}: SURVIVES at every censoring level and both control "
-                  f"subsets.")
+            lvls = ("both control subsets" if invariant.get(hid)
+                    else "every censoring level and both control subsets")
+            print(f" {hid}: SURVIVES at {lvls}.{note}")
         elif any(v):
             print(f" {hid}: partial — fails at some censoring level or one "
-                  f"control subset. Not a result.")
+                  f"control subset. Not a result.{note}")
         else:
-            print(f" {hid}: does not survive.")
+            print(f" {hid}: does not survive.{note}")
     return 0
 
 

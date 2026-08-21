@@ -222,19 +222,90 @@ def cluster_by_day(events: pd.DataFrame, col: str) -> np.ndarray:
     return events.groupby("date")[col].mean().dropna().to_numpy()
 
 
-def one_sided(x: np.ndarray, direction: str = "positive") -> Dict[str, float]:
-    """One-sided t on the day-level series, with Cohen's d."""
+def newey_west_se(x: np.ndarray, lag: int) -> float:
+    """HAC standard error, Bartlett kernel. The fix for overlapping windows.
+
+    A k-day forward return computed on consecutive days shares k-1 days of its
+    window with its neighbour, so the day-level series is strongly
+    autocorrelated BY CONSTRUCTION even when nothing predicts anything. An iid
+    standard error divides by sqrt(n) as though those were n independent
+    observations; for a 20-day horizon that overstates the t-statistic by
+    roughly a factor of two.
+
+    This is not a refinement. It decided the only pre-registered hypothesis
+    that ever survived: H6 read t = -2.67, p = 0.0041 under the iid test and
+    t = -1.25, p = 0.106 under this one.
+    """
+    x = np.asarray(x, dtype=float)
+    n = len(x)
+    if n < 2:
+        return float("nan")
+    xc = x - x.mean()
+    s = float(xc @ xc) / n
+    for k in range(1, min(int(lag), n - 1) + 1):
+        s += 2.0 * (1.0 - k / (int(lag) + 1.0)) * float(xc[k:] @ xc[:-k]) / n
+    # A Bartlett sum can go negative in small samples; a negative variance is
+    # not a number to take a square root of, and silently clipping it to zero
+    # would report an infinite t. Refuse instead.
+    return float(np.sqrt(s / n)) if s > 0 else float("nan")
+
+
+def block_bootstrap_ci(x: np.ndarray, block: int, n_boot: int = 20_000,
+                       seed: int = 0) -> Tuple[float, float]:
+    """Moving-block bootstrap CI for the mean, block length >= the horizon.
+
+    Resampling single days would destroy exactly the serial dependence that is
+    the problem. Blocks at least as long as the forward window keep it.
+    """
+    x = np.asarray(x, dtype=float)
+    n, b = len(x), max(1, int(block))
+    if n < b + 1:
+        return (float("nan"), float("nan"))
+    rng = np.random.default_rng(seed)
+    starts = rng.integers(0, n - b + 1, (int(n_boot), int(np.ceil(n / b))))
+    means = np.array([np.concatenate([x[i:i + b] for i in row])[:n].mean()
+                      for row in starts])
+    return tuple(float(v) for v in np.percentile(means, [2.5, 97.5]))
+
+
+def one_sided(x: np.ndarray, direction: str = "positive",
+              horizon: int = 1) -> Dict[str, float]:
+    """One-sided t on the day-level series, with Cohen's d.
+
+    ``horizon`` is the forward window the series was built from. Anything above
+    1 means consecutive observations overlap, so the reported ``t`` and ``p``
+    are the HAC-corrected ones; ``t_iid``/``p_iid`` are kept alongside purely so
+    the size of the correction stays visible.
+    """
     x = np.asarray([v for v in x if np.isfinite(v)])
     n = len(x)
     if n < 8:
         return {"n": n, "mean": np.nan, "d": np.nan, "t": np.nan, "p": np.nan}
     sd = float(np.std(x, ddof=1))
-    d = float(np.mean(x) / sd) if sd > 0 else np.nan
-    t = float(np.mean(x) / (sd / np.sqrt(n))) if sd > 0 else np.nan
-    p = float(1.0 - stats.t.cdf(t, n - 1)) if np.isfinite(t) else np.nan
-    if direction == "negative":
-        p = float(stats.t.cdf(t, n - 1)) if np.isfinite(t) else np.nan
-    return {"n": n, "mean": float(np.mean(x)), "d": d, "t": t, "p": p}
+    mean = float(np.mean(x))
+    d = float(mean / sd) if sd > 0 else np.nan
+    t_iid = float(mean / (sd / np.sqrt(n))) if sd > 0 else np.nan
+
+    h = max(1, int(horizon))
+    if h > 1:
+        se = newey_west_se(x, h - 1)
+        t = float(mean / se) if np.isfinite(se) and se > 0 else np.nan
+    else:
+        t, se = t_iid, (sd / np.sqrt(n) if sd > 0 else np.nan)
+
+    def _p(tv):
+        if not np.isfinite(tv):
+            return np.nan
+        return float(stats.t.cdf(tv, n - 1) if direction == "negative"
+                     else 1.0 - stats.t.cdf(tv, n - 1))
+
+    lo, hi = block_bootstrap_ci(x, h) if h > 1 else (np.nan, np.nan)
+    return {"n": n, "mean": mean, "d": d, "t": t, "p": _p(t),
+            "t_iid": t_iid, "p_iid": _p(t_iid), "se": float(se),
+            "ci_lo": lo, "ci_hi": hi,
+            # effective independent windows, which is the number that should
+            # have been quoted for a 20-day horizon all along
+            "n_eff": float(n / h)}
 
 
 def run_hypothesis(P: pd.DataFrame, h: Dict, top_q: float = 0.8) -> Dict:
@@ -253,7 +324,9 @@ def run_hypothesis(P: pd.DataFrame, h: Dict, top_q: float = 0.8) -> Dict:
         thr = d[col].quantile(top_q)
         events = d[d[col] >= thr]
     daily = cluster_by_day(events, ex)
-    out = one_sided(daily, h["direction"])
+    # The horizon MUST reach one_sided. Without it the overlapping forward
+    # windows are treated as independent and the t-statistic is inflated.
+    out = one_sided(daily, h["direction"], h["horizon"])
     out.update({"id": h["id"], "claim": h["claim"], "horizon": h["horizon"],
                 "events": len(events), "signal": col})
     return out

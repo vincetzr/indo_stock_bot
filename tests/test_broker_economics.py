@@ -32,7 +32,84 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir, "src"))
 
 from broker_economics import (cross_name_persistence,             # noqa: E402
                               edge_persistence, edge_vs_size, execution_edge,
-                              persistence, shrink, zero_sum_check)
+                              persistence, self_excluded_vwap, shrink,
+                              zero_sum_check)
+
+
+# --------------------------------------------------------------------------
+# the self-inclusion bias: comparing a broker with an average containing them
+# --------------------------------------------------------------------------
+def market(true_edges, shares, n_days=60, price=1000.0, total=100_000.0):
+    """A closed day: shares sum to 1, so the brokers ARE the whole market.
+
+    Each broker's average price is set from a KNOWN edge, so the corrected
+    measurement has a right answer to be checked against.
+    """
+    rows = []
+    tval = sum(total * shares[b] * 100 * price * (1 - e)
+               for b, e in true_edges.items())
+    vwap = sum(shares[b] * price * (1 - e) for b, e in true_edges.items())
+    for d in pd.bdate_range("2025-01-01", periods=n_days):
+        for b, e in true_edges.items():
+            lot = total * shares[b]
+            rows.append({"ticker": "T", "date": d, "broker": b, "buy_lot": lot,
+                         "buy_avg": price * (1 - e), "buy_val": lot * 100 * price * (1 - e),
+                         "sell_lot": 0.0, "sell_avg": np.nan, "sell_val": 0.0,
+                         "total_lot": total, "total_val": tval, "vwap": vwap})
+    return pd.DataFrame(rows)
+
+
+TRUE = {"BIG": 0.005, "MID": 0.0, "SML": -0.005}
+SHARE = {"BIG": 0.40, "MID": 0.35, "SML": 0.25}
+
+
+def test_including_a_broker_in_its_own_benchmark_shrinks_it_toward_zero():
+    """Establishes the bias is real before testing the correction."""
+    d = market(TRUE, SHARE)
+    biased = execution_edge(d, exclude_self=False)
+    fair = execution_edge(d, exclude_self=True)
+    assert abs(biased.loc["BIG", "edge_all"]) < abs(fair.loc["BIG", "edge_all"])
+
+
+def test_the_largest_broker_is_shrunk_the_hardest():
+    """The bias is proportional to share, which is what makes it look like a
+    size effect when there is none."""
+    d = market(TRUE, SHARE)
+    biased = execution_edge(d, exclude_self=False)
+    fair = execution_edge(d, exclude_self=True)
+    ratio = {b: abs(biased.loc[b, "edge_all"]) / abs(fair.loc[b, "edge_all"])
+             for b in ("BIG", "SML")}
+    assert ratio["BIG"] < ratio["SML"]        # bigger share, harder shrink
+
+
+def test_the_correction_keeps_the_sign_and_the_ordering():
+    fair = execution_edge(market(TRUE, SHARE), exclude_self=True)
+    assert fair.loc["BIG", "edge_all"] > 0 > fair.loc["SML", "edge_all"]
+    assert fair.loc["BIG", "edge_all"] > fair.loc["MID", "edge_all"]
+
+
+def test_the_excluded_vwap_is_the_rest_of_the_market_exactly():
+    d = market(TRUE, SHARE, n_days=1)
+    v = self_excluded_vwap(d, "buy")
+    row = d[d["broker"] == "BIG"].index[0]
+    others = d[d["broker"] != "BIG"]
+    expect = ((others["buy_lot"] * 100 * others["buy_avg"]).sum()
+              / (others["buy_lot"].sum() * 100))
+    assert float(v.loc[row]) == pytest.approx(expect, rel=1e-9)
+
+
+def test_a_broker_who_was_the_whole_day_falls_back_rather_than_dividing_by_zero():
+    d = market({"ONLY": 0.01}, {"ONLY": 1.0}, n_days=2)
+    v = self_excluded_vwap(d, "buy")
+    assert np.isfinite(v).all()
+    assert (v == pd.to_numeric(d["vwap"])).all()
+
+
+def test_without_totals_the_correction_is_skipped_not_guessed():
+    d = market(TRUE, SHARE).drop(columns=["total_val", "total_lot"])
+    a = execution_edge(d, exclude_self=True)
+    b = execution_edge(d, exclude_self=False)
+    assert a["edge_all"].equals(b["edge_all"])
 
 
 def day(brokers, buy_lot, buy_avg, sell_lot, sell_avg, vwap=1000.0,

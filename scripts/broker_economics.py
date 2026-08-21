@@ -65,11 +65,56 @@ from layer2_test import load_store                                # noqa: E402
 LOT = 100
 
 
-def execution_edge(df: pd.DataFrame) -> pd.DataFrame:
+def self_excluded_vwap(d: pd.DataFrame, side: str) -> pd.Series:
+    """The day's VWAP with THIS broker's own trades taken out.
+
+    THE BIAS THIS REMOVES IS THE BIGGEST ONE IN THE MEASUREMENT. A broker who
+    is 20% of the day's volume has pulled the VWAP 20% of the way toward their
+    own average price, so comparing them with it compares them partly with
+    themselves and shrinks their measured edge toward zero. The bigger the
+    desk, the harder the shrink - which manufactures exactly the finding that
+    "size does not predict execution quality", because every large broker is
+    forced toward neutral by construction.
+
+    The correction is exact rather than approximate. The footer publishes
+    ``total_val`` and ``total_lot`` across ALL members, and every broker's buy
+    lots partition that total exactly (as do the sell lots), so:
+
+        VWAP_excluding_b = (total_val - b_val) / ((total_lot - b_lot) * 100)
+
+    is arithmetic, not an estimate, and it holds even though the table itself
+    is censored to ten names - the totals are not censored.
+
+    One honest caveat: ``total_val`` is display-rounded and so is ``b_val``, so
+    the subtraction amplifies relative error roughly by 1/(1 - share). At a 20%
+    share that is a 25% amplification of an error already below 0.1%. Not
+    material, but it is why this returns NaN rather than a number when the
+    remainder goes non-positive.
+    """
+    tot_val = pd.to_numeric(d.get("total_val"), errors="coerce")
+    tot_lot = pd.to_numeric(d.get("total_lot"), errors="coerce")
+    b_val = pd.to_numeric(d.get(f"{side}_val"), errors="coerce").fillna(0.0)
+    b_lot = pd.to_numeric(d.get(f"{side}_lot"), errors="coerce").fillna(0.0)
+    rem_val, rem_lot = tot_val - b_val, tot_lot - b_lot
+    out = rem_val / (rem_lot * LOT)
+    # A broker who was the entire day, or totals that did not parse, leave
+    # nothing to compare against. Fall back to the published VWAP rather than
+    # inventing one; the fallback is the biased number but it is at least real.
+    bad = ~np.isfinite(out) | (rem_lot <= 0) | (out <= 0)
+    return out.mask(bad, pd.to_numeric(d.get("vwap"), errors="coerce"))
+
+
+def execution_edge(df: pd.DataFrame, exclude_self: bool = True) -> pd.DataFrame:
     """Per broker: how their fills compare with the day's average participant.
 
     Weighted by the lots actually traded, so a broker that beat VWAP once on a
     hundred lots does not outrank one that beat it all year on millions.
+
+    ``exclude_self`` compares each broker with everyone ELSE rather than with
+    an average that includes them. It defaults to True because the included
+    version is biased toward zero in proportion to the broker's own share of
+    the day - see :func:`self_excluded_vwap`. Pass False only to reproduce the
+    biased figure deliberately, for comparison.
     """
     d = df.copy()
     for c in ("buy_lot", "buy_avg", "sell_lot", "sell_avg", "vwap"):
@@ -77,13 +122,18 @@ def execution_edge(df: pd.DataFrame) -> pd.DataFrame:
     d = d[d["vwap"] > 0]
     if d.empty:
         return pd.DataFrame()
+    have_totals = ("total_val" in d.columns and "total_lot" in d.columns)
+    d["_vwap_buy"] = (self_excluded_vwap(d, "buy")
+                      if exclude_self and have_totals else d["vwap"])
+    d["_vwap_sell"] = (self_excluded_vwap(d, "sell")
+                       if exclude_self and have_totals else d["vwap"])
 
     # a listed side has a real average price; an unlisted side has none, and
     # inventing one from the VWAP would manufacture a zero edge out of nothing
     buy = d[(d["buy_lot"] > 0) & (d["buy_avg"] > 0)].copy()
     sell = d[(d["sell_lot"] > 0) & (d["sell_avg"] > 0)].copy()
-    buy["edge"] = (buy["vwap"] - buy["buy_avg"]) / buy["vwap"]
-    sell["edge"] = (sell["sell_avg"] - sell["vwap"]) / sell["vwap"]
+    buy["edge"] = (buy["_vwap_buy"] - buy["buy_avg"]) / buy["_vwap_buy"]
+    sell["edge"] = (sell["sell_avg"] - sell["_vwap_sell"]) / sell["_vwap_sell"]
 
     def agg(x: pd.DataFrame, lot: str) -> pd.DataFrame:
         """Lot-weighted mean edge per broker, computed rather than applied.
