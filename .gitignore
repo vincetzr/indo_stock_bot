@@ -10,6 +10,9 @@ data/cache/
 data/broker_summary/*
 !data/broker_summary/.gitkeep
 reports/*
+# Generated artefacts above are reproducible. Phase MEMOS are not - they are
+# the deliverable CLAUDE.md §14 defines, hand-written, and must be tracked.
+!reports/*.md
 !reports/backtest_real.txt
 !reports/data_availability.csv
 
