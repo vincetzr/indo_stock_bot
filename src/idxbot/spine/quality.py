@@ -50,7 +50,8 @@ import numpy as np
 import pandas as pd
 
 from .reference import (COVERAGE_START, OutsideCoverage,
-                        auto_rejection, tick_size, was_locked)
+                        auto_rejection, infer_board, tick_size,
+                        was_locked)
 
 #: Ratios a genuine split or reverse split takes. Anything else is a price move.
 SPLIT_RATIOS = (1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0, 20.0, 25.0,
@@ -65,10 +66,10 @@ RATIO_TOLERANCE = 0.02
 #: ordinary Rp 3 to Rp 2.
 MIN_SPLIT_TICKS = 20
 
-#: IDX's main board has a Rp 50 price floor, so a quote below it belongs to the
-#: acceleration board and takes that board's far looser auto-rejection ladder.
-#: Board membership per ticker-day is not available, but for this purpose it can
-#: be inferred from the price rather than guessed.
+#: IDX's main board price floor. Superseded for board inference by
+#: :func:`idxbot.spine.reference.infer_board`, which uses IDX's published
+#: watchlist criterion instead of a bare price cut, but kept because the floor
+#: is still the reason a sub-Rp 50 quote pre-2023 is unexplained.
 MAIN_BOARD_FLOOR = 50.0
 
 
@@ -124,14 +125,20 @@ def decimal_spikes(df: pd.DataFrame, tol: float = 0.02,
             continue
         ref = c[k]
         day = dates[k + 1] if dates is not None else None
-        # Board membership per ticker-day is a known gap, but it can be
-        # INFERRED here rather than guessed: the main board has a Rp 50 price
-        # floor, so anything quoted below that is on the acceleration board and
-        # takes its far looser ladder. Without this, every penny stock moving
-        # one tick reads as an impossible move.
-        board = "acceleration" if ref < MAIN_BOARD_FLOOR else "main"
+        # Board membership is DERIVED from IDX's published criterion rather
+        # than guessed: from 2023-06-12 a six-month average regular-market
+        # price below Rp 51 puts a stock on the Papan Pemantauan Khusus, whose
+        # ladder is far looser. Before that the criterion did not exist, so a
+        # sub-Rp 50 quote returns "unknown" - and unknown is treated as the
+        # LOOSER ladder, because assuming the tight one would manufacture
+        # impossible-move flags on exactly the names least able to bear them.
         if day is None:
             continue
+        lo = max(0, k - 120)
+        avg6 = float(np.nanmean(c[lo:k + 1])) if k > lo else ref
+        board = infer_board(day, avg_price_6m=avg6, price=ref)
+        if board == "unknown":
+            board = "acceleration"
         try:
             up, dn = auto_rejection(ref, day, board)
         except (OutsideCoverage, ValueError):

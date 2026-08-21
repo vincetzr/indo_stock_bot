@@ -196,6 +196,48 @@ _THIN = [
 ]
 
 
+#: Papan Pemantauan Khusus - the special monitoring board. Tahap I (hybrid
+#: call auction) from 2023-06-12, Tahap II (full periodic call auction) from
+#: 2024-03-25, under Peraturan I-X / Peng-00001/BEI.PB1/03-2024.
+WATCHLIST_START = pd.Timestamp("2023-06-12")
+WATCHLIST_FULL_CALL_AUCTION = pd.Timestamp("2024-03-25")
+
+#: The criterion that puts a stock there, and the reason board membership is
+#: DERIVABLE rather than merely guessable: average price over the last six
+#: months in the regular market below Rp 51. Eleven criteria exist in total -
+#: going-concern opinions, prolonged suspension, no revenue - but this is the
+#: one computable from a price series alone, and it is the one that governs the
+#: names whose ladder actually differs.
+WATCHLIST_PRICE = 51.0
+WATCHLIST_LOOKBACK_DAYS = 182
+
+
+def infer_board(day, avg_price_6m: Optional[float] = None,
+                price: Optional[float] = None) -> str:
+    """Which board's ladder applies, derived from published criteria.
+
+    Board membership per ticker-day is not published in any feed reachable
+    here, but it does not have to be guessed. From 2023-06-12 the rule is
+    explicit: a six-month average regular-market price below Rp 51 puts a stock
+    on the Papan Pemantauan Khusus, whose auto-rejection ladder is a flat Rp 1
+    band below Rp 10 and 10% above - materially looser than the main ladder.
+
+    Before that date the criterion did not exist, so a sub-Rp 50 quote is not
+    explained by any encoded rule and this returns ``"unknown"`` rather than
+    inventing a board. Callers that need a band anyway should treat unknown
+    conservatively; :mod:`idxbot.spine.quality` does exactly that.
+    """
+    d = pd.Timestamp(day).normalize()
+    ref = avg_price_6m if avg_price_6m is not None else price
+    if ref is None:
+        return "main"
+    if d >= WATCHLIST_START:
+        return "watchlist" if float(ref) < WATCHLIST_PRICE else "main"
+    # Pre-2023 the main board had a Rp 50 floor, so a quote below it belongs to
+    # a board this module does not model. Saying so beats guessing.
+    return "unknown" if float(ref) < 50.0 else "main"
+
+
 def auto_rejection(price: float, day, board: str = "main") -> Tuple[float, float]:
     """``(upper, lower)`` auto-rejection limits as FRACTIONS of the reference.
 
@@ -417,10 +459,13 @@ def known_gaps() -> List[str]:
         "per-stock temporary relaxations and suspensions granted by IDX",
         "pre-closing and random-closing microstructure; only the daily bar is "
         "modelled",
-        "the full-call-auction and pre-opening sessions",
-        "whether a name was on the watchlist on a given day - the thin-board "
-        "ladder is available but nothing currently supplies board membership "
-        "per ticker-day",
+        "the pre-opening session; and the full-call-auction MECHANICS of the "
+        "watchlist (membership itself is derived - see infer_board - but the "
+        "periodic-auction price formation is not modelled)",
+        "the ten watchlist criteria other than the price one: going-concern "
+        "opinions, prolonged suspension, no revenue and the rest. They need a "
+        "filings feed, so a name on the watchlist for a non-price reason is "
+        "treated as main board",
     ]
 
 

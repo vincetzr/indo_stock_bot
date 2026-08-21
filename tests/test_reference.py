@@ -329,3 +329,41 @@ def test_the_grid_test_would_reject_a_wrong_ladder():
     assert abs(0.8845 - 1.0) < abs(0.8845 - 0.20)
     # 61% observed, 50% chance under a Rp 25 grid -> closer to chance
     assert abs(0.6105 - 0.50) < abs(0.6105 - 1.0)
+
+
+# --------------------------------------------------------------------------
+# board membership is DERIVED from a published criterion, not guessed
+# --------------------------------------------------------------------------
+def test_a_cheap_stock_lands_on_the_watchlist_after_the_rule_existed():
+    """IDX's rule: six-month average regular-market price below Rp 51."""
+    from idxbot.spine.reference import infer_board
+    assert infer_board("2024-06-03", avg_price_6m=20.0) == "watchlist"
+    assert infer_board("2024-06-03", avg_price_6m=200.0) == "main"
+
+
+def test_the_watchlist_rule_does_not_apply_before_it_existed():
+    """Pre-2023 a sub-Rp 50 quote is not explained by any encoded rule, so the
+    honest answer is 'unknown' rather than an invented board."""
+    from idxbot.spine.reference import infer_board
+    assert infer_board("2020-06-03", avg_price_6m=20.0) == "unknown"
+    assert infer_board("2020-06-03", avg_price_6m=200.0) == "main"
+
+
+def test_the_watchlist_boundary_falls_on_the_announced_day():
+    from idxbot.spine.reference import WATCHLIST_START, infer_board
+    day_before = WATCHLIST_START - pd.Timedelta(days=1)
+    assert infer_board(day_before, avg_price_6m=20.0) == "unknown"
+    assert infer_board(WATCHLIST_START, avg_price_6m=20.0) == "watchlist"
+
+
+def test_the_watchlist_ladder_is_far_looser_than_the_main_one():
+    """Rp 1 band below Rp 10, 10% above - which is why getting the board wrong
+    manufactures impossible-move flags on exactly the wrong names."""
+    assert auto_rejection(5.0, "2024-06-03", "watchlist") == (-1.0, -1.0)
+    assert auto_rejection(30.0, "2024-06-03", "watchlist") == (0.10, 0.10)
+    assert auto_rejection(30.0, "2024-06-03", "main")[0] == 0.35
+
+
+def test_a_missing_price_defaults_to_the_main_board():
+    from idxbot.spine.reference import infer_board
+    assert infer_board("2024-06-03") == "main"

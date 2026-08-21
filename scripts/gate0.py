@@ -478,8 +478,11 @@ def main() -> int:
               "   - a systematic corporate-action FEED. Seven events are "
               "hand-verified; the rest\n     of the market is unchecked, and "
               "detection is not verification.\n"
-              "   - board membership per ticker-day. Inferred from the Rp 50 "
-              "main-board floor\n     where it matters, not sourced.\n"
+              "   - the ten NON-PRICE watchlist criteria: going-concern "
+              "opinion, prolonged\n     suspension, no revenue and the rest. "
+              "The price criterion is derived from\n     IDX's published rule, "
+              "so a name on the watchlist for another reason reads\n     as "
+              "main board.\n"
               "   - anything before 2005, and auto-rejection bands before 2010. "
               "Lookups raise\n     rather than guess, and the 2010-2013 bands are INFERRED from\n     where the return distribution truncates rather than read from a regulation.")
     else:
