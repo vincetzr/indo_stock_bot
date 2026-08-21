@@ -605,3 +605,34 @@ def test_agreement_without_a_published_figure_reports_only_what_it_computed():
 
 def test_agreement_of_nothing_is_empty():
     assert foreign_net_agreement(pd.DataFrame()) == {}
+
+
+# --------------------------------------------------------------------------
+# 8. the session total is itself uncertain
+# --------------------------------------------------------------------------
+def test_the_pool_uses_the_upper_end_of_an_uncertain_total():
+    """Too tight is the one failure mode this module exists to prevent.
+
+    T.Val prints to four figures in the billions and TWO in the trillions, so on
+    a heavy session the recovered lot count carries 4.55%, not 0.03%. Sizing the
+    hidden pool off a point estimate of that would make every bracket on a busy
+    day too narrow.
+    """
+    rows = pd.DataFrame({"broker": ["AA", "BB"], "buy_lot": [800.0, 0.0],
+                         "sell_lot": [0.0, 900.0],
+                         "total_lot": [1000.0] * 2,
+                         "total_lot_lo": [980.0] * 2,
+                         "total_lot_hi": [1100.0] * 2})
+    b = day_bounds(rows).set_index("broker")
+    # AA is unlisted on the sell side. The pool is total - visible sell, and the
+    # UPPER total gives 1100 - 900 = 200 where the point estimate gives only 100.
+    assert b.loc["AA", "sell_hi"] == pytest.approx(200.0)
+    without = day_bounds(rows.drop(columns=["total_lot_hi", "total_lot_lo"]))
+    assert without.set_index("broker").loc["AA", "sell_hi"] == pytest.approx(100.0)
+
+
+def test_an_explicit_total_still_wins_over_the_columns():
+    rows = pd.DataFrame({"broker": ["AA", "BB"], "buy_lot": [800.0, 0.0],
+                         "sell_lot": [0.0, 700.0], "total_lot_hi": [1100.0] * 2})
+    b = day_bounds(rows, total_lot=900.0).set_index("broker")
+    assert b.loc["AA", "sell_hi"] == pytest.approx(200.0)   # 900 - 700

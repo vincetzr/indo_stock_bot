@@ -121,9 +121,19 @@ def day_bounds(rows: pd.DataFrame, total_lot: Optional[float] = None
     for c in ("buy_lot", "sell_lot"):
         df[c] = pd.to_numeric(df.get(c), errors="coerce").fillna(0.0)
 
-    if total_lot is None and "total_lot" in df:
-        v = pd.to_numeric(df["total_lot"], errors="coerce").dropna()
-        total_lot = float(v.iloc[0]) if len(v) else None
+    if total_lot is None:
+        # Prefer the UPPER end of the total's own interval. The pool is
+        # total minus visible, so a larger total gives a larger pool, a larger
+        # ceiling and a WIDER bracket - which is the safe direction. Taking a
+        # point estimate of a figure printed to two significant figures would
+        # make the brackets too tight, and too tight is the one failure this
+        # module exists to prevent.
+        for col in ("total_lot_hi", "total_lot"):
+            if col in df:
+                v = pd.to_numeric(df[col], errors="coerce").dropna()
+                if len(v):
+                    total_lot = float(v.iloc[0])
+                    break
 
     vis_buy = float(df["buy_lot"].sum())
     vis_sell = float(df["sell_lot"].sum())

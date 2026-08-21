@@ -548,8 +548,35 @@ different questions, and the window has to be stated with the claim.
 | zero-sum residual | the parse | 0 lots |
 | foreign + domestic = all | the views against each other | 0 lots over 37 broker-sides |
 | reproduces published `F.NVal` | the interpretation | 0.7% median |
-| **agrees with Yahoo's volume** | **the data itself** | **0.01% median** |
+| **agrees with Yahoo's volume** | **the data itself** | **0.06% median, 2.9% at the 90th pct** |
 
 The first three would all pass happily if IndoPremier's numbers were simply
 wrong. Only the last one is evidence about the data rather than about the code
 reading it, because Yahoo is a different vendor down a different path.
+
+**A correction, and the precision limit it exposed.** The tape check first ran
+on the two sessions that happened to overlap a stale price cache and reported
+**0.01%**. Re-run properly over **227 sessions** it is 0.06% median — but only
+38% of sessions agree within 0.1%, the 90th percentile is 2.9%, and the worst is
+4.3%.
+
+The cause is not the board (regular-board totals beat all-board against the tape
+by a wide margin on every one of the worst days) and it is not a parse fault. It
+is the abbreviator. `T.Val` prints four significant figures in the billions —
+`732.4 B`, and the recovered lot count is then good to **0.01%** — but only two
+in the trillions — `1.1 T`, where the same recovery carries **4.55%**. Every one
+of the worst sessions is a trillion-scale one.
+
+Fixed by intersecting two independent readings of the same quantity, since the
+printed `T.Lot` cell has its own separate granularity. On 2026-04-29:
+
+| reading | interval | width |
+|---|---|---|
+| `T.Val` / (100 × `Avg`) | [1,753,214, 1,920,187] | 166,973 |
+| printed `T.Lot` cell | [1,750,000, 1,850,000] | 100,000 |
+| **intersection** | **[1,753,214, 1,850,000]** | **96,786** |
+
+Yahoo's independent 1,760,509 sits inside it. `day_bounds` now sizes the hidden
+pool off the **upper** end of that interval, because a larger pool gives a wider
+bracket — and a bracket that is too tight is the one failure this whole approach
+exists to prevent.

@@ -233,10 +233,56 @@ def exact_total_lots(totals: Dict[str, float]) -> float:
     return float(v) if v is not None else float("nan")
 
 
+def total_lot_bounds(totals: Dict[str, float]) -> Tuple[float, float]:
+    """Interval for the session's lot count, from BOTH printed readings.
+
+    ``exact_total_lots`` is only exact when ``T.Val`` lands in the billions,
+    where it prints four figures ("732.4 B") and the recovery is good to 0.01%.
+    On a heavy session the value crosses into trillions, prints as "1.1 T" - TWO
+    figures - and the same recovery carries 4.55%. Measured against Yahoo's
+    volume over 227 BBCA sessions the median disagreement is 0.06% but the 90th
+    percentile is 2.9%, and every one of the worst days is a trillion-scale one.
+
+    The printed ``T.Lot`` cell is an INDEPENDENT reading of the same quantity
+    with its own granularity, so intersecting the two is strictly tighter than
+    either. On 2026-04-29: value/average gives 1,836,701 +/- 83,486 and the cell
+    gives 1,800,000 +/- 50,000, and the intersection [1,753,215, 1,850,000]
+    contains Yahoo's 1,760,509 while being narrower than both.
+
+    This matters beyond tidiness: the hidden pool is ``total - visible``, so a
+    total treated as exact when it is not produces brackets that are too tight -
+    and a bracket that is too tight is the one failure mode this whole approach
+    exists to avoid.
+    """
+    lo, hi = 0.0, float("inf")
+    tval, avg = totals.get("tval"), totals.get("avg")
+    if tval and avg and np.isfinite(tval) and np.isfinite(avg) and avg > 0:
+        v = float(tval) / (LOT_SIZE * float(avg))
+        tol = _printed_tolerance(float(tval)) / (LOT_SIZE * float(avg))
+        lo, hi = max(lo, v - tol), min(hi, v + tol)
+    cell = totals.get("tlot")
+    if cell and np.isfinite(cell) and cell > 0:
+        tol = _printed_tolerance(float(cell))
+        lo, hi = max(lo, float(cell) - tol), min(hi, float(cell) + tol)
+    if lo > hi:              # the two readings disagree; keep the union
+        a = float(tval) / (LOT_SIZE * float(avg)) if tval and avg else float(cell)
+        return min(a, float(cell or a)), max(a, float(cell or a))
+    return (lo, hi) if np.isfinite(hi) else (lo, lo)
+
+
+def _printed_tolerance(value: float) -> float:
+    """Half of the last decimal the abbreviator keeps, or zero below a million."""
+    v = abs(float(value))
+    if not np.isfinite(v) or v < 1e6:
+        return 0.0
+    return 0.05 * 10.0 ** (3.0 * np.floor(np.log10(v) / 3.0))
+
+
 #: Columns carrying the day's market-wide totals, repeated on every row of that
 #: day so a row-group survives a concat, a groupby or a round-trip to CSV
 #: without a second table to join back to.
-TOTAL_COLUMNS = ("total_lot", "total_val", "foreign_net_val", "vwap")
+TOTAL_COLUMNS = ("total_lot", "total_lot_lo", "total_lot_hi", "total_val",
+                 "foreign_net_val", "vwap")
 
 
 def attach_totals(df: pd.DataFrame, totals: Dict[str, float]) -> pd.DataFrame:
@@ -258,6 +304,8 @@ def attach_totals(df: pd.DataFrame, totals: Dict[str, float]) -> pd.DataFrame:
         return df if df is not None else empty_frame()
     out = df.copy()
     out["total_lot"] = exact_total_lots(totals) if totals else np.nan
+    lo, hi = total_lot_bounds(totals) if totals else (np.nan, np.nan)
+    out["total_lot_lo"], out["total_lot_hi"] = lo, hi
     out["total_val"] = totals.get("tval", np.nan) if totals else np.nan
     out["foreign_net_val"] = totals.get("fnval", np.nan) if totals else np.nan
     out["vwap"] = totals.get("avg", np.nan) if totals else np.nan
