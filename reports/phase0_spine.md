@@ -236,14 +236,96 @@ including ones that are fine. Not reported as a result.
 
 ---
 
-## 12. Still open, and none of it blocks Phase 1
+## 12. Still open — two items, both narrow
 
-1. **Delisted price history.** The largest gap. Needs a licensed source.
-2. **A systematic corporate-action feed.** Seven events hand-verified; the rest
-   of the market unchecked. Detection is not verification.
-3. **Board membership per ticker-day.** Inferred from the Rp 50 floor where it
-   matters, not sourced.
-4. **Pre-2014 rules.** Lookups raise rather than guess.
+The four gaps this memo originally listed were not all environmental. Three of
+them were research problems, and closing them changed the spine:
+
+| originally listed | outcome |
+|---|---|
+| pre-2014 rules unknowable | **CLOSED.** Read out of the prices: tick ladder back to 2005, auto-rejection back to 2010 |
+| board membership unsourced | **CLOSED.** Derived from IDX's published watchlist criterion |
+| no corporate-action feed | **NARROWED.** Every level shift in the universe is now accounted for; two lack a confirmed factor |
+| delisted price history | **still open.** Not obtainable from this container |
+
+### Closed: the pre-2014 rules
+
+The tick ladder could not be fetched from any reachable source, so it was read
+from the prices themselves. On a Rp 10 grid essentially every close divides by
+10, and the observed granularity is stable in every year from 2005 to 2013:
+200–500 Rp 5, 500–2,000 Rp 10, 2,000–5,000 Rp 25, ≥5,000 Rp 50. That matches
+the table the sources described.
+
+The same method settled a live disagreement in the *modern* table — two sources
+give Rp 5 and Rp 10 for the 2014–2016 Rp 500–5,000 band; 97.9% of closes there
+divide by 5. This is now Gate 0 check 2b, and all ten band-periods agree across
+1.3m closes.
+
+The check needed a real discriminator, not a threshold. Split-adjusted prices
+are off-grid, so every share sits below 100%; a fixed cut-off would either
+reject a real Rp 25 grid or have to be tuned until it stopped, which is fitting
+the test to the answer. Instead: on a grid of size *g*, the share divisible by a
+coarser *c* is about *g/c* by chance, so a candidate qualifies when its share
+sits closer to 1 than to that chance level. **88% against a 20% null is a Rp 25
+grid; 61% against a 50% null is not a Rp 50 grid.** No tuning.
+
+Auto rejection was read the same way — it truncates the return distribution, so
+the band is where the tail stops. Calibrated on the documented 2014–2016 regime
+the truncation lands exactly on 35/25/20; 2010–2013 reproduces it, and Gate 0
+checks that window on its own: **0.004% violation rate over 312,478
+observations, the lowest of any regime including the documented ones.**
+2005–2009 does *not* reproduce it (0.19% of sub-Rp 200 days above 35%, against
+0.02% in 2010–2013), so the bands stop at 2010 while the ladder reaches 2005.
+Coverage is now **per schedule**, because the evidence is.
+
+### Closed: board membership
+
+Derived, not sourced. From 2023-06-12 IDX's criterion for the Papan Pemantauan
+Khusus is explicit and computable — six-month average regular-market price below
+Rp 51 (Peraturan I-X; Tahap I 2023-06-12, Tahap II full call auction
+2024-03-25). Its ladder is a flat Rp 1 band below Rp 10 and 10% above, against
+35/25/20 on the main board, so getting the board wrong manufactures
+impossible-move flags on exactly the names least able to bear them.
+
+`infer_board` returns main / watchlist / **unknown** — pre-2023 a sub-Rp 50
+quote is not explained by anything encoded, and unknown is treated as the
+*looser* ladder, since assuming the tight one invents defects.
+
+What remains is narrower: the ten **non-price** criteria (going-concern opinion,
+prolonged suspension, no revenue) need a filings feed, so a name on the
+watchlist for one of those reads as main board.
+
+### Narrowed: corporate actions
+
+Applying the same impossible-move requirement to `level_shifts` that
+`decimal_spikes` already had cut the universe's shifts from 11 to **5**. The
+removed ones were never corporate actions: RODA fell 99 → 65, which is −34.3%
+against a 35% band — a legal bad day that a clean ratio near 1.5 had flagged.
+
+All five are now accounted for:
+
+| shift | status |
+|---|---|
+| SCCO 2024-02-01 | verified misdated split, **repaired** |
+| WIKA 2024-04-30 | verified rights issue (detector reports the resumption date; the adjustment at 2024-04-16 is correct) |
+| ELTY 2018-06-07 | **not a corporate action** — the 10:1 reverse split was rejected by shareholders; this is a dormant quote re-marked on resumption |
+| PYFA 2024-04-16 | cause known, factor not — see below |
+| SINI 2026-06-29 | cause genuinely unknown |
+
+PYFA announced a rights issue on 2024-04-04: 10.70bn new shares at Rp 100
+raising Rp 1.07tn, and the arithmetic is internally consistent. The ex-date
+lands on the shift. But the **ratio** was not confirmed from any source read
+here, and deriving it from the price move would explain the move with itself —
+so the window stays quarantined rather than adjusted on a guessed factor.
+
+### Still open: delisted price history
+
+The one genuine environmental block. Yahoo answers *"possibly delisted; no
+timezone found"* for SRIL, MYRX, FREN and MAMI and is otherwise rate-limited;
+stooq serves a JavaScript challenge. Measured rather than fixed (§6), and a
+licensed feed would very likely carry it.
+
+---
 
 Phase 1 work may proceed on the repaired spine provided the survivorship caveat
 travels with every number and quarantined windows are excluded.

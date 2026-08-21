@@ -16,11 +16,18 @@ THE CHECKS
        off by a day. Measure the worst daily fall in each regime and confirm it
        sits inside that regime's limit and OUTSIDE the neighbouring one - a
        schedule shifted by a week would fail this even though check 1 passed.
+    2b. THE TICK LADDER against the granularity the market actually quoted.
+       On a Rp 5 grid essentially every close divides by 5. This settled a
+       disagreement between two published sources about the 2014-2016 table.
     3. STALE BARS. Quantify how much of the spine records no trading at all.
        Not a pass/fail, a number that every downstream sample size depends on.
     4. CORPORATE ACTIONS. Find persistent unadjusted level shifts and name
        them, so the count is known rather than discovered inside a backtest.
-    5. SOURCE ERRORS. Isolated power-of-ten bars.
+    5. SOURCE ERRORS. Isolated clean-ratio bars that revert.
+    6. SURVIVORSHIP. Is the universe made only of winners?
+    6b. §5 CHECK 1 - traded value against an independent source.
+    7. §5 CHECK 2 - corporate actions reconciled BY HAND against
+       announcements. This is the one that found SCCO's misdated split.
 
     python3 scripts/gate0.py            # full universe
     python3 scripts/gate0.py --limit 50 # quick pass
@@ -142,14 +149,6 @@ def validate_tick_schedule(files) -> tuple:
         n = v[1][1]
         if n < 2000:
             continue
-        # The tick is where the divisible share PLATEAUS and then collapses,
-        # not where it crosses some absolute level. On the >= Rp 5,000 band in
-        # 2014, 92.3% of closes divide by 25 and only 61.5% by 50: plainly a
-        # Rp 25 grid, but a flat 95% threshold rejects it. The shortfall from
-        # 100% is split contamination - an adjusted series is off-grid - and
-        # tuning the threshold to absorb that would be fitting the test to the
-        # answer. The drop is the signal, so the rule is a share above 0.90
-        # with the next candidate up falling below 0.75.
         share = {c: v[c][0] / max(v[c][1], 1) for c in cand}
         # No absolute threshold. On a grid of size g, the share of prices
         # divisible by a coarser c is about g/c by chance; if the grid really
@@ -475,9 +474,11 @@ def main() -> int:
               "close:\n"
               "   - delisted price history. Measured above, not fixed; no free "
               "source carries it.\n"
-              "   - a systematic corporate-action FEED. Seven events are "
-              "hand-verified; the rest\n     of the market is unchecked, and "
-              "detection is not verification.\n"
+              "   - two shifts whose factor is not verified. SINI 2026-06-29 "
+              "has no traceable\n     announcement at all; PYFA 2024-04-16 has "
+              "a documented rights issue but no\n     confirmed ratio, and "
+              "deriving one from the move would explain the move with\n     "
+              "itself. Both are quarantined rather than adjusted on a guess.\n"
               "   - the ten NON-PRICE watchlist criteria: going-concern "
               "opinion, prolonged\n     suspension, no revenue and the rest. "
               "The price criterion is derived from\n     IDX's published rule, "

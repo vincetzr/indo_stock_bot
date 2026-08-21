@@ -208,6 +208,28 @@ def level_shifts(df: pd.DataFrame, window: int = 5) -> pd.DataFrame:
         ticks = abs(before - after) / tick if tick > 0 else np.inf
         if ticks < MIN_SPLIT_TICKS:
             continue                            # one tick on a penny stock
+        # AND the move must be one the exchange could not have permitted, the
+        # same requirement :func:`decimal_spikes` makes. A clean ratio near 1.5
+        # is a 33% fall, and on a sub-Rp 200 stock under a 35% band that is an
+        # ordinary bad day. Without this, RODA (99 -> 65, -34.3%), MMLP and
+        # BAPI were all quarantined as suspected corporate actions when nothing
+        # happened to any of them beyond a legal fall.
+        step = c[i] / c[i - 1]
+        lo_w = max(0, i - 120)
+        avg6 = float(np.nanmean(c[lo_w:i])) if i > lo_w else float(c[i - 1])
+        board = infer_board(day, avg_price_6m=avg6, price=float(c[i - 1]))
+        if board == "unknown":
+            board = "acceleration"
+        try:
+            up, dn = auto_rejection(float(c[i - 1]), day, board)
+        except (OutsideCoverage, ValueError):
+            continue
+        ref = float(c[i - 1])
+        up = abs(up) / ref if up < 0 else up
+        dn = abs(dn) / ref if dn < 0 else dn
+        move = step - 1.0
+        if not (move > up + 1e-9 if move > 0 else -move > dn + 1e-9):
+            continue                            # the exchange allowed this
         hits.append({"date": day, "ratio": round(rr, 3), "before": before,
                      "after": after, "ticks": float(ticks)})
     return pd.DataFrame(hits)

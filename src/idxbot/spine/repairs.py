@@ -109,16 +109,22 @@ class Suspect:
 #: Moving a row from here to REPAIRS or to verified_actions.VERIFIED requires
 #: reading an announcement, not looking at the chart harder.
 SUSPECT: List[Suspect] = [
-    Suspect("SINI", pd.Timestamp("2026-06-29"), 1.50),
+    Suspect("SINI", pd.Timestamp("2026-06-29"), 1.50,
+            "Rp 9,775 -> 6,723, a 31% fall against a 20% band at that price, "
+            "so it cannot be an ordinary day. No announcement found for "
+            "Singaraja Putra around this date. Cause genuinely unknown."),
     Suspect("PYFA", pd.Timestamp("2024-04-16"), 5.10,
-            "the window 2024-04-16..2024-04-19 carries fractional prices "
-            "between round ones, so an adjustment was applied to four days "
-            "and nothing else"),
-    Suspect("PYFA", pd.Timestamp("2024-04-25"), 1.53),
-    Suspect("MMLP", pd.Timestamp("2020-03-09"), 1.53),
-    Suspect("RODA", pd.Timestamp("2019-11-27"), 1.52),
-    Suspect("BAPI", pd.Timestamp("2019-09-27"), 1.52),
-    Suspect("BAPI", pd.Timestamp("2019-10-03"), 1.48),
+            "CAUSE KNOWN, FACTOR NOT. Pyridam Farma announced a rights issue "
+            "on 2024-04-04: up to 10.70 billion new shares at Rp 100, raising "
+            "Rp 1.07 trillion - and 10.70bn x Rp 100 does equal Rp 1.07tn, so "
+            "the terms are internally consistent. The ex-date lands on this "
+            "shift. But the RATIO was not confirmed from any source read here, "
+            "and deriving it from the price move would be circular - the move "
+            "is the thing being explained. So the event is documented and the "
+            "window stays quarantined rather than adjusted on a guessed "
+            "factor. The window 2024-04-16..2024-04-19 also carries fractional "
+            "prices between round ones, so an adjustment was applied to four "
+            "days and nothing else."),
     Suspect("ELTY", pd.Timestamp("2018-06-07"), 10.00,
             "NOT a corporate action. Bakrieland's 10:1 reverse split was "
             "proposed in June 2018 and REJECTED by shareholders - there were "
@@ -128,9 +134,8 @@ SUSPECT: List[Suspect] = [
             "volume the next day, so this is a dormant quote being re-marked "
             "on resumption. Auto-rejection does not bind on resumption after a "
             "long suspension, so the -90% is legal and real. Stays quarantined "
-            "because the window is genuinely uninformative, not because the "
-            "cause is unknown."),
-    Suspect("YULE", pd.Timestamp("2015-01-13"), 1.52),
+            "because the window is uninformative, not because the cause is "
+            "unknown."),
 ]
 
 #: How wide a quarantine to place around a suspect shift. SCCO's error spanned
