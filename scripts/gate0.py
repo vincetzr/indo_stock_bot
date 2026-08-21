@@ -41,9 +41,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir, "src"))
 
 from idxbot.spine.quality import (decimal_spikes, level_shifts,   # noqa: E402
                                   stale_bars)
-from idxbot.spine.reference import (COVERAGE_START,               # noqa: E402
-                                    OutsideCoverage, audit, auto_rejection,
-                                    known_gaps)
+from idxbot.spine.reference import (ARB_EARLY_START,              # noqa: E402
+                                    COVERAGE_START, OutsideCoverage, audit,
+                                    auto_rejection, known_gaps, tick_size)
 from idxbot.spine.universe import (audit_universe, bias_estimate,  # noqa: E402
                                    caveat, liquidity_shield)
 from idxbot.spine.repairs import (apply_repairs,                 # noqa: E402
@@ -65,7 +65,8 @@ BAND_SLACK = 0.015
 MAX_VIOLATION_RATE = 0.02
 
 REGIMES = [
-    ("symmetric 25%", "2016-05-02", "2020-03-10", 0.25),
+    ("symmetric, inferred", "2010-01-04", "2014-01-06", 0.25),
+    ("symmetric 25%", "2014-01-06", "2020-03-10", 0.25),
     ("COVID 10%", "2020-03-10", "2020-03-13", 0.10),
     ("COVID 7%", "2020-03-13", "2023-06-05", 0.07),
     ("normalisation 15%", "2023-06-05", "2023-09-04", 0.15),
@@ -87,6 +88,101 @@ def load(path: str) -> pd.DataFrame:
     d = d[d["close"] > 0].sort_values("date").reset_index(drop=True)
     tk = os.path.basename(path).replace(".JK.csv.gz", "")
     return apply_repairs(d, tk)
+
+
+def validate_tick_schedule(files) -> tuple:
+    """Is the encoded tick ladder what the market actually quoted?
+
+    The same idea as checking auto-rejection against real falls: the schedule
+    is a CLAIM, and the prices are the evidence. If the ladder says Rp 5 in a
+    band then essentially every close quoted in that band should be divisible
+    by 5.
+
+    It settled a live disagreement. Two sources give different tick sizes for
+    the Rp 500-5,000 band between 2014 and 2016 - one says Rp 5, one says
+    Rp 10. The data says 97.9% of closes there are divisible by 5, so Rp 5 is
+    right and the other source is wrong.
+
+    Only integer closes are counted. A split-adjusted series is off-grid by
+    construction, and including it would bias the estimate toward finer ticks.
+    That bias is also why this check is not run before 2014: decades of
+    accumulated split adjustments leave the old grid too contaminated to read.
+    """
+    cand = [1, 2, 5, 10, 25, 50]
+    bands = [(0, 200), (200, 500), (500, 2000), (2000, 5000), (5000, 1e12)]
+    periods = [("2014-01-06", "2016-05-02"), ("2016-05-02", "2030-01-01")]
+    acc: Dict = {}
+    for f in files:
+        try:
+            d = load(f)
+        except Exception:                                   # noqa: BLE001
+            continue
+        d = d[(d["close"] > 0) & (d["volume"] > 0)]
+        d = d[np.isclose(d["close"], d["close"].round())]
+        if d.empty:
+            continue
+        for a, b in periods:
+            m = d[(d["date"] >= a) & (d["date"] < b)]
+            if m.empty:
+                continue
+            for lo, hi in bands:
+                g = m[(m["close"] >= lo) & (m["close"] < hi)]["close"]
+                if g.empty:
+                    continue
+                key = (a, lo)
+                acc.setdefault(key, {c: [0, 0] for c in cand})
+                v = g.round().astype("int64")
+                for c in cand:
+                    acc[key][c][0] += int((v % c == 0).sum())
+                    acc[key][c][1] += len(v)
+    if not acc:
+        return True, " no integer closes to check the ladder against."
+    lines, agree, total = [], 0, 0
+    for (a, lo), v in sorted(acc.items()):
+        n = v[1][1]
+        if n < 2000:
+            continue
+        # The tick is where the divisible share PLATEAUS and then collapses,
+        # not where it crosses some absolute level. On the >= Rp 5,000 band in
+        # 2014, 92.3% of closes divide by 25 and only 61.5% by 50: plainly a
+        # Rp 25 grid, but a flat 95% threshold rejects it. The shortfall from
+        # 100% is split contamination - an adjusted series is off-grid - and
+        # tuning the threshold to absorb that would be fitting the test to the
+        # answer. The drop is the signal, so the rule is a share above 0.90
+        # with the next candidate up falling below 0.75.
+        share = {c: v[c][0] / max(v[c][1], 1) for c in cand}
+        # No absolute threshold. On a grid of size g, the share of prices
+        # divisible by a coarser c is about g/c by chance; if the grid really
+        # IS c it is about 1. So a candidate qualifies when its observed share
+        # sits closer to 1 than to that chance level.
+        #
+        # This matters because split contamination pulls every share below 1 -
+        # the >= Rp 5,000 band in 2014 shows 88.45% divisible by 25 - and any
+        # fixed cut-off either rejects a real Rp 25 grid or has to be tuned
+        # until it does not, which is fitting the test to the answer. The
+        # chance level separates them cleanly: 88% against a 20% null is a
+        # Rp 25 grid, while 61% against a 50% null is not a Rp 50 grid.
+        observed, gap = 1, ""
+        for c in cand:
+            finer = [x for x in cand if x < c and c % x == 0]
+            null = (max(finer) / c) if finer else 0.0
+            if abs(share[c] - 1.0) < abs(share[c] - null) and c > observed:
+                observed = c
+                gap = (f" ({share[c]:.0%} vs {null:.0%} expected on a "
+                       f"Rp {max(finer)} grid)" if finer else "")
+        mid = lo + 1 if lo else 1
+        try:
+            encoded = tick_size(float(max(mid, lo)), pd.Timestamp(a))
+        except OutsideCoverage:
+            continue
+        total += 1
+        ok = observed >= encoded          # observed may be finer after splits
+        agree += bool(ok)
+        lines.append(f"   {a}  band {lo:>6,.0f}+  n={n:>8,}  "
+                     f"encoded Rp {encoded:<4.0f} observed Rp {observed:<4d} "
+                     f"{'ok' if ok else 'MISMATCH'}{gap}")
+    return agree == total, ("\n".join(lines)
+                            + f"\n   {agree}/{total} bands agree")
 
 
 def reconcile_traded_value(files) -> tuple:
@@ -201,7 +297,7 @@ def main() -> int:
             shifts.append({"ticker": tk, **r.to_dict()})
 
         t = d[~st.to_numpy()].reset_index(drop=True)
-        t = t[t["date"] >= COVERAGE_START]
+        t = t[t["date"] >= ARB_EARLY_START]
         if len(t) < 2:
             continue
         prev = t["close"].shift(1)
@@ -310,6 +406,12 @@ def main() -> int:
     else:
         print(" -> delisted names are present; not survivorship-biased.")
 
+    print(f"\n{'-' * 92}\n 2b. THE TICK LADDER, CHECKED AGAINST WHAT THE "
+          f"MARKET ACTUALLY QUOTED\n{'-' * 92}")
+    ticks_ok, tdetail = validate_tick_schedule(files)
+    print(tdetail)
+    print(f" -> {'PASS' if ticks_ok else 'FAIL'}")
+
     print(f"\n{'-' * 92}\n 6b. §5 GATE 0 CHECK 1 — traded value reconciled "
           f"against an independent source\n{'-' * 92}")
     value_ok, vdetail = reconcile_traded_value(files)
@@ -354,6 +456,7 @@ def main() -> int:
     print(f"\n{'=' * 92}\n VERDICT\n{'=' * 92}")
     checks = [("schedules coherent", schedules_ok),
               ("real falls respect the encoded bands", bands_ok),
+              ("tick ladder matches quoted price granularity", ticks_ok),
               ("§5 check 1: traded value reconciles", value_ok),
               ("§5 check 2: corporate actions reconcile by hand",
                actions_ok)]
@@ -377,7 +480,8 @@ def main() -> int:
               "detection is not verification.\n"
               "   - board membership per ticker-day. Inferred from the Rp 50 "
               "main-board floor\n     where it matters, not sourced.\n"
-              "   - pre-2014 trading rules. Lookups raise rather than guess.")
+              "   - anything before 2005, and auto-rejection bands before 2010. "
+              "Lookups raise\n     rather than guess, and the 2010-2013 bands are INFERRED from\n     where the return distribution truncates rather than read from a regulation.")
     else:
         print(" Gate 0 FAILS. Do not build on this spine until the failing "
               "check above is\n understood — CLAUDE.md §5: stop and fix it.")

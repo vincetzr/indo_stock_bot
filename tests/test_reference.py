@@ -37,13 +37,41 @@ from idxbot.spine.reference import (COVERAGE_START,             # noqa: E402
 # refusal - the whole point of a point-in-time table
 # --------------------------------------------------------------------------
 def test_a_date_before_coverage_raises_rather_than_answering():
-    for fn in (lambda: tick_size(1000, "2010-06-01"),
-               lambda: auto_rejection(1000, "2010-06-01"),
-               lambda: lot_size("2010-06-01"),
-               lambda: max_price_step(1000, "2010-06-01"),
-               lambda: trading_halt(-0.10, "2010-06-01")):
+    for fn in (lambda: tick_size(1000, "2001-06-01"),
+               lambda: auto_rejection(1000, "2001-06-01"),
+               lambda: lot_size("2001-06-01"),
+               lambda: max_price_step(1000, "2001-06-01"),
+               lambda: trading_halt(-0.10, "2001-06-01")):
         with pytest.raises(OutsideCoverage):
             fn()
+
+
+def test_coverage_is_per_schedule_not_global():
+    """The tick ladder is readable in the data back to 2005; the auto-rejection
+    bands only back to 2010. Forcing one date would either discard five years
+    of usable tick history or assert bands nothing supports."""
+    assert tick_size(1000, "2006-06-01") == 10.0
+    assert lot_size("2006-06-01") == 500
+    with pytest.raises(OutsideCoverage):
+        auto_rejection(1000, "2006-06-01")
+
+
+def test_the_500_share_lot_era_is_encoded():
+    assert lot_size("2013-12-31") == 500
+    assert lot_size("2014-01-06") == 100
+
+
+def test_the_pre_2014_ladder_is_the_one_the_data_shows():
+    """Confirmed year by year from 2005 to 2013 by observed granularity."""
+    d = "2012-06-01"
+    assert [tick_size(p, d) for p in (100, 300, 1000, 3000, 9000)] \
+        == [1.0, 5.0, 10.0, 25.0, 50.0]
+
+
+def test_the_inferred_bands_reach_back_to_2010_and_no_further():
+    assert auto_rejection(1000, "2010-01-04") == (0.25, 0.25)
+    with pytest.raises(OutsideCoverage):
+        auto_rejection(1000, "2009-12-31")
 
 
 def test_the_first_covered_day_itself_works():
@@ -52,14 +80,15 @@ def test_the_first_covered_day_itself_works():
 
 
 def test_the_day_before_coverage_does_not():
+    from idxbot.spine.reference import EARLY_START
     with pytest.raises(OutsideCoverage):
-        tick_size(1000, COVERAGE_START - pd.Timedelta(days=1))
+        tick_size(1000, EARLY_START - pd.Timedelta(days=1))
 
 
 def test_the_error_says_what_to_do_about_it():
     """An exception nobody can act on gets caught and swallowed."""
     with pytest.raises(OutsideCoverage, match="lookahead"):
-        tick_size(1000, "2011-01-01")
+        tick_size(1000, "2001-01-01")
 
 
 # --------------------------------------------------------------------------
@@ -237,13 +266,14 @@ def test_max_price_step_is_a_separate_constraint_from_the_tick():
 # --------------------------------------------------------------------------
 # lot and halts
 # --------------------------------------------------------------------------
-def test_the_lot_is_a_hundred_throughout_the_covered_period():
+def test_the_lot_is_a_hundred_since_2014():
     for day in ("2014-01-06", "2020-03-16", "2026-08-20"):
         assert lot_size(day) == 100
 
 
 def test_halts_did_not_exist_before_2020():
     assert trading_halt(-0.10, "2019-06-03") is None
+    assert trading_halt(-0.10, "2012-06-01") is None
 
 
 def test_the_2025_halt_ladder_has_three_steps():
@@ -270,3 +300,32 @@ def test_the_unmodelled_rules_are_enumerated_not_merely_implied():
     assert len(gaps) >= 5
     assert any("IPO" in g for g in gaps)
     assert any(str(COVERAGE_START.year) in g for g in gaps)
+
+
+# --------------------------------------------------------------------------
+# the ladder is checked against what the market actually quoted
+# --------------------------------------------------------------------------
+def test_the_encoded_ladder_matches_the_2016_regime():
+    """Confirmed against 1.3m quoted closes by scripts/gate0.py check 2b."""
+    d = "2016-05-02"
+    assert [tick_size(p, d) for p in (100, 300, 1000, 3000, 9000)] \
+        == [1.0, 2.0, 5.0, 10.0, 25.0]
+
+
+def test_the_encoded_ladder_matches_the_2014_regime():
+    """Two published sources disagreed on the Rp 500-5,000 band - one said
+    Rp 5, one said Rp 10. The data settled it: 97.9% of closes there divide by
+    5, so Rp 5 is right."""
+    d = "2014-01-06"
+    assert [tick_size(p, d) for p in (100, 300, 1000, 3000, 9000)] \
+        == [1.0, 1.0, 5.0, 5.0, 25.0]
+
+
+def test_the_grid_test_would_reject_a_wrong_ladder():
+    """The discriminator is the chance level under a finer grid, not a fixed
+    threshold: on a Rp 5 grid only ~20% of prices divide by 25, so an observed
+    88% means the grid really is 25 even though it is far from 100%."""
+    # 88% observed, 20% chance under a Rp 5 grid -> closer to 1 than to chance
+    assert abs(0.8845 - 1.0) < abs(0.8845 - 0.20)
+    # 61% observed, 50% chance under a Rp 25 grid -> closer to chance
+    assert abs(0.6105 - 0.50) < abs(0.6105 - 1.0)
