@@ -214,6 +214,56 @@ def parse_totals(html: str) -> Dict[str, float]:
     return out
 
 
+def exact_total_lots(totals: Dict[str, float]) -> float:
+    """Recover total lots from value and VWAP instead of reading the rounded cell.
+
+    The footer prints ``T.Lot`` through the same abbreviator as everything else,
+    so BBCA on a busy day reads ``1.1 M`` - two significant figures on the one
+    number the whole censored-inference below is measured against. But the same
+    footer also prints ``T.Val`` to four figures and ``Avg`` exactly, and
+    value = lots x 100 x average. Dividing recovers the lot count to about 0.03%
+    where the printed cell is out by up to 5%.
+
+    Falls back to the printed cell when value or average is missing.
+    """
+    tval, avg = totals.get("tval"), totals.get("avg")
+    if tval and avg and np.isfinite(tval) and np.isfinite(avg) and avg > 0:
+        return float(tval) / (LOT_SIZE * float(avg))
+    v = totals.get("tlot", float("nan"))
+    return float(v) if v is not None else float("nan")
+
+
+#: Columns carrying the day's market-wide totals, repeated on every row of that
+#: day so a row-group survives a concat, a groupby or a round-trip to CSV
+#: without a second table to join back to.
+TOTAL_COLUMNS = ("total_lot", "total_val", "foreign_net_val", "vwap")
+
+
+def attach_totals(df: pd.DataFrame, totals: Dict[str, float]) -> pd.DataFrame:
+    """Carry the day's market-wide totals alongside the top-10 rows.
+
+    THE POINT OF THIS FUNCTION. Without the totals a top-10 table is a biased
+    sample of unknown size and nothing quantitative survives it - which is why
+    every earlier reading of this source stopped at "direction and ranking
+    survive, absolute positions do not". With them it is a CENSORED sample of
+    known size: the visible brokers are named and measured, the rest are unnamed
+    but their aggregate is exactly ``total - visible`` and each of them is
+    individually smaller than the tenth-ranked broker. That is enough to bracket
+    every quantity the ledger wants, instead of abandoning it.
+
+    The footer was already being parsed by :func:`parse_totals` and then thrown
+    away, because ``fetch_day`` never called it.
+    """
+    if df is None or df.empty:
+        return df if df is not None else empty_frame()
+    out = df.copy()
+    out["total_lot"] = exact_total_lots(totals) if totals else np.nan
+    out["total_val"] = totals.get("tval", np.nan) if totals else np.nan
+    out["foreign_net_val"] = totals.get("fnval", np.nan) if totals else np.nan
+    out["vwap"] = totals.get("avg", np.nan) if totals else np.nan
+    return out
+
+
 def broker_classes(html: str) -> Dict[str, str]:
     """The source's own three-way classification, keyed by broker code.
 
@@ -329,7 +379,8 @@ class IpotBrokerSummary(BrokerSummaryProvider):
 
     def __init__(self, cache=None, board: str = "RG", delay: float = 1.2,
                  timeout: int = 30, session_type: str = "all",
-                 max_days: int = 400, verbose: bool = False):
+                 max_days: int = 400, verbose: bool = False,
+                 retries: int = 3):
         if board not in BOARDS:
             raise ValueError(f"board must be one of {BOARDS}, got {board!r}")
         self.cache = cache
@@ -339,6 +390,7 @@ class IpotBrokerSummary(BrokerSummaryProvider):
         self.session_type = session_type
         self.max_days = int(max_days)
         self.verbose = verbose
+        self.retries = max(1, int(retries))
         self._last_call = 0.0
 
     def available(self) -> bool:
@@ -362,16 +414,31 @@ class IpotBrokerSummary(BrokerSummaryProvider):
             params["board"] = self.board
         if self.session_type != "all":
             params["fd"] = self.session_type
-        resp = requests.get(BASE_URL, params=params, timeout=self.timeout, headers={
+        headers = {
             "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                            "AppleWebKit/537.36 (KHTML, like Gecko) "
                            "Chrome/126.0 Safari/537.36"),
             "Referer": "https://www.indopremier.com/",
             "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
-        })
-        self._last_call = time.time()
-        resp.raise_for_status()
-        return resp.text
+        }
+        # About one request in five comes back as a reset connection rather than
+        # an HTTP error. Retrying that is not impoliteness - it is one page that
+        # did not arrive - but the backoff lengthens rather than tightens, so a
+        # server having a bad minute is left alone rather than hammered.
+        last: Optional[Exception] = None
+        for attempt in range(self.retries):
+            if attempt:
+                time.sleep(self.delay * (2 ** attempt))
+            try:
+                resp = requests.get(BASE_URL, params=params,
+                                    timeout=self.timeout, headers=headers)
+                self._last_call = time.time()
+                resp.raise_for_status()
+                return resp.text
+            except Exception as exc:                       # noqa: BLE001
+                last = exc
+                self._last_call = time.time()
+        raise last if last is not None else RuntimeError("no response")
 
     def fetch_day(self, ticker: str, day: pd.Timestamp) -> pd.DataFrame:
         """One ticker, one session. Cached forever once seen - it never changes.
@@ -383,7 +450,11 @@ class IpotBrokerSummary(BrokerSummaryProvider):
         simply more precise.
         """
         day = pd.Timestamp(day).normalize()
-        key = f"{str(ticker).upper()}_{day:%Y%m%d}_{self.board}"
+        # The view MUST be part of the key. all / F / D are three different
+        # tables for the same ticker-day, and a key that omits the view would
+        # serve a foreign-only table to a caller asking for the whole market.
+        view = "" if self.session_type == "all" else f"_{self.session_type}"
+        key = f"{str(ticker).upper()}_{day:%Y%m%d}_{self.board}{view}"
         if self.cache is not None:
             hit = self.cache.read("ipot_broker", key)
             if hit is not None:
@@ -394,7 +465,7 @@ class IpotBrokerSummary(BrokerSummaryProvider):
             if self.verbose:
                 print(f"  ! ipot {ticker} {day:%Y-%m-%d}: {exc}")
             return empty_frame()
-        df = parse_table(html, ticker, day)
+        df = attach_totals(parse_table(html, ticker, day), parse_totals(html))
         # A holiday, a suspension and an unknown ticker all render an empty
         # table. Caching that would poison the store with permanent blanks, so
         # only real rows are written.
