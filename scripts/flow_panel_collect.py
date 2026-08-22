@@ -230,6 +230,14 @@ def main() -> int:
                     help="business days per window; 10 = fortnightly")
     ap.add_argument("--budget", type=int, default=5000,
                     help="hard cap on NETWORK requests for this run")
+    ap.add_argument("--max-seconds", type=float, default=None,
+                    help="stop cleanly after this long. The environment this "
+                         "runs in freezes background processes at the end of "
+                         "a turn, so the collection only advances while a "
+                         "command is executing and every run is a bounded "
+                         "slice. Stopping ON PURPOSE just under the harness "
+                         "timeout is the difference between a clean resume "
+                         "and a half-written cache entry.")
     ap.add_argument("--delay", type=float, default=1.3)
     ap.add_argument("--latency", type=float, default=3.2,
                     help="MEASURED seconds per request, delay + network. The "
@@ -281,6 +289,11 @@ def main() -> int:
     for s, e, t in todo:
         if done >= a.budget:
             print(f"\nbudget of {a.budget:,} requests reached — stopping.")
+            break
+        if a.max_seconds and (time.time() - t0) >= a.max_seconds:
+            print(f"\ntime slice of {a.max_seconds:.0f}s used — stopping "
+                  f"cleanly. Re-run to continue; the cache resumes exactly "
+                  f"here.")
             break
         if (s, e) != last_win:
             last_win = (s, e)
