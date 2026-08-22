@@ -1,0 +1,33 @@
+# Delisted names IndoPremier does not serve. Probed once each with
+# a mid-life fortnight, 2026-08-22. A code that leaves the exchange
+# sometimes leaves their master too, and then EVERY window for it
+# comes back empty.
+#
+# 64 of 88 recovered delisted names ARE served, so the flow panel
+# is substantially survivorship-corrected - but these 24 are the
+# residual bias, and they are listed rather than silently dropped
+# so that any result off the panel can quote what it is missing.
+BIMA
+BLTZ
+CNTX
+FINN
+FORZ
+FREN
+HDTX
+IBFN
+INCF
+JKSW
+KARW
+KRAH
+MAMI
+MASA
+MFIN
+MTSM
+MYRX
+NAGA
+NIPS
+PLIN
+PRAS
+RMBA
+SUGI
+TURI
