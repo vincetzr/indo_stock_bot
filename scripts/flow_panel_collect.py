@@ -72,11 +72,31 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir, "src"))
 sys.path.insert(0, os.path.dirname(__file__))
 
 from idxbot.data.cache import Cache              # noqa: E402
-from pullback_flow import fetch_window           # noqa: E402
+from idxbot.data.ipot import BASE_URL, parse_table          # noqa: E402
+from pullback_flow import HEADERS                # noqa: E402
 
 PANEL_FILE = os.path.join("config", "flow_panel.yaml")
 LIVE = os.path.join("data", "cache", "ohlcv")
 DEAD = os.path.join("data", "cache", "delisted")
+
+#: Windows the source answered with an empty table. Recorded because an empty
+#: answer for a window that is YEARS in the past is a stable fact - a holiday
+#: fortnight, a suspension, a code the master no longer carries - and without
+#: this ledger every re-run re-asks all of them. Over a 28-hour job resumed
+#: several times that is thousands of requests spent re-learning nothing.
+EMPTY_LEDGER = os.path.join("data", "cache", "ipot_broker", "_empty.txt")
+
+#: Consecutive NETWORK failures before the run backs off, and how many backoff
+#: rounds it tolerates before giving up entirely.
+#:
+#: This is a politeness device, not a reliability one. A5 permits this source
+#: on the understanding that it is read the way a browser reads it; a loop that
+#: keeps firing into a server which has started refusing is precisely what that
+#: understanding rules out. An empty table is NOT a failure - the source
+#: answered, it just had nothing.
+BREAKER_TRIP = 10
+BREAKER_ROUNDS = 4
+BREAKER_SLEEP = 120.0
 
 
 def load_panel(path: str = PANEL_FILE) -> pd.DataFrame:
@@ -111,6 +131,44 @@ def not_served() -> set:
         return set()
     return {ln.strip() for ln in open(NOT_SERVED_FILE)
             if ln.strip() and not ln.startswith("#")}
+
+
+def load_empty() -> set:
+    if not os.path.exists(EMPTY_LEDGER):
+        return set()
+    return {ln.strip() for ln in open(EMPTY_LEDGER) if ln.strip()}
+
+
+def fetch_one(cache: Cache, ticker: str, start: pd.Timestamp,
+              end: pd.Timestamp, delay: float, board: str,
+              timeout: float = 30.0) -> str:
+    """One window. Returns 'ok', 'empty' or 'error' - the distinction matters.
+
+    ``pullback_flow.fetch_window`` collapses a network failure and an empty
+    table into the same ``None``, which is fine for a 40-request script and
+    wrong for a 30,000-request one: the first must trip the breaker and the
+    second must not, and telling them apart is the only way to know whether the
+    source is refusing or simply has nothing.
+    """
+    import requests
+
+    key = f"{ticker}_{start:%Y%m%d}_{end:%Y%m%d}_{board}_range"
+    time.sleep(delay)
+    try:
+        r = requests.get(BASE_URL, timeout=timeout, headers=HEADERS,
+                         params={"code": ticker, "board": board,
+                                 "start": start.strftime("%Y-%m-%d"),
+                                 "end": end.strftime("%Y-%m-%d")})
+        r.raise_for_status()
+    except Exception:                                           # noqa: BLE001
+        return "error"
+    df = parse_table(r.text, ticker, end)
+    if df is None or df.empty:
+        with open(EMPTY_LEDGER, "a") as f:
+            f.write(key + "\n")
+        return "empty"
+    cache.write("ipot_broker", key, df)
+    return "ok"
 
 
 def listed_span(ticker: str, src: str) -> Optional[Tuple[pd.Timestamp,
@@ -193,9 +251,13 @@ def main() -> int:
     jobs = plan(P, wins, spans)
 
     cache = Cache(os.path.join("data", "cache"))
-    todo = []
+    known_empty = load_empty()
+    todo, skipped_empty = [], 0
     for s, e, t in jobs:
         key = f"{t}_{s:%Y%m%d}_{e:%Y%m%d}_{a.board}_range"
+        if key in known_empty:
+            skipped_empty += 1
+            continue
         if cache.read("ipot_broker", key) is None:
             todo.append((s, e, t))
 
@@ -203,7 +265,8 @@ def main() -> int:
     print(f"windows    {len(wins)} x {a.step} business days, "
           f"{a.start} .. {end}")
     print(f"pairs      {len(jobs):,} listed (ticker, window) pairs")
-    print(f"cached     {len(jobs) - len(todo):,}")
+    print(f"cached     {len(jobs) - len(todo) - skipped_empty:,}")
+    print(f"known empty {skipped_empty:,} (asked once, answered nothing)")
     print(f"to fetch   {len(todo):,}  ~{len(todo) * a.latency / 3600:.1f} h "
           f"at a measured {a.latency}s/request")
     print(f"budget     {a.budget:,} requests this run "
@@ -212,6 +275,7 @@ def main() -> int:
         return 0
 
     done = ok = empty = fail = 0
+    streak = rounds = 0
     t0 = time.time()
     last_win = None
     for s, e, t in todo:
@@ -222,21 +286,34 @@ def main() -> int:
             last_win = (s, e)
             el = time.time() - t0
             print(f"[{done:>6,}/{min(len(todo), a.budget):,}  {el/3600:>4.1f}h] "
-                  f"window {s:%Y-%m-%d}..{e:%Y-%m-%d}", flush=True)
-        try:
-            df = fetch_window(cache, t, s, e, delay=a.delay, board=a.board)
-        except Exception as exc:                                # noqa: BLE001
-            print(f"   ! {t}: {type(exc).__name__} {exc}", flush=True)
-            fail += 1
-            done += 1
-            continue
+                  f"window {s:%Y-%m-%d}..{e:%Y-%m-%d}  "
+                  f"ok={ok:,} empty={empty:,} fail={fail:,}", flush=True)
+        res = fetch_one(cache, t, s, e, a.delay, a.board)
         done += 1
-        if df is None:
-            fail += 1
-        elif df.empty:
-            empty += 1
-        else:
+        if res == "ok":
             ok += 1
+            streak = 0
+        elif res == "empty":
+            empty += 1
+            streak = 0            # the source answered; it just had nothing
+        else:
+            fail += 1
+            streak += 1
+            if streak >= BREAKER_TRIP:
+                rounds += 1
+                if rounds > BREAKER_ROUNDS:
+                    print(f"\n{streak} consecutive failures over "
+                          f"{rounds} backoff rounds — the source is not "
+                          f"answering. Stopping rather than continuing to "
+                          f"ask; re-run when it recovers and the cache will "
+                          f"resume from here.", flush=True)
+                    break
+                wait = BREAKER_SLEEP * (2 ** (rounds - 1))
+                print(f"   ~ {streak} consecutive failures — backing off "
+                      f"{wait:.0f}s (round {rounds}/{BREAKER_ROUNDS})",
+                      flush=True)
+                time.sleep(wait)
+                streak = 0
 
     el = time.time() - t0
     print(f"\n{done:,} requests in {el/3600:.2f} h — "
