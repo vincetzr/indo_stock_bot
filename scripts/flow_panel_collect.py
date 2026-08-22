@@ -139,9 +139,27 @@ def load_empty() -> set:
     return {ln.strip() for ln in open(EMPTY_LEDGER) if ln.strip()}
 
 
+#: Read timeout, and how many times a window is re-asked before it is left for
+#: the next run.
+#:
+#: Measured: a healthy response takes 1.0s. A small fraction of requests hang
+#: instead and used to run to a 30-second timeout, which cost more wall clock
+#: than the twelve successful requests around them - throughput fell from 235
+#: windows a slice to 148. A response that has not arrived in twelve seconds
+#: when the normal is one is not coming.
+#:
+#: The single retry is not extra load. A failed window is neither cached nor
+#: recorded empty, so it is re-asked on the NEXT run regardless; asking once
+#: more now is the same total volume against the source and saves a whole
+#: resume cycle.
+HTTP_TIMEOUT = 12.0
+HTTP_RETRIES = 1
+
+
 def fetch_one(cache: Cache, ticker: str, start: pd.Timestamp,
               end: pd.Timestamp, delay: float, board: str,
-              timeout: float = 30.0) -> str:
+              timeout: float = HTTP_TIMEOUT,
+              retries: int = HTTP_RETRIES) -> str:
     """One window. Returns 'ok', 'empty' or 'error' - the distinction matters.
 
     ``pullback_flow.fetch_window`` collapses a network failure and an empty
@@ -153,14 +171,19 @@ def fetch_one(cache: Cache, ticker: str, start: pd.Timestamp,
     import requests
 
     key = f"{ticker}_{start:%Y%m%d}_{end:%Y%m%d}_{board}_range"
-    time.sleep(delay)
-    try:
-        r = requests.get(BASE_URL, timeout=timeout, headers=HEADERS,
-                         params={"code": ticker, "board": board,
-                                 "start": start.strftime("%Y-%m-%d"),
-                                 "end": end.strftime("%Y-%m-%d")})
-        r.raise_for_status()
-    except Exception:                                           # noqa: BLE001
+    r = None
+    for attempt in range(retries + 1):
+        time.sleep(delay)
+        try:
+            r = requests.get(BASE_URL, timeout=timeout, headers=HEADERS,
+                             params={"code": ticker, "board": board,
+                                     "start": start.strftime("%Y-%m-%d"),
+                                     "end": end.strftime("%Y-%m-%d")})
+            r.raise_for_status()
+            break
+        except Exception:                                       # noqa: BLE001
+            r = None
+    if r is None:
         return "error"
     df = parse_table(r.text, ticker, end)
     if df is None or df.empty:
