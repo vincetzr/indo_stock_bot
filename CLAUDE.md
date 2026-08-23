@@ -726,3 +726,56 @@ decile 9 **49.4%**, decile 8 30.0%, decile 7 19.4%, decile 5 3.4% — so the
 universe is the top strata. That is a statement about power, not convenience:
 below it the foreign side is a rounding error and the comparison measures noise
 at someone else's expense.
+
+## A8. §12 is now closed on every free instrument, and the recommendation is to stop
+
+A6 said the broker code was the wrong instrument for §12 and pointed at the
+foreign/domestic investor split as the right one. That has now been collected
+and tested, and it returns nothing.
+
+**H12: all three pre-registered conditions fail, both classes.** 18 names,
+329 fortnights, 5,993 class-windows, 2014–2026. Foreign margin **−1.70 bps** a
+fortnight (p 0.692), domestic **+1.02** (p 0.816); 38% and 46% of years share
+the pooled sign; both fail the 56 bps cost bar by 33× and 55×. Memo:
+`reports/phase2b_investor_split.md`.
+
+**The pre-registered prediction was wrong in sign** — foreign > 0 > domestic
+was registered, foreign −1.70 / domestic +1.02 observed. Logged as failed
+rather than reframed.
+
+Three things worth carrying rather than re-deriving.
+
+**This is a powered null, not an inconclusive one.** Null sd 6.34 and 4.95, so
+the test resolves ±10–12 bps, and the 56 bps bar sits **8.8 to 11.3 null-sds
+away**. A tradeable effect would have been found comfortably. That distinction
+matters: "no effect large enough to trade" is a much stronger statement than
+"no effect detected", and only the power calculation licenses it.
+
+**Persistence failed by REVERSING.** Lag-1 autocorrelation of the annual margin
+is **negative** for both classes (−0.410, −0.331) — a good year tends to be
+followed by a bad one. And dropping the single largest year flips the pooled
+sign for both. That drop-largest-year check exists because H11's headline was
+carried by one thin year; it has now earned its place twice, and it should be
+in every pooled statistic this repo reports.
+
+**Structural checks are what license reading a number at all.** Annual foreign
+and domestic margins correlate **−0.896**, opposite-signed in 10 of 13 years,
+exactly as the zero-sum identity demands. And the censoring bound comes from
+the F/D mirror residual rather than an assumption: **2.29% of gross at the
+median**. That is far larger per window than the margin measured, so a POSITIVE
+result of this size could not have been trusted — worth stating because the
+same design would be tempting to reuse for a smaller question where it would
+not be adequate.
+
+### The recommendation
+
+Three instruments, three nulls: aggregate flow (H9), broker identity (H10/H11),
+investor class (H12). §12's premise may well be true of Indonesian retail, but
+**no free instrument available here resolves it.** The remaining moves are an
+account-type split IDX does not publish or a licensed daily feed; neither is
+free and neither is worth buying on the strength of three negative results.
+
+§4 ordered the work by cost-to-falsify and that ordering has been run to its
+end on the flow branch. The unexplored cheap ground is §8's price/TA and
+structural families, on a spine that Gate 0 passes — and they have not been
+tested at all.

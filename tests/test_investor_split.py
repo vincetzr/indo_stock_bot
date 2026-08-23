@@ -356,3 +356,41 @@ def test_an_unknown_null_kind_is_refused_rather_than_silently_defaulted():
     P = market_panel(4, 4, rng)
     with pytest.raises(ValueError):
         shuffle_forward(P, np.random.default_rng(30), kind="whatever")
+
+
+# --------------------------------------------------------------------------
+# the cache round trip
+# --------------------------------------------------------------------------
+def test_the_atomic_cache_write_actually_produces_a_gzip_file(tmp_path):
+    """REGRESSION. The atomic write goes to CACHE + ".tmp", so the path ends
+    ".csv.gz.tmp". pandas infers compression from the extension, sees ".tmp",
+    infers none, writes PLAIN CSV, and the rename then puts plain text under a
+    .gz name. Writing succeeds, the file looks right, and the next read dies
+    with "Not a gzipped file (b'ti')" — where b'ti' is the start of the header
+    row "ticker,...".
+
+    Both persistence.py and investor_split_run.py had this. The fix is to pass
+    compression explicitly rather than let the temp name decide it.
+    """
+    import gzip
+    target = tmp_path / "frame.csv.gz"
+    df = pd.DataFrame({"ticker": ["AAAA"], "net_value": [1.0]})
+    tmp = str(target) + ".tmp"
+    df.to_csv(tmp, index=False, compression="gzip")
+    os.replace(tmp, target)
+    with gzip.open(target, "rt") as fh:
+        assert fh.readline().startswith("ticker")
+    assert pd.read_csv(target).equals(df)
+
+
+def test_writing_without_explicit_compression_reproduces_the_bug(tmp_path):
+    """The failure mode itself, pinned so nobody 'simplifies' the fix away."""
+    import gzip
+    target = tmp_path / "frame.csv.gz"
+    df = pd.DataFrame({"ticker": ["AAAA"]})
+    tmp = str(target) + ".tmp"
+    df.to_csv(tmp, index=False)            # inferred from ".tmp" => no codec
+    os.replace(tmp, target)
+    with pytest.raises(gzip.BadGzipFile):
+        with gzip.open(target, "rt") as fh:
+            fh.read()

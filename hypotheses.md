@@ -385,3 +385,55 @@ cached plus live probes, and they hold whatever the test returns:
 - Foreign participation tracks liquidity hard (decile 9 **49.4%**, 8 30.0%,
   7 19.4%, 5 3.4%), so the universe is the top liquidity strata. That is a
   statement about where the test has power, not a convenience.
+
+### H12 — RESULT
+
+**Run 2026-08-23 on the complete panel.** 18 names (liquidity decile 9), 329
+fortnights, 5,993 class-windows, 2014-01-14 … 2026-08-11; 2,935 ticker-windows
+carry both views. Collection: 6,346 requests, **zero errors**, 220 empty.
+Full memo: `reports/phase2b_investor_split.md`.
+
+**Result: all three pre-registered conditions FAIL, for both classes.**
+
+| | FOREIGN | DOMESTIC |
+|---|---|---|
+| margin | **−1.70 bps**/fortnight | **+1.02 bps** |
+| direction null | +0.55 [−12.72, +11.29], **p 0.692** | +0.12 [−8.35, +11.86], **p 0.816** |
+| selection null | −6.71, p 0.587 | +4.02, p 0.627 |
+| years sharing pooled sign | 38% of 13 | 46% of 13 |
+| lag-1 autocorr of annual margin | **−0.410** | **−0.331** |
+| drop largest year | −2.53 → **+0.67** | +0.18 → **−1.89** |
+| vs 56 bps round trip | fails by **33×** | fails by **55×** |
+
+**THE PRE-REGISTERED PREDICTION WAS WRONG IN SIGN.** H12 predicted
+foreign > 0 > domestic; observed is foreign −1.70, domestic +1.02. Both sit
+deep inside their nulls so the reversal is not itself a finding, but the
+registered direction failed and is logged as failed.
+
+**This is not an underpowered null.** Null sd 6.34 (F) and 4.95 (D), so the
+test resolves ±12.4 and ±9.7 bps at p<0.05 — and the 56 bps cost bar sits
+**8.8 and 11.3 null-sds away**. An effect large enough to trade would have been
+found comfortably. What is there instead is 1–2 bps in a sign that will not
+hold still.
+
+**Persistence fails by reversing, not by being weak.** Both classes show
+NEGATIVE lag-1 autocorrelation of the annual margin: a good year tends to be
+followed by a bad one. And dropping the single largest year flips the pooled
+sign for both — the same detector that caught H11's thin-year headline, firing
+a second time.
+
+**Two structural checks passed, which is what licenses reading any of it.**
+Annual foreign and domestic margins correlate **−0.896** with opposite signs in
+10 of 13 years, as the zero-sum identity demands. And the censoring bound,
+measured from the F/D mirror residual rather than assumed, is **2.29% of gross
+at the median**. That per-window error is much larger than the margin, so a
+POSITIVE result of this size could not have been trusted — which costs nothing
+here, since the bar that matters is 56 bps and the resolution is ±10.
+
+**Not claimed:** that the Taiwan/Finland literature is wrong. Foreign/domestic
+is an imperfect proxy for institution/retail — domestic institutions are large
+in IDX and pooled into "domestic" — and this measures directional timing, not
+realised P&L.
+
+**Trials after H12: 30.** Bonferroni bar α = 0.05/30 = **0.0017**; the best
+p-value here is 0.587.

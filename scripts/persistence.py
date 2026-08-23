@@ -264,8 +264,11 @@ def build_track_b(rebuild: bool = False) -> pd.DataFrame:
     # Written via a temp file and renamed: a reader that arrives mid-write
     # otherwise gets "Compressed file ended before the end-of-stream marker",
     # which looks like a corrupt store rather than a race.
+    # compression MUST be explicit: the temp name ends ".gz.tmp", so pandas
+    # infers no codec, writes plain CSV and renames it to a .gz name. The next
+    # read then dies with "Not a gzipped file".
     tmp = CACHE + ".tmp"
-    T.to_csv(tmp, index=False)
+    T.to_csv(tmp, index=False, compression="gzip")
     os.replace(tmp, CACHE)
     return T
 

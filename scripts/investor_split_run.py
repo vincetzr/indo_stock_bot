@@ -137,8 +137,12 @@ def build(rebuild: bool = False) -> pd.DataFrame:
     V["timing_pnl"] = V["net_value"] * V["fwd_ret"]
     V["year"] = V["window_end"].dt.year
     os.makedirs(os.path.dirname(CACHE), exist_ok=True)
+    # compression MUST be explicit. pandas infers it from the extension, and
+    # the temp file ends ".gz.tmp", so the inferred codec is "none" — which
+    # writes plain CSV and then renames it to a .gz name. The write succeeds,
+    # the file looks right, and the next read dies with "Not a gzipped file".
     tmp = CACHE + ".tmp"
-    V.to_csv(tmp, index=False)
+    V.to_csv(tmp, index=False, compression="gzip")
     os.replace(tmp, CACHE)
     return V
 
@@ -169,8 +173,8 @@ def report(V: pd.DataFrame, draws: int, seed: int) -> None:
         print(f" {name}  ({len(d):,} class-windows, "
               f"{100*d.gross_value.sum()/V.gross_value.sum():.0f}% of gross)")
         obs = np.nan
-        for kind, what in (("within_ticker", "DIRECTION — was it long at the "
-                                             "right TIMES"),
+        for kind, what in (("block_window", "DIRECTION — was it long at the "
+                                            "right TIMES"),
                            ("within_window", "SELECTION — did it pick the "
                                              "right NAMES")):
             obs, nulls, p = permutation_margin(V, view, kind=kind,
@@ -178,7 +182,7 @@ def report(V: pd.DataFrame, draws: int, seed: int) -> None:
             v = nulls[np.isfinite(nulls)]
             lo, hi = (np.percentile(v, [2.5, 97.5]) if len(v) > 20
                       else (np.nan, np.nan))
-            if kind == "within_ticker":
+            if kind == "block_window":
                 print(f"   1. LEVEL        margin {obs:+8.2f} bps per fortnight")
             print(f"      {what}")
             print(f"        null {np.nanmean(v):+8.2f} "
