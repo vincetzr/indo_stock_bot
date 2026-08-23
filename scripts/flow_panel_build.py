@@ -34,12 +34,31 @@ independently, aggregated over the window. So:
     as an unknown lower bound rather than as zero - a broker ranked eleventh
     bought something, not nothing.
 
-    COVERAGE IS MEASURABLE AND MUST TRAVEL. Total traded lots come from the
-    spine, so ``coverage`` is the share of the window's real volume the top ten
-    actually account for. On a liquid name that can be 40%; on a quiet one it
-    is often 100%. An imbalance computed at 40% coverage is a different
-    quantity from one at 100%, and any result that does not condition on it is
-    mixing them.
+    COVERAGE MUST TRAVEL, AND IT IS NOT AS CLEAN AS IT FIRST LOOKED. Total
+    traded volume comes from the spine, so ``coverage`` is the share of the
+    window's volume the top ten account for. An imbalance computed at 40%
+    coverage is a different quantity from one at 100%, and any result that does
+    not condition on it is mixing them.
+
+    But the first version reported a p90 of 103.9%, and the top ten cannot
+    account for more than all of the volume. The ratio is taken over two sums
+    that need not cover the same sessions, and two different things were
+    hiding in the excess:
+
+        A BAR-COUNT MISMATCH, mild and common. BMTR's window has nine spine
+        bars against ten business days while IndoPremier's range covers all
+        ten, so the numerator includes a session the denominator does not and
+        coverage reads 1.06. ``spine_bars`` now travels alongside.
+
+        MISSING SPINE VOLUME, rare and serious. CNKO's 2019-03-19 window holds
+        100 shares in the spine against 1,058,300 in IndoPremier's top ten.
+        That is not a mismatch, it is the spine not having the data - a finding
+        about the spine, arrived at by cross-checking an independent source
+        over 28,247 ticker-fortnights.
+
+    ``coverage_ok`` marks the 85% of rows where the comparison is meaningful.
+    Clipping instead would have been worse than useless: a clipped 1.06 and a
+    clipped 10,583 look identical, and only one of them is a defect.
 
 Figures at or above one million are abbreviated by the source to 2-3
 significant figures. That is why value is never used where lots will do, and
@@ -173,9 +192,39 @@ def build(step: int = 10, start: str = "2014-01-01",
             if iT + 2 >= len(idx):
                 continue                       # no tradeable bar after T yet
 
+            # COVERAGE IS A RATIO OF TWO SUMS OVER POSSIBLY DIFFERENT SESSION
+            # SETS, and pretending otherwise produced coverages above 100%,
+            # which is arithmetically impossible - the top ten cannot account
+            # for more than all of the volume.
+            #
+            # Two separate things cause it and they need separating.
+            #
+            #   BAR-COUNT MISMATCH, the mild and common one. BMTR's window has
+            #   nine spine bars for ten business days; IndoPremier's range
+            #   covers all ten. The numerator then includes a session the
+            #   denominator does not and coverage reads 1.06. Recording
+            #   spine_bars makes that visible instead of mysterious.
+            #
+            #   MISSING SPINE VOLUME, the rare and serious one. CNKO's
+            #   2019-03-19 window has 100 shares in the spine against 1,058,300
+            #   in IndoPremier's top ten - a ratio of 10,583. That is not a
+            #   mismatch, it is the spine not having the data, and it is a
+            #   finding about the spine rather than about the flow.
+            #
+            # So the raw ratio is kept, the bar count travels with it, and
+            # coverage_ok marks the rows where the comparison is meaningful at
+            # all. Nothing is silently clipped: a clipped 1.06 and a clipped
+            # 10,583 would look identical, and only one of them is a defect.
             traded = float(vol[inwin].sum())
+            f["spine_bars"] = int(inwin.sum())
+            f["window_bars"] = int(step)
             f["coverage"] = ((f["buy_lot_top10"] * 100.0 / traded)
                              if traded > 0 else np.nan)
+            f["coverage_ok"] = bool(
+                traded > 0
+                and f["spine_bars"] >= 0.8 * step
+                and np.isfinite(f["coverage"])
+                and f["coverage"] <= 1.15)
 
             # controls, all stamped at or before T
             def past(n):
@@ -229,9 +278,15 @@ def main() -> int:
     print(f"windows     {D['window_end'].nunique()}  "
           f"{D['window_end'].min():%Y-%m-%d} .. {D['window_end'].max():%Y-%m-%d}")
     print(f"names/window median {D.groupby('window_end')['ticker'].nunique().median():.0f}")
-    print(f"coverage    median {D['coverage'].median():.1%}, "
-          f"p10 {D['coverage'].quantile(0.1):.1%}, "
-          f"p90 {D['coverage'].quantile(0.9):.1%}")
+    ok = D["coverage_ok"].astype(bool)
+    print(f"coverage    median {D.loc[ok,'coverage'].median():.1%}, "
+          f"p10 {D.loc[ok,'coverage'].quantile(0.1):.1%}, "
+          f"p90 {D.loc[ok,'coverage'].quantile(0.9):.1%}  (on the "
+          f"{ok.mean():.0%} of rows where it is meaningful)")
+    print(f"            {(~ok).sum():,} rows excluded: "
+          f"{(D['spine_bars'] < 0.8 * D['window_bars']).sum():,} short of bars, "
+          f"{(D['coverage'] > 1.15).sum():,} over 115% (spine volume missing "
+          f"against an independent source)")
     print(f"labelled    fwd_1w {D['fwd_1w'].notna().sum():,}, "
           f"fwd_2w {D['fwd_2w'].notna().sum():,}")
     print(f"\nwrote {a.out}")
