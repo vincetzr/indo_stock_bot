@@ -213,3 +213,38 @@ def test_shuffling_within_a_period_destroys_the_pairing_and_keeps_the_marginal()
     assert abs(null["ic"].mean()) < 0.05
     # and the null must not be significant under the same t-stat the study uses
     assert abs(newey_west_t(null["ic"].to_numpy(), 2)[2]) < 2.0
+
+
+def test_the_null_shuffle_stays_inside_its_own_period():
+    """The bug that made the null as significant as the signal.
+
+    The first version built the permutations with a list comprehension over
+    groupby("window_end") and concatenated them. But the panel is sorted by
+    TICKER, so the concatenated array runs in period order while the
+    assignment is positional in ticker order - every shuffled value landed on
+    a row from some other period. That is a cross-period scramble, not a
+    within-period shuffle, and it gave the null a mean IC of -0.0205 at
+    t = -2.96, indistinguishable from the signal it was meant to certify
+    against.
+
+    A null that is not null certifies whatever it is compared with, so this is
+    the single most dangerous defect the harness can carry.
+    """
+    rng = np.random.default_rng(0)
+    D = pd.DataFrame({"window_end": ["A"] * 3 + ["B"] * 3,
+                      "ticker": list("xyzxyz"),
+                      "s": [1.0, 2.0, 3.0, 10.0, 20.0, 30.0]})
+    D = D.sort_values(["ticker", "window_end"]).copy()
+
+    broken = np.concatenate([rng.permutation(g["s"].to_numpy())
+                             for _, g in D.groupby("window_end", sort=True)])
+    assert not all(
+        set(g["n"]) == set(g["s"])
+        for _, g in D.assign(n=broken).groupby("window_end")), \
+        "the historical bug must still be reproducible, or this test is moot"
+
+    rng = np.random.default_rng(0)
+    fixed = D.groupby("window_end")["s"].transform(
+        lambda s: rng.permutation(s.to_numpy()))
+    for _, g in D.assign(n=fixed).groupby("window_end"):
+        assert set(g["n"]) == set(g["s"]), "values must stay in their period"

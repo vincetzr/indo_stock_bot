@@ -242,20 +242,120 @@ def main() -> int:
     if not F.empty:
         D = D.merge(F, on=["window_end", "ticker"], how="left")
 
+    # THE NULL MUST BE ALIGNED, AND THE FIRST VERSION WAS NOT.
+    #
+    # It built the permutations with a list comprehension over
+    # groupby("window_end") and concatenated them. But D is sorted by TICKER,
+    # so the concatenated array is in period order while the assignment is
+    # positional in ticker order: every shuffled value landed on a row from
+    # some other period. That is not a within-period shuffle, it is a
+    # cross-period scramble, and it gave the null a mean IC of -0.0205 at
+    # t = -2.96 - indistinguishable from the signal it was supposed to
+    # certify against.
+    #
+    # A groupby transform keeps the index, so each value stays in its own
+    # period. This is the whole reason §11 demands a null run through the
+    # IDENTICAL pipeline: the bug was in the pipeline, and only the null
+    # could show it.
     rng = np.random.default_rng(a.seed)
-    D["null"] = np.concatenate([
-        rng.permutation(g[a.score].to_numpy())
-        for _, g in D.groupby("window_end", sort=True)])
+    D["null"] = D.groupby("window_end")[a.score].transform(
+        lambda s: rng.permutation(s.to_numpy()))
 
     lags = 2
-    print(f"\n{'signal':<12}{'periods':>8}{'mean IC':>10}{'HAC se':>9}"
-          f"{'t':>7}{'  raw IC':>10}")
-    for name, col in (("flow", a.score), ("NULL (shuffled)", "null")):
-        S = ic_series(D, col, a.label)
-        mu, se, t = newey_west_t(S["ic"].to_numpy(), lags)
-        raw = float(np.nanmean(S["ic_raw"]))
-        print(f"{name:<12}{S['ic'].notna().sum():>8}{mu:>10.4f}{se:>9.4f}"
-              f"{t:>7.2f}{raw:>10.4f}")
+
+    def line(name, col, label, frame=None, lag=lags):
+        F = D if frame is None else frame
+        S = ic_series(F, col, label)
+        mu, se, t = newey_west_t(S["ic"].to_numpy(), lag)
+        r_mu, _, r_t = newey_west_t(S["ic_raw"].to_numpy(), lag)
+        print(f"{name:<22}{S['ic'].notna().sum():>8}{mu:>10.4f}{se:>9.4f}"
+              f"{t:>7.2f}{r_mu:>10.4f}{r_t:>7.2f}")
+        return mu, se, t
+
+    hdr = (f"\n{'':<22}{'periods':>8}{'mean IC':>10}{'HAC se':>9}{'t':>7}"
+           f"{'  raw IC':>10}{'raw t':>7}")
+
+    # ---------------------------------------------------------------- decay
+    # §7: report the FULL decay curve, not the best k. The panel is
+    # fortnightly, so k = 10 and k = 20 sessions are the only rungs it can
+    # speak to; k = 1 and k = 3 are not available from aggregated windows and
+    # their absence is a narrowing of the hypothesis, not a result.
+    print(f"\n{'=' * 72}\n DECAY (§7 asks for the whole curve, not the best k)"
+          f"\n{'=' * 72}{hdr}")
+    for lab, k in (("fwd_1w", 10), ("fwd_2w", 20)):
+        if lab in D:
+            line(f"flow -> +{k}d", a.score, lab, lag=2 if k == 10 else 3)
+    line("NULL -> +10d", "null", "fwd_1w")
+
+    # ------------------------------------------------------- data-quality cut
+    # Rows where the top-ten share of volume could not be verified against the
+    # spine are a different population, so the result has to survive dropping
+    # them rather than depend on keeping them.
+    if "coverage_ok" in D:
+        ok = D[D["coverage_ok"].astype(bool)]
+        print(f"\n{'=' * 72}\n ROWS WHERE COVERAGE IS VERIFIABLE "
+              f"({len(ok):,} of {len(D):,})\n{'=' * 72}{hdr}")
+        line("flow, coverage_ok", a.score, a.label, frame=ok)
+        line("NULL, coverage_ok", "null", a.label, frame=ok)
+
+    # ------------------------------------------------------ liquidity deciles
+    # §7: "Report IC by liquidity decile. If the effect lives only in the
+    # bottom two deciles it is likely untradeable - say so." Ranked on
+    # TRAILING turnover within each period, so the cut is point-in-time and
+    # not the entry-liquidity decile the panel was sampled on.
+    print(f"\n{'=' * 72}\n IC BY LIQUIDITY DECILE (trailing turnover, "
+          f"point-in-time)\n{'=' * 72}")
+    D = D.copy()
+    D["liq_decile"] = D.groupby("window_end")["log_turnover"].transform(
+        lambda s: pd.qcut(s.rank(method="first"), 5, labels=False)
+        if s.notna().sum() >= 20 else np.nan)
+    print(f"{'quintile':<22}{'periods':>8}{'mean IC':>10}{'HAC se':>9}{'t':>7}"
+          f"{'  raw IC':>10}{'raw t':>7}")
+    for q in range(5):
+        g = D[D["liq_decile"] == q]
+        if g["window_end"].nunique() >= 30:
+            lo = np.exp(g["log_turnover"].median())
+            line(f"Q{q + 1} (Rp {lo:,.0f}/d)", a.score, a.label, frame=g)
+
+    # ------------------------------------------------------------- costs
+    # An IC is unit-free so costs cannot be taken off it. What costs apply to
+    # is a RETURN, so they are charged against the long-short quintile spread -
+    # the cheapest thing this signal could actually be traded as.
+    print(f"\n{'=' * 72}\n QUINTILE SPREAD, BEFORE AND AFTER COSTS\n{'=' * 72}")
+    # The spread must be built on the SAME score the IC is measured on. The
+    # first version ranked on the raw imbalance while the IC table reported the
+    # neutralised one, so the two halves of the verdict were about different
+    # signals - and the raw score's IC is a quarter the size, which quietly
+    # made the economics look worse than the statistics warranted.
+    pcs = [c for c in D.columns if c.startswith("pc")]
+    ncols = [c for c in list(CONTROLS) + pcs if c in D.columns]
+    sp = []
+    for p, g in D.groupby("window_end"):
+        y = g[a.score].to_numpy(dtype=float)
+        r = g[a.label].to_numpy(dtype=float)
+        if ncols:
+            y = neutralise(y, g[ncols].to_numpy(dtype=float))
+        m = np.isfinite(y) & np.isfinite(r)
+        if m.sum() < 25:
+            continue
+        y, r = y[m], r[m]
+        k = max(1, len(y) // 5)
+        o = np.argsort(y)
+        sp.append(float(r[o[-k:]].mean() - r[o[:k]].mean()))
+    sp = np.array(sp)
+    if len(sp) > 10:
+        mu, se, t = newey_west_t(sp, lags)
+        # Long AND short each pay a round trip every fortnight. This account
+        # cannot short at all (A5), so the long-only leg is the honest figure
+        # and the spread is diagnostic only.
+        net = mu - 2 * FEE_ROUND_TRIP
+        print(f" gross spread per fortnight  {mu:+.3%}  (HAC se {se:.3%}, "
+              f"t {t:.2f}, {len(sp)} periods)")
+        print(f" less 2 x {FEE_ROUND_TRIP:.2%} round trip     "
+              f"{net:+.3%} per fortnight = {net * 25:+.1%} a year")
+        print(f" NOTE: A5 says no shorting, so the spread is DIAGNOSTIC. "
+              f"Only the long leg is\n       investable, and it carries one "
+              f"round trip, not two.")
 
     print(f"\nnames per period: median "
           f"{D.groupby('window_end')['ticker'].nunique().median():.0f}")

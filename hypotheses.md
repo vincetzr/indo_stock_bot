@@ -163,3 +163,47 @@ whether edge tracks size.
 So E4 stands: **size does not predict execution quality on this panel.** It now
 stands on a measurement that is not biased in the direction of that conclusion,
 which is the only reason it is worth anything.
+
+---
+
+## H9 — broker-flow imbalance predicts the forward fortnight, cross-sectionally
+
+**Pre-registered:** 2026-08-22, before the panel existed. Protocol: rank the
+cross-section each fortnight on top-10 net-buy imbalance, neutralise on
+momentum / short-term reversal / trailing turnover / trailing vol / 5
+statistical factors, correlate with the next fortnight's return, Newey-West
+the series of ICs, and compare against a shuffled-label null through the
+identical pipeline. Holdout: the most recent 24 months, untouched.
+
+**Prediction:** if the earlier BBCA-only result (A3, Protocol A — all four
+hypotheses failed with a NEGATIVE sign) reflected something real rather than
+one name's idiosyncrasy, a 176-name panel would show a negative IC that
+survives controls, is stable across liquidity, and produces a tradeable spread.
+
+**Result: the sign replicated, the magnitude did not.**
+
+| | value |
+|---|---|
+| in-sample rows / periods / names | 21,693 / 241 / 176 (64 delisted) |
+| IC (neutralised, +10d) | **−0.0190**, HAC se 0.0066, t −2.86 |
+| IC (+20d) | −0.0190, t −2.32 — the decay curve is flat |
+| raw IC, no controls | −0.0051, t −0.74 |
+| 200-draw permutation p | **0.005** two-sided; null t sd = 1.09, so HAC is calibrated |
+| Bonferroni threshold (8 prior + ~12 here) | **0.0025 — not cleared** |
+| liquidity quintiles | Q4 **+0.032**, Q5 **−0.047** — sign flips |
+| quintile spread, same neutralised score | −0.215%/fortnight, t −0.70, **gross** |
+| on verifiable-coverage rows only | t falls −2.86 → −1.94 |
+
+**Gate 1 FAILS on the conjunction §7 states.** Significantly non-zero in
+sample, yes. Stable sign, no. Post-cost, no — it is not distinguishable from
+zero *before* costs. Out of sample, untested and staying that way.
+
+**Two errors made and caught, both in the harness rather than the data.**
+First run: flow t = −2.86 and NULL t = **−2.96**. The null was
+cross-period-scrambled by a positional assignment against a ticker-sorted
+frame — a null that certified anything. Fixed and pinned by a regression test.
+Then I over-read a single null draw at t = −1.53 as systematic bias; a second
+seed said otherwise. That prompted the 200-draw permutation test, which is the
+better statistic and should have been the first one.
+
+**Trials after H9: 20.** Full memo: `reports/phase1_flow_panel.md`.
