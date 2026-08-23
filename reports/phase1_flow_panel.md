@@ -192,6 +192,30 @@ than anything that preceded it.
 
 ---
 
+## 7b. Reproducibility, and the one place it is not exact
+
+Rebuilding the panel from the same cache is **content-identical** (sha256 match),
+and `flow_ic.py` reproduces IC −0.0190 / t −2.86 exactly. But rebuilding after a
+price-cache refresh is not bit-identical, and it is worth naming why.
+
+Refreshing prices moved `mom12_1` on **939 of 30,410 rows (3.1%)**, across four
+names — BBRI, BRIS, TOWR, UNVR. The magnitude is **max 2.5e-06, mean 6.1e-09**,
+i.e. about 1e-05 of a typical momentum value. Every other column, including
+`imbalance`, `fwd_1w` and `coverage`, is bit-identical.
+
+This is vendor float noise, not a data change: `mom12_1` is computed on
+`adj_close`, and Yahoo re-derives the whole adjusted history when a name's
+corporate-action record changes, which shifts the last bits. The four affected
+names are the ones whose records moved.
+
+**It does not touch the result** — the headline reproduces to four decimals
+either way. It is recorded because "the build is deterministic" and "the study is
+reproducible" are different claims, and only the first is exactly true. Anyone
+re-running this months from now should expect the controls to drift at that
+order, and should be suspicious if they drift by more.
+
+---
+
 ## 8. What I believe, and with what confidence
 
 **High:** the panel itself. 31,824 windows, zero failures, look-ahead controlled
