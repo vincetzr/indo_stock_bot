@@ -198,8 +198,20 @@ def parse_totals(html: str) -> Dict[str, float]:
     """Read the table footer: total value, net foreign value, total lots, VWAP.
 
     ``F. NVal`` is IndoPremier's own net-foreign figure for the stock and day.
-    It is computed on the F-flagged *members*, so it belongs to the F-broker
-    definition, not to IDX's per-trade foreign-investor flag.
+
+    THIS DOCSTRING USED TO SAY THE OPPOSITE AND WAS WRONG. It claimed F. NVal
+    is "computed on the F-flagged *members*, so it belongs to the F-broker
+    definition, not to IDX's per-trade foreign-investor flag." Measured against
+    28 BBCA sessions for which all three views are cached, it is the other way
+    round: summing the ``fd=F`` view — the per-trade investor-domicile filter —
+    reproduces the printed F. NVal to a **1.1% median**, and the two views
+    partition the combined footer total to **0.023%**. The broker-flag version
+    is a different quantity, disagreeing in SIGN on 29% of those sessions.
+
+    The distinction is not pedantic: a foreign-owned member executes for
+    domestic clients all day, and YP (Mirae) is the largest RETAIL broker in
+    the country while carrying a foreign flag. Use :func:`foreign_flags` to
+    ask who the MEMBER is, and ``fd=F`` to ask who the INVESTOR was.
     """
     if "<tfoot>" not in html:
         return {}

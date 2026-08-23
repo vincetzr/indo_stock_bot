@@ -96,6 +96,20 @@ def foreign_codes() -> set:
     The low-confidence entries are left out rather than guessed. §9.2 is blunt
     that nominee codes are omnibus and that a wrong classification does not
     average out - it puts one cohort's flow in the other cohort's column.
+
+    THIS IS A PROXY FOR INVESTOR DOMICILE AND NOT A GOOD ONE. Everything below
+    that uses it - ``foreign_net``, ``foreign_share``, ``domestic_net`` - is
+    measuring "how much did foreign-owned MEMBERS trade", which is a different
+    question from "who was the investor". The source publishes the second
+    directly via ``fd=F`` / ``fd=D``, and on 28 BBCA sessions where both are
+    available the two disagree in SIGN 29% of the time (correlation +0.749,
+    foreign share of gross 74.6% by domicile against 65.0% by member flag).
+
+    The reason is structural, not a config error: a foreign-owned member
+    executes for domestic clients all day, and YP (Mirae) is the largest RETAIL
+    broker in Indonesia while carrying a foreign flag. These columns are kept
+    because H9 ran on them and its record must stay reproducible, but a
+    domicile question should use ``scripts/investor_split_collect.py``.
     """
     d = yaml.safe_load(open(os.path.join("config", "brokers.yaml")))["brokers"]
     return {k for k, v in d.items()

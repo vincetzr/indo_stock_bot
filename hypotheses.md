@@ -323,3 +323,65 @@ instrument to isolate the losing cohort at fortnightly resolution.
 
 **Trials after H11: 28.** Bonferroni bar α = 0.05/28 = **0.0018**. Nothing here
 is within an order of magnitude of it.
+
+---
+
+## H12 — is an INVESTOR CLASS persistently on the profitable side? (PRE-REGISTERED)
+
+**Registered 2026-08-23, before the data was collected and before any statistic
+was computed.** H11 closed by saying its finding was about the *instrument*:
+a broker code aggregates thousands of accounts of mixed type (§6.1), while the
+Taiwan and Finland results §12 cites identify account TYPES. IDX tags each
+trade with the investor's domicile and IndoPremier serves that split through
+the same endpoint (`fd=F` / `fd=D`), so §12's question can now be asked with an
+instrument that matches it.
+
+**The measure.** Per ticker and fortnight, using strictly forward returns:
+
+```
+timing_pnl = net_value x forward_return        (window_end close -> next window_end close)
+margin_bps = 10000 x sum(timing_pnl) / sum(gross_value)
+```
+
+**Prediction.** Foreign participation in IDX is overwhelmingly institutional
+and domestic flow contains essentially all of Indonesian retail, so the
+literature's direction maps onto this split as:
+
+> **foreign margin > 0 and domestic margin < 0.**
+
+The mapping is imperfect — domestic institutions are large in IDX and are
+pooled into "domestic" — so the p-value reported is **two-sided**, which is the
+conservative choice. A one-sided test would be more powerful and is not taken.
+
+**Three conditions, ALL of which must pass** before §12's strategy has an
+instrument. Failing any one is the result, not a threshold to move (§2):
+
+| | condition |
+|---|---|
+| 1. LEVEL | margin outside a 200-draw null that shuffles forward returns across tickers *within* each window |
+| 2. PERSISTENCE | the sign holds across years, and the pooled figure survives dropping its largest single year |
+| 3. SIZE | \|margin\| > A5's **56 bps** round trip |
+
+**Trial count: this is 1 confirmatory trial per class, 2 in total.**
+Trials after H12 will be **30**, so the Bonferroni bar is α = 0.05/30 = **0.0017**.
+
+**What is already verified about the instrument, before any result** — these
+are data facts, established against 28 BBCA sessions with all three views
+cached plus live probes, and they hold whatever the test returns:
+
+- `fd=F`/`fd=D` composes with `start`/`end`, so the split costs one request per
+  (ticker, window, view) — the same economics as the combined panel, **not** the
+  per-ticker-day figure. Verified live, not assumed.
+- F + D reconcile to the combined footer total to **0.023%** median.
+- The F view reproduces the published `F. NVal` to **1.1%**.
+- **The broker-flag proxy is a different quantity.** The panel's `foreign_net`
+  sums foreign-*flagged members*; against the domicile split it correlates
+  +0.749 but **disagrees in sign on 29% of sessions**, and puts foreign share of
+  gross at 65.0% against the domicile figure's 74.6%. `ipot.parse_totals` had a
+  docstring asserting the opposite; it was wrong and is corrected.
+- Censoring bound: F_net and D_net are structurally exact mirrors, so their
+  residual measures the top-10 cut directly — **2.2% of gross at the median,
+  7.1% at worst**.
+- Foreign participation tracks liquidity hard (decile 9 **49.4%**, 8 30.0%,
+  7 19.4%, 5 3.4%), so the universe is the top liquidity strata. That is a
+  statement about where the test has power, not a convenience.

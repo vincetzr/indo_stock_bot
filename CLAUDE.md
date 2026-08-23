@@ -673,3 +673,56 @@ a market maker earning spread reads exactly zero on it while being profitable.
 So §12's question stays open and its natural next instrument is the
 **foreign/domestic investor-type split**, which is a class rather than a code
 and which IDX does publish. More work on broker codes is not indicated.
+
+## A7. The investor-type split exists, is free, and is NOT what this repo was computing
+
+A6 closed by saying §12's natural next instrument is the foreign/domestic
+investor split, because a broker code is not an investor class. That instrument
+turns out to be available through the route already in use, and checking it
+surfaced an error in this repo worth stating before any result.
+
+**`fd=F` / `fd=D` is IDX's per-trade investor-domicile filter, and it composes
+with `start`/`end`.** So the split costs one request per (ticker, window, view)
+— the same economics A1 established for the combined panel, not the
+per-ticker-day figure. Verified with a live request and a reconciliation
+against 28 BBCA sessions, not assumed. This is A1's lesson applying a second
+time: check the unit price before recording a constraint as arithmetic.
+
+**The panel's `foreign_net` is a different quantity from net foreign flow.**
+`flow_panel_build.flow_features` sums the brokers `config/brokers.yaml` flags
+as foreign-*owned*. Against the domicile split on BBCA:
+
+| | |
+|---|---|
+| correlation of the two nets | +0.749 |
+| **sign disagrees** | **29% of sessions** |
+| foreign share of gross | 74.6% by domicile vs 65.0% by member flag |
+
+The cause is structural, not a config error: a foreign-owned member executes
+for domestic clients all day, and YP (Mirae) is the largest RETAIL broker in
+Indonesia while carrying a foreign flag. `ipot.parse_totals` carried a docstring
+asserting that `F. NVal` "belongs to the F-broker definition, not to IDX's
+per-trade foreign-investor flag" — the measurement says the opposite, the F
+*view* reproduces `F. NVal` to **1.1%**, and the docstring is corrected. The
+panel columns are kept so H9 stays reproducible, with the caveat at their
+source.
+
+**The footer was thrown away once and that cost a re-collection.**
+`pullback_flow.fetch_window` calls `parse_table` and never `attach_totals`, so
+none of the 31,824 combined windows carries its footer — which is why net
+foreign value is unavailable for the existing panel without re-fetching all of
+it. `investor_split_collect.py` keeps it.
+
+**Two numbers that bound everything downstream.** F_net and D_net are
+structurally exact mirrors, since every rupiah bought is a rupiah sold, so
+their residual measures the top-10 censoring directly and needs no assumption:
+**2.2% of gross at the median, 7.1% at worst**. And the filtered view's footer
+`tval` matches neither the visible buy total, the sell total, nor their mean
+(9.9% / 21.6% / 15.3%), so what it counts is unresolved — it is recorded as
+unresolved and used in no statistic rather than dressed up as a coverage ratio.
+
+**Where the test has power.** Foreign participation tracks liquidity hard —
+decile 9 **49.4%**, decile 8 30.0%, decile 7 19.4%, decile 5 3.4% — so the
+universe is the top strata. That is a statement about power, not convenience:
+below it the foreign side is a rounding error and the comparison measures noise
+at someone else's expense.
