@@ -1,33 +1,59 @@
 # Phase 0 memo — the data spine
 
-**Date:** 2026-08-21
-**Gate 0: PASSES**, including both checks CLAUDE.md §5 names by name.
+**Date:** 2026-08-23 (rev. — see §1 and §11)
+**Gate 0: PASSES.** **Phase 0's §5 contents list: INCOMPLETE.**
 Reproduce with `python3 scripts/gate0.py` (exits 0 on pass, 1 on fail).
 
-This memo was rewritten twice. The first version claimed Gate 0 passed while the
-script was running checks I had invented rather than the two §5 specifies; §11
-records that. The gate now runs the specified checks, failed on one, and passes
-only because the defect it found was repaired.
+Those are two different claims and this memo has now twice let the stronger one
+stand in for the weaker. The first version claimed Gate 0 passed while the script
+was running checks I had invented rather than the two §5 specifies. The second
+kept a §5 contents table that silently **omitted the two rows it fails** — daily
+broker summary and foreign net flow. §1 now carries every row, marked.
+
+What is true: the two reconciliation checks §5 names by name both pass, one of
+them on a much narrower sample than specified. What is not true, and was implied:
+that Phase 0's data contents are complete.
 
 ---
 
 ## 1. Status against §5
 
+**Two things are being claimed here and they are not the same claim.** Gate 0 is the
+two reconciliation checks §5 names; Phase 0's *contents* is a longer list. The gate
+passes. **The contents list does not.** Earlier versions of this table quietly omitted
+the two rows it fails, which is the same substitution error §11 already records — the
+first version of this memo let a script called `gate0` stand in for Gate 0 itself.
+Both rows are now present and marked.
+
 | §5 requirement | status |
 |---|---|
 | Daily OHLCV, all IDX names, max history | done — 843 tickers, 2.6m bars, from 2001 |
 | **Delisted and suspended names** | **partly recovered** — 121 vanished names with history, from a 2019 point-in-time snapshot; the way *out* is still missing (§6) |
+| **Daily broker summary per ticker, per broker code** | **NOT DONE at daily resolution.** 10 tickers × 361 sessions. What exists instead is a **fortnightly** panel — 176 names, 329 windows, 31,824 (ticker, window) pulls — which is what Phase 1 actually ran on. A fortnight is not a day and no arithmetic makes it one. |
+| **Foreign net flow per ticker** | **partly done, and better than it was.** Derived from high-confidence foreign broker codes on the same 176-name fortnightly panel, not from IDX's own published series. |
+| Corporate actions: splits, reverse splits, rights, dividends | done for splits/reverse/rights/dividends (9 events hand-verified, adjuster with fixtures to 86% dilution). **Warrants are not modelled at all.** No systematic feed — events are found by detector, not enumerated from source. |
 | ARA/ARB schedule incl. asymmetric period | done — 6 regimes, back to 2010 |
 | Fraksi harga (tick) schedule | done — 3 regimes, back to 2005, validated against 1.3m quoted closes |
 | Lot size (incl. the 500-share era), index halts | done |
 | Board membership per ticker-day | **derived** from IDX's published watchlist criterion (§12) |
 | Broker code master with effective dates | partial, honestly labelled (§8) |
-| Rights-issue / corporate-action adjustment | done, with fixtures to 86% dilution |
 | Suspension / ARA-ARB flags per ticker-day | done |
-| **Gate 0 check 1** — traded value | **PASS** (§4) |
+| **Gate 0 check 1** — traded value | **PASS** (§4), and see the note below on how much narrower it is than specified |
 | **Gate 0 check 2** — 5 events by hand | **PASS**, 9 checked (§5) |
 
-1,547 tests pass. Gate 0 runs nine checks and exits non-zero on any failure.
+**Gate 0 check 1 is narrower than §5 asks for.** §5 says *"reconstruct 20 random
+ticker-years and reconcile total traded value against IDX published aggregates."* What
+runs reconciles 10 names over 18 months against IndoPremier's session footer, because
+IDX's own aggregate is not reachable from here. The script says so in its own docstring,
+but a check that announces its substitution is still a substitution.
+
+That gap has since been closed from an unexpected direction. Building the Phase 1 panel
+put an independent volume figure against **28,247 ticker-fortnights** across 176 names —
+three orders of magnitude more than check 1 covers — and it disagrees with the spine on
+about 9% of them. See `reports/phase1_flow_panel.md` §6 and the `coverage_ok` column.
+**That is the real reconciliation, and it is less flattering than check 1.**
+
+1,574 tests pass. Gate 0 runs nine checks and exits non-zero on any failure.
 
 ---
 
@@ -367,6 +393,20 @@ checks I devised — band conformance, stale bars, spikes — and neither of the
 §5 names. Naming the script `gate0` made a substitution look like the thing
 itself. Both specified checks now run; check 2 failed on its first real case; the
 defect was repaired; the gate passes on its own terms.
+
+**The §5 contents table omitted the rows it failed.** Revision two listed nine
+requirements and marked them done or partial. §5 names eleven; the two missing
+were daily broker summary and foreign net flow, which are exactly the two the
+spine does not have at the specified resolution. Nobody removed them on
+purpose — they were never added, and a checklist assembled from what exists
+rather than from what was asked for will always score well. Both are now in the
+table and both are marked NOT DONE / partly done.
+
+That is the third instance of the same error in this one memo: a script named
+`gate0` standing in for Gate 0, then "Gate 0 passes" standing in for "Phase 0 is
+complete", then a contents table standing in for §5's contents. The pattern is
+worth naming because it is not carelessness — each substitution was locally
+reasonable and each made the work look more finished than it was.
 
 One method was tried and discarded: checking whether the price break and the
 volume break fall on the same day. Daily volume varies tenfold naturally, so
