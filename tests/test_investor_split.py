@@ -6,10 +6,18 @@ classes of test:
   KNOWN ANSWERS. Injected timing skill must be found and must beat its null;
   flow that is independent of the next window's move must not.
 
-  THE NULL'S CONSTRUCTION. It shuffles forward returns WITHIN a window. It must
-  preserve each window's returns and each ticker's flow exactly and destroy only
-  the pairing — a null that leaked across windows would also destroy the
-  market's own time structure and would be far too easy to beat.
+  THE NULLS' CONSTRUCTION. There are two and they answer different questions:
+  shuffling returns across tickers within a window asks whether the class
+  picked the right NAMES, and shuffling across windows within a ticker asks
+  whether it was long at the right TIMES. Each must preserve exactly what it
+  claims to and destroy exactly what it claims to, and the pair must separate
+  a market-timing effect from a stock-selection one — which is tested directly
+  on synthetic flow built to have one and not the other.
+
+  The need for the second null was found by running the pipeline on partial
+  data: the within-window null came back at +25.1 bps against an observed
+  +23.85, sitting on top of the signal, because a market move common to every
+  ticker in a window survives a shuffle across tickers.
 
   THE ARITHMETIC. margin_bps is value-weighted, not a mean of ratios; the
   mirror residual is zero when nothing is censored; and sign_persistence must
@@ -213,3 +221,73 @@ def test_class_margin_splits_by_year():
     a = class_margin(P, "F", by="year")
     assert len(a) == P["year"].nunique()
     assert np.isfinite(a).all()
+
+
+# --------------------------------------------------------------------------
+# the two nulls answer DIFFERENT questions
+# --------------------------------------------------------------------------
+def market_panel(n_win, n_tick, rng, market_beta=0.0, selection=0.0):
+    """Flow that is either long into up MARKETS (beta) or long the right NAMES
+    within a window (selection). The two nulls must separate these."""
+    wins = pd.bdate_range("2015-01-01", periods=n_win, freq="10B")
+    rows = []
+    for w in wins:
+        mkt = float(rng.normal(0, 0.04))            # common to every ticker
+        for t in range(n_tick):
+            idio = float(rng.normal(0, 0.04))
+            ret = mkt + idio
+            gross = float(rng.uniform(1e9, 1e10))
+            net = (market_beta * np.sign(mkt) + selection * np.sign(idio)
+                   + float(rng.normal(0, 0.2))) * gross
+            rows.append({"ticker": f"T{t}", "window_end": w, "view": "F",
+                         "net_value": net, "gross_value": gross,
+                         "fwd_ret": ret, "timing_pnl": net * ret,
+                         "year": w.year})
+    return pd.DataFrame(rows)
+
+
+def test_within_ticker_null_catches_market_timing_that_within_window_misses():
+    """THE reason there are two nulls. Flow that is simply long into rising
+    markets scores the same under a within-window shuffle, because the market
+    move is common to every ticker and survives the permutation."""
+    rng = np.random.default_rng(21)
+    P = market_panel(60, 12, rng, market_beta=1.0)
+    _, _, p_dir = permutation_margin(P, "F", kind="within_ticker",
+                                     draws=80, seed=22)
+    _, _, p_sel = permutation_margin(P, "F", kind="within_window",
+                                     draws=80, seed=22)
+    assert p_dir < 0.05, f"market timing must be caught by the direction null (p={p_dir})"
+    assert p_sel > 0.05, f"and must NOT read as stock selection (p={p_sel})"
+
+
+def test_within_window_null_catches_selection():
+    rng = np.random.default_rng(23)
+    P = market_panel(60, 12, rng, selection=1.0)
+    _, _, p_sel = permutation_margin(P, "F", kind="within_window",
+                                     draws=80, seed=24)
+    assert p_sel < 0.05, f"name-picking must be caught by the selection null (p={p_sel})"
+
+
+def test_within_ticker_null_preserves_each_tickers_returns():
+    rng = np.random.default_rng(25)
+    P = market_panel(8, 6, rng)
+    S = shuffle_forward(P, np.random.default_rng(26), kind="within_ticker")
+    for t, g in S.groupby("ticker"):
+        o = P[P.ticker == t]
+        assert sorted(np.round(g["fwd_ret"], 12)) == sorted(
+            np.round(o["fwd_ret"], 12))
+
+
+def test_within_ticker_null_never_moves_a_return_between_tickers():
+    rng = np.random.default_rng(27)
+    P = market_panel(6, 5, rng)
+    P["fwd_ret"] = P.groupby("ticker").ngroup().astype(float)
+    S = shuffle_forward(P, np.random.default_rng(28), kind="within_ticker")
+    assert (S["fwd_ret"] == S.groupby("ticker").ngroup()).all()
+
+
+def test_an_unknown_null_kind_is_refused_rather_than_silently_defaulted():
+    rng = np.random.default_rng(29)
+    P = market_panel(4, 4, rng)
+    with pytest.raises(ValueError):
+        shuffle_forward(P, np.random.default_rng(30), kind="whatever")

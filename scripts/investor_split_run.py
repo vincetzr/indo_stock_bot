@@ -168,13 +168,21 @@ def report(V: pd.DataFrame, draws: int, seed: int) -> None:
             continue
         print(f" {name}  ({len(d):,} class-windows, "
               f"{100*d.gross_value.sum()/V.gross_value.sum():.0f}% of gross)")
-        obs, nulls, p = permutation_margin(V, view, draws=draws, seed=seed)
-        v = nulls[np.isfinite(nulls)]
-        lo, hi = (np.percentile(v, [2.5, 97.5]) if len(v) > 20
-                  else (np.nan, np.nan))
-        print(f"   1. LEVEL        margin {obs:+8.2f} bps per fortnight")
-        print(f"                   null   {np.nanmean(v):+8.2f} "
-              f"[{lo:+.2f}, {hi:+.2f}] over {len(v)} draws   p {p:.3f}")
+        obs = np.nan
+        for kind, what in (("within_ticker", "DIRECTION — was it long at the "
+                                             "right TIMES"),
+                           ("within_window", "SELECTION — did it pick the "
+                                             "right NAMES")):
+            obs, nulls, p = permutation_margin(V, view, kind=kind,
+                                               draws=draws, seed=seed)
+            v = nulls[np.isfinite(nulls)]
+            lo, hi = (np.percentile(v, [2.5, 97.5]) if len(v) > 20
+                      else (np.nan, np.nan))
+            if kind == "within_ticker":
+                print(f"   1. LEVEL        margin {obs:+8.2f} bps per fortnight")
+            print(f"      {what}")
+            print(f"        null {np.nanmean(v):+8.2f} "
+                  f"[{lo:+.2f}, {hi:+.2f}] over {len(v)} draws   p {p:.3f}")
         ann = class_margin(V, view, by="year")
         sp = sign_persistence(ann)
         if sp.get("n_years", 0) >= 3:

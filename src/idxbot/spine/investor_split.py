@@ -96,17 +96,42 @@ def class_margin(df: pd.DataFrame, view: str, by: Optional[str] = None
         lambda g: margin_bps(g["timing_pnl"], g["gross_value"]))
 
 
-def shuffle_forward(df: pd.DataFrame, rng, group: str = "window_end",
-                    col: str = "fwd_ret") -> pd.DataFrame:
-    """Permute forward returns across tickers WITHIN each window.
+#: The two nulls answer DIFFERENT questions and a single one is misleading.
+#:
+#: This was caught by running the pipeline on partial data rather than waiting
+#: for the full collection: the within-window null came back at +25.1 bps
+#: against an observed +23.85, sitting exactly on top of the signal. That is
+#: not a broken null — it is the correct answer to the question it asks.
+#:
+#:   SELECTION ("within_window"): permute forward returns across tickers inside
+#:       each window. Preserves each window's flow and its whole cross-section
+#:       of returns; destroys only WHICH ticker's flow met which ticker's move.
+#:       A class that was merely net long into a rising market scores the same
+#:       under this shuffle as it did in reality, because the market move is
+#:       common to every ticker in the window and survives the permutation.
+#:       So this null asks: did the class pick the right STOCKS?
+#:
+#:   DIRECTION ("within_ticker"): permute forward returns across windows inside
+#:       each ticker. Preserves each ticker's return distribution and the
+#:       class's flow; destroys WHEN the class was long. This is the one §12's
+#:       question actually needs — persistently dumb flow is flow that is
+#:       positioned wrongly, not flow that picks the wrong names.
+#:
+#: Reporting only the first would have made a real directional result look like
+#: nothing; reporting only the second would let a pure market-beta effect read
+#: as skill. Both are reported, always.
+NULLS = ("within_window", "within_ticker")
 
-    This is the null the question needs. It preserves every window's flow
-    distribution and every window's cross-section of returns exactly, and
-    destroys only which ticker's flow was paired with which ticker's
-    subsequent move — which is the entire claim. A null that shuffled returns
-    across windows instead would also destroy the market's own time structure
-    and would be far too easy to beat.
+
+def shuffle_forward(df: pd.DataFrame, rng, kind: str = "within_window",
+                    col: str = "fwd_ret") -> pd.DataFrame:
+    """Permute forward returns, preserving one margin and destroying the other.
+
+    See :data:`NULLS` for why the choice of grouping IS the choice of question.
     """
+    if kind not in NULLS:
+        raise ValueError(f"kind must be one of {NULLS}, got {kind!r}")
+    group = "window_end" if kind == "within_window" else "ticker"
     out = df.copy()
     out[col] = out.groupby(group)[col].transform(
         lambda s: rng.permutation(s.to_numpy()))
@@ -114,22 +139,23 @@ def shuffle_forward(df: pd.DataFrame, rng, group: str = "window_end",
     return out
 
 
-def permutation_margin(df: pd.DataFrame, view: str, draws: int = 200,
+def permutation_margin(df: pd.DataFrame, view: str,
+                       kind: str = "within_window", draws: int = 200,
                        seed: int = 0) -> Tuple[float, np.ndarray, float]:
     """Observed class margin, its null distribution, and a two-sided p.
 
-    Two-sided here, unlike H11's one-sided test. §12 predicts a direction for
-    RETAIL (it loses), but foreign-versus-domestic is not the same split as
-    institution-versus-retail — domestic institutions exist and foreign retail
-    exists — so there is no honest prior about which way this one should point.
-    Claiming one after seeing the data is exactly the move §2 forbids.
+    Two-sided, unlike H11's one-sided test. §12 predicts a direction for
+    RETAIL, and foreign-versus-domestic is only an imperfect proxy for that
+    split — domestic institutions are large in IDX and are pooled into
+    "domestic". The prediction is still pre-registered in `hypotheses.md`; the
+    p-value simply does not claim the extra power a one-sided test would take.
     """
     d = df[df["view"] == view]
     obs = margin_bps(d["timing_pnl"], d["gross_value"])
     rng = np.random.default_rng(seed)
     nulls = np.full(draws, np.nan)
     for i in range(draws):
-        s = shuffle_forward(d, rng)
+        s = shuffle_forward(d, rng, kind=kind)
         nulls[i] = margin_bps(s["timing_pnl"], s["gross_value"])
     v = nulls[np.isfinite(nulls)]
     if not len(v) or not np.isfinite(obs):
