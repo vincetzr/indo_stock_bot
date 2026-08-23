@@ -207,3 +207,50 @@ seed said otherwise. That prompted the 200-draw permutation test, which is the
 better statistic and should have been the first one.
 
 **Trials after H9: 20.** Full memo: `reports/phase1_flow_panel.md`.
+
+---
+
+## H10 — does broker IDENTITY carry information about cohort profitability?
+
+**Date:** 2026-08-23. §9.3 cohort P&L on the daily store, with §9.3's own
+shuffled-broker-label null. Full memo: `reports/phase2b_cohort_pnl.md`.
+
+**Prediction:** if broker identity means anything, the real-label distribution
+of round-trip `margin_bps` separates from a distribution where the labels are
+shuffled within each ticker-day.
+
+**Result: it does not.**
+
+| | median margin_bps | n | 95% CI |
+|---|---|---|---|
+| round-trip, real labels | **−25.3** | 147 broker-tickers, 628 episodes | [−395, −29] |
+| round-trip, SHUFFLED | **−32.5** | 162, 883 episodes | [−278, −28] |
+
+Indistinguishable. **No detectable broker-identity signal in cohort P&L.** With
+Phase 1's aggregate baseline at essentially nothing, both halves of Gate 2b now
+point the same way.
+
+**A second finding, about the market rather than the brokers.** Both figures are
+negative and similar: the median cohort round trip loses ~25–32 bps of what it
+traded, whoever does it. That is the spread paid twice. Against A5's 56 bps
+round-trip cost, the median cohort round trip is a losing trade on execution
+alone, before commission or tax.
+
+**The estimator was wrong twice; the null caught it both times.**
+1. WAC starts at zero, so a cohort already long booked its opening sell's entire
+   proceeds as profit — +Rp 10,000,000 on a synthetic true-zero case, and the
+   null read **+6.3 bps with a CI excluding zero**. Fixed by attributing a cost
+   basis only to shares actually recorded as held, and by computing round-trip
+   P&L as sell value − buy value with no WAC at all.
+2. `unrealized = inventory × (close − WAC)` on negative inventory gave full-path
+   margins of **−13,000 bps** (−130% of gross). Now NaN there; full-path is
+   computable on only **49%** of series.
+
+**§9.2's limits, measured:** negative inventory **46.4%** of the time (median
+broker-ticker), crossing ratio median **0.84**.
+
+**Not tested and not claimed:** persistence. A cohort losing 25 bps is
+uninteresting unless the *same* cohort keeps doing it, and 18 months on 9 names
+cannot establish that. That is §12's actual question and it remains open.
+
+**Trials after H10: 22.**
