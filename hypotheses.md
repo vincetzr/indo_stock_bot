@@ -254,3 +254,72 @@ uninteresting unless the *same* cohort keeps doing it, and 18 months on 9 names
 cannot establish that. That is §12's actual question and it remains open.
 
 **Trials after H10: 22.**
+
+---
+
+## H11 — does a broker code's margin RANK persist from one period to the next?
+
+**Date:** 2026-08-23. §12's actual question, and the one H10 explicitly left
+open. Full memo: `reports/phase2b_persistence.md`.
+
+**Prediction, stated before running.** §12 argues the losing cohort is durable
+because it continuously regenerates. If that holds at broker-code resolution,
+brokers ranked by margin in one period rank the same way in the next, and the
+rank correlation sits **above** its label-shuffled null. The p-value is
+one-sided upward for that reason.
+
+**Six confirmatory statistics:** {split-half, period-over-period} ×
+{all rows, two-sided only} on Track B, and the same two estimators on Track A.
+
+**Result: all six sit inside their own permutation nulls.**
+
+| track | statistic | observed | null mean | null 95% | one-sided p |
+|---|---|---|---|---|---|
+| B | split-half, all rows | −0.185 | +0.000 | [−0.222, +0.229] | 0.930 |
+| B | split-half, two-sided | +0.076 | −0.001 | [−0.224, +0.276] | 0.239 |
+| B | year-over-year, all rows | +0.032 | −0.004 | [−0.079, +0.072] | 0.144 |
+| B | year-over-year, two-sided | +0.045 | −0.004 | [−0.089, +0.083] | 0.119 |
+| A | split-half | −0.203 | −0.207 | [−0.504, +0.108] | 0.498 |
+| A | quarter-over-quarter | +0.223 | +0.122 | [−0.070, +0.335] | 0.279 |
+
+Track B: 89 codes, 217 tickers, 378,689 broker-windows, 2014–2026.
+Track A: 27 codes, 628 round-trip episodes, 1.5 years. Null = 200 draws
+shuffling broker labels within each ticker-window, guards inside the loop.
+
+**The one sub-0.05 figure, and why it is not real.** Year-over-year on all rows
+*including the pre-panel era* reads +0.078, p = 0.025. It is one pair:
+`2013→2014 = +0.632`, three times the next largest, computed on **13 brokers
+from 262 rows and 15 windows** against 2014's 82 brokers from 26,900 rows.
+Dropping the 454 pre-panel rows — 0.1% of the data — gives +0.032, p = 0.144,
+and brings the two subsamples into agreement.
+
+**That filter is post-hoc and is marked as such.** It was chosen after seeing
+the pair, justified on sample size rather than on the answer, and both versions
+are printed by the script. It does not enter the trial count.
+
+**The null earned its keep.** Track A's null is **not centred on zero** —
+−0.207 for split-half, +0.122 for quarter-over-quarter. Read against zero,
+Track A would have been reported as showing negative persistence *and* positive
+persistence depending on the period grid. Read against its own null, neither
+says anything.
+
+**A wrong explanation, recorded because it was tested and failed.** The top-10
+censor forces a one-sided code's net long by construction, and only 51.1% of
+rows are two-sided, so censoring looked like the obvious artefact. Censoring is
+indeed a strongly persistent broker attribute (year-over-year rank corr
+**+0.801** against margin's +0.078) — but it does **not** predict the measured
+margin within a year (**−0.037**, 6/14 pairs positive). The chain does not
+close and the explanation is wrong.
+
+**The level, reported separately because persistence ignores it.** Per
+broker-year timing margin: median +0.13 bps, mean −6.08, sd 366. Value-weighted
+pooled +2.15 bps a fortnight, against A5's 56 bps round-trip cost.
+
+**What this does NOT say.** Track B measures directional timing, not profit — a
+market maker earning spread shows zero timing_pnl while being profitable. And a
+broker code is not an investor class (§6.1), so this does not contradict the
+Taiwan/Finland literature §12 cites; it says the broker code is too coarse an
+instrument to isolate the losing cohort at fortnightly resolution.
+
+**Trials after H11: 28.** Bonferroni bar α = 0.05/28 = **0.0018**. Nothing here
+is within an order of magnitude of it.

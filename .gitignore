@@ -17,3 +17,8 @@ reports/*
 !reports/data_availability.csv
 
 data/Dataset-Saham-IDX/
+
+# Derived cache: the per-broker window frame is a pure function of
+# data/cache/ipot_broker and is rebuilt with `persistence.py --rebuild`.
+# flow_panel.csv.gz stays tracked because it is the Phase 1 panel itself.
+data/spine/broker_windows.csv.gz

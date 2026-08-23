@@ -518,7 +518,8 @@ API).
 |---|---|
 | §5 spine | **Gate 0 PASSES** on nine checks (`scripts/gate0.py`, exits 0/1). PIT ARA/ARB + fraksi harga + lot + halt schedules in `src/idxbot/spine/reference.py`; quality gates, corporate-action adjustment, three sourced repairs and a broker-code master alongside. Survivorship **partly repaired**: 121 vanished names recovered with history from a 2019 point-in-time snapshot, giving a measured 2.87%/yr attrition instead of an assumed 1–8% range. **What is left is one-sided** — the snapshot ends 2019-04-07, so the months in which a name actually died are still missing, and the bias figure stays a bound rather than a correction. See `reports/phase0_spine.md`. |
 | §7 Phase 1 | **run and FAILED** — first on a 1-name panel, then properly on 176 names (64 delisted) × 241 fortnights. Gate 1 fails on the conjunction: significant in sample but sign-unstable across liquidity and a quintile spread indistinguishable from zero *before* costs. See A3 and `reports/phase1_flow_panel.md`. |
-| §9.3 cohort P&L | **not built.** Previously declined on the starting-inventory problem; the brief's round-trip restriction is a better answer and supersedes that decision. |
+| §9.3 cohort P&L | **built and run; no broker-identity signal.** Round-trip median −25.3 bps against a shuffled-label −32.5: the null sits on top of the signal. The round-trip restriction was indeed the answer to the starting-inventory problem, which is severe here (inventory negative 46.4% of the time). See `reports/phase2b_cohort_pnl.md`. |
+| §12 persistence | **run and negative.** Broker-code margin rank does not persist: six statistics across two stores, all inside their 200-draw permutation nulls, best p = 0.119 against a Bonferroni bar of 0.0018. So the losing cohort is not *identifiable* at broker-code resolution, which is what §12's strategy needs. See A6 and `reports/phase2b_persistence.md`. |
 | §9.4 execution style | **built and the §9.4 bias is corrected** — VWAP now excludes each broker's own trades. See A4; the size null it threatened was recomputed and stands. |
 | §9.5 archetypes | not built |
 | §11 purged walk-forward | partial — walk-forward exists; overlapping forward windows are now Newey-West corrected (`layer2_test.one_sided`), but purge/embargo folds do not exist |
@@ -623,3 +624,52 @@ edge tracks size. Full detail in `hypotheses.md` under E4.
   has checked its licensing.
 - IndoPremier is a public page on a licensed member's site: polite delay, permanent
   cache, no bulk harvesting, no redistribution.
+
+## A6. §12's question has now been asked, and the answer is no at broker-code level
+
+§12 is the strategic core of this brief: *"which flow is persistently dumb, is
+it identifiable in real time, and is it large enough to trade against after
+costs."* Phase 2b answered the middle of that badly by leaving it alone — a
+cohort losing 25 bps a round trip is uninteresting unless the *same* cohort
+keeps doing it.
+
+**It does not.** Six statistics, two stores, 89 codes over 12.6 years and 27
+codes over 18 months, every one inside its own 200-draw permutation null.
+Best p = 0.119. Full memo: `reports/phase2b_persistence.md`, logged as H11.
+
+Three things from it are worth carrying forward rather than re-deriving.
+
+**One p-value cleared 0.05 and was one thin year.** Year-over-year across the
+whole store reads +0.078, p = 0.025 — carried entirely by `2013→2014 = +0.632`,
+computed on **13 brokers from 262 rows** against 2014's 82 from 26,900. The
+panel collection starts in 2014; the 454 rows before it are exploratory probes.
+Dropping 0.1% of the data takes the statistic to +0.032, p = 0.144. The floor
+is post-hoc, is marked so, and both versions are printed.
+
+**A null centred away from zero is normal in small samples, and it is invisible
+without the distribution.** Track A's null means are **−0.207** and **+0.122**
+depending only on whether periods are halves or quarters. Against zero, the
+same store would have been reported as showing negative persistence and
+positive persistence. This is now the third time in this repo that reading a
+statistic against zero instead of against its own permutation null would have
+produced a confident wrong answer. Treat the permutation null as the first
+statistic, not the last.
+
+**The censoring artefact is real and is not the explanation.** The top-10 cut
+leaves only **51.1%** of rows two-sided, and which code gets truncated is a
+strongly persistent broker attribute (year-over-year rank corr **+0.801**, an
+order of magnitude above margin's). But it does not predict the measured margin
+within a year (**−0.037**). A plausible mechanism that fails its second link is
+still a failed explanation.
+
+**What this does not say, and the distinction matters for what comes next.**
+A broker code is not an investor class (§6 point 1). The Taiwan and Finland
+results §12 cites identify *account types*, which those exchanges publish and
+IDX does not. This finding is therefore about the instrument, not the
+phenomenon: the broker code is too coarse to isolate a losing cohort at
+fortnightly resolution. And Track B measures directional timing, not profit —
+a market maker earning spread reads exactly zero on it while being profitable.
+
+So §12's question stays open and its natural next instrument is the
+**foreign/domestic investor-type split**, which is a class rather than a code
+and which IDX does publish. More work on broker codes is not indicated.
