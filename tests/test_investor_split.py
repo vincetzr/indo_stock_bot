@@ -8,16 +8,22 @@ classes of test:
 
   THE NULLS' CONSTRUCTION. There are two and they answer different questions:
   shuffling returns across tickers within a window asks whether the class
-  picked the right NAMES, and shuffling across windows within a ticker asks
-  whether it was long at the right TIMES. Each must preserve exactly what it
-  claims to and destroy exactly what it claims to, and the pair must separate
-  a market-timing effect from a stock-selection one — which is tested directly
-  on synthetic flow built to have one and not the other.
+  picked the right NAMES, and permuting whole windows asks whether it was long
+  at the right TIMES. Each must preserve exactly what it claims to and destroy
+  exactly what it claims to, and the pair must separate a market-timing effect
+  from a stock-selection one — tested directly on synthetic flow built to have
+  one and not the other.
 
   The need for the second null was found by running the pipeline on partial
   data: the within-window null came back at +25.1 bps against an observed
   +23.85, sitting on top of the signal, because a market move common to every
   ticker in a window survives a shuffle across tickers.
+
+  The direction null is a BLOCK permutation rather than a per-ticker shuffle,
+  and that is not cosmetic. A per-ticker shuffle makes tickers independent;
+  IDX names move together, so independent draws understate the aggregate
+  margin's volatility, the null comes back too narrow and the test
+  over-rejects. There is a test that measures exactly that.
 
   THE ARITHMETIC. margin_bps is value-weighted, not a mean of ratios; the
   mirror residual is zero when nothing is censored; and sign_persistence must
@@ -246,13 +252,13 @@ def market_panel(n_win, n_tick, rng, market_beta=0.0, selection=0.0):
     return pd.DataFrame(rows)
 
 
-def test_within_ticker_null_catches_market_timing_that_within_window_misses():
+def test_block_window_null_catches_market_timing_that_within_window_misses():
     """THE reason there are two nulls. Flow that is simply long into rising
     markets scores the same under a within-window shuffle, because the market
     move is common to every ticker and survives the permutation."""
     rng = np.random.default_rng(21)
     P = market_panel(60, 12, rng, market_beta=1.0)
-    _, _, p_dir = permutation_margin(P, "F", kind="within_ticker",
+    _, _, p_dir = permutation_margin(P, "F", kind="block_window",
                                      draws=80, seed=22)
     _, _, p_sel = permutation_margin(P, "F", kind="within_window",
                                      draws=80, seed=22)
@@ -268,22 +274,81 @@ def test_within_window_null_catches_selection():
     assert p_sel < 0.05, f"name-picking must be caught by the selection null (p={p_sel})"
 
 
-def test_within_ticker_null_preserves_each_tickers_returns():
+def test_block_window_null_moves_a_whole_window_intact():
+    """Every row of a window must take its returns from ONE other window. If
+    the rows of a window drew from different partners the cross-section would
+    be reassembled from pieces and the co-movement would be gone."""
     rng = np.random.default_rng(25)
     P = market_panel(8, 6, rng)
-    S = shuffle_forward(P, np.random.default_rng(26), kind="within_ticker")
-    for t, g in S.groupby("ticker"):
-        o = P[P.ticker == t]
-        assert sorted(np.round(g["fwd_ret"], 12)) == sorted(
-            np.round(o["fwd_ret"], 12))
+    P["fwd_ret"] = P.groupby("window_end").ngroup().astype(float)
+    S = shuffle_forward(P, np.random.default_rng(26), kind="block_window")
+    for w, g in S.groupby("window_end"):
+        assert g["fwd_ret"].nunique() == 1, \
+            "a window drew from more than one partner window"
 
 
-def test_within_ticker_null_never_moves_a_return_between_tickers():
+def test_block_window_null_keeps_ticker_identity():
+    """Ticker T's flow meets ticker T's return from another window, never
+    another ticker's — that is what makes this a TIMING null and not a
+    selection one."""
     rng = np.random.default_rng(27)
     P = market_panel(6, 5, rng)
     P["fwd_ret"] = P.groupby("ticker").ngroup().astype(float)
-    S = shuffle_forward(P, np.random.default_rng(28), kind="within_ticker")
+    S = shuffle_forward(P, np.random.default_rng(28), kind="block_window")
     assert (S["fwd_ret"] == S.groupby("ticker").ngroup()).all()
+
+
+def test_block_window_null_preserves_cross_sectional_correlation():
+    """THE REASON THIS NULL IS A BLOCK PERMUTATION, and the exact condition.
+
+    A per-ticker shuffle destroys timing correctly but also makes tickers
+    independent. That understates the aggregate margin's volatility — so the
+    null comes back too narrow and the test over-rejects — but ONLY when the
+    FLOW is correlated across names within a window as well as the returns.
+
+    The first version of this test got that wrong: it gave every ticker
+    independent random net flow, and the two nulls came back at sd 7.7 against
+    7.4, essentially identical. With random flow signs the window sum scales
+    the same way under either permutation and there is nothing to preserve.
+
+    Correlated flow is the realistic case — a class that is risk-on is net long
+    across the board, not long one name and short the next — and it is the case
+    where the distinction bites. Both conditions are simulated here.
+    """
+    rng = np.random.default_rng(31)
+    # market vol dominates idiosyncratic vol, AND the class's flow has a common
+    # per-window component: both are needed for the block structure to matter.
+    wins = pd.bdate_range("2015-01-01", periods=50, freq="10B")
+    rows = []
+    for w in wins:
+        mkt = float(rng.normal(0, 0.06))
+        tilt = float(rng.normal(0, 0.30))            # common flow direction
+        for t in range(12):
+            ret = mkt + float(rng.normal(0, 0.005))
+            gross = float(rng.uniform(1e9, 1e10))
+            net = (tilt + float(rng.normal(0, 0.05))) * gross
+            rows.append({"ticker": f"T{t}", "window_end": w, "view": "F",
+                         "net_value": net, "gross_value": gross,
+                         "fwd_ret": ret, "timing_pnl": net * ret,
+                         "year": w.year})
+    P = pd.DataFrame(rows)
+
+    def per_ticker(df, rng_):
+        out = df.copy()
+        out["fwd_ret"] = out.groupby("ticker")["fwd_ret"].transform(
+            lambda s: rng_.permutation(s.to_numpy()))
+        out["timing_pnl"] = out["net_value"] * out["fwd_ret"]
+        return out
+
+    r1, r2 = np.random.default_rng(32), np.random.default_rng(33)
+    blk = np.array([margin_bps(*(lambda s: (s["timing_pnl"], s["gross_value"]))(
+        shuffle_forward(P, r1, kind="block_window"))) for _ in range(60)])
+    pt = np.array([margin_bps(*(lambda s: (s["timing_pnl"], s["gross_value"]))(
+        per_ticker(P, r2))) for _ in range(60)])
+    assert np.nanstd(blk) > 1.5 * np.nanstd(pt), (
+        f"block null sd {np.nanstd(blk):.1f} should be materially wider than "
+        f"the per-ticker null's {np.nanstd(pt):.1f}; if it is not, the "
+        f"per-ticker version was not actually understating the spread")
 
 
 def test_an_unknown_null_kind_is_refused_rather_than_silently_defaulted():

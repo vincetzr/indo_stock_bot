@@ -111,30 +111,63 @@ def class_margin(df: pd.DataFrame, view: str, by: Optional[str] = None
 #:       common to every ticker in the window and survives the permutation.
 #:       So this null asks: did the class pick the right STOCKS?
 #:
-#:   DIRECTION ("within_ticker"): permute forward returns across windows inside
-#:       each ticker. Preserves each ticker's return distribution and the
-#:       class's flow; destroys WHEN the class was long. This is the one §12's
-#:       question actually needs — persistently dumb flow is flow that is
+#:   DIRECTION ("block_window"): permute WHOLE WINDOWS — each window's flow is
+#:       paired with a different window's entire cross-section of returns, the
+#:       ticker identities kept intact. Destroys WHEN the class was long, which
+#:       is what §12's question actually needs: persistently dumb flow is flow
 #:       positioned wrongly, not flow that picks the wrong names.
 #:
-#: Reporting only the first would have made a real directional result look like
-#: nothing; reporting only the second would let a pure market-beta effect read
-#: as skill. Both are reported, always.
-NULLS = ("within_window", "within_ticker")
+#: WHY THE DIRECTION NULL IS A BLOCK PERMUTATION AND NOT A PER-TICKER SHUFFLE.
+#: The obvious version permutes each ticker's returns across windows
+#: independently. It destroys timing correctly, but it also makes the tickers
+#: independent of each other, which understates the aggregate margin's
+#: volatility — the null then comes back too narrow and the test over-rejects.
+#: Permuting whole windows as blocks keeps each window's co-movement, and
+#: therefore the true spread, while still breaking the link between flow and
+#: the move that followed it.
+#:
+#: THE CONDITION, because the first version of this note stated it too broadly:
+#: the gap only opens when the FLOW is correlated across names within a window
+#: as well as the returns. With independent per-ticker flow the two nulls are
+#: indistinguishable — measured at sd 7.7 against 7.4 on a synthetic panel with
+#: strongly co-moving returns but random flow signs. Add a common per-window
+#: flow tilt, which is the realistic case since a risk-on class is net long
+#: across the board rather than long one name and short the next, and the block
+#: null is materially wider. Both cases are in the tests, and whether real IDX
+#: flow meets the condition is measured rather than assumed.
+#:
+#: The block permutation is the conservative choice either way: where the
+#: condition does not hold it costs nothing, and where it does it prevents a
+#: false positive.
+#:
+#: Reporting only the selection null would have made a real directional result
+#: look like nothing; reporting only the direction null would let a pure
+#: market-beta effect read as skill. Both are reported, always.
+NULLS = ("within_window", "block_window")
 
 
 def shuffle_forward(df: pd.DataFrame, rng, kind: str = "within_window",
                     col: str = "fwd_ret") -> pd.DataFrame:
     """Permute forward returns, preserving one margin and destroying the other.
 
-    See :data:`NULLS` for why the choice of grouping IS the choice of question.
+    See :data:`NULLS` for why the choice of permutation IS the choice of
+    question. Rows whose partner window does not carry that ticker come back
+    NaN and drop out of the margin, which loses a little sample and biases
+    nothing.
     """
     if kind not in NULLS:
         raise ValueError(f"kind must be one of {NULLS}, got {kind!r}")
-    group = "window_end" if kind == "within_window" else "ticker"
     out = df.copy()
-    out[col] = out.groupby(group)[col].transform(
-        lambda s: rng.permutation(s.to_numpy()))
+    if kind == "within_window":
+        out[col] = out.groupby("window_end")[col].transform(
+            lambda s: rng.permutation(s.to_numpy()))
+    else:
+        wins = np.asarray(sorted(df["window_end"].unique()))
+        mapped = dict(zip(wins, rng.permutation(wins)))
+        lookup = df.set_index(["ticker", "window_end"])[col]
+        lookup = lookup[~lookup.index.duplicated()]
+        out[col] = [lookup.get((t, mapped[w]), np.nan)
+                    for t, w in zip(df["ticker"], df["window_end"])]
     out["timing_pnl"] = out["net_value"] * out[col]
     return out
 
