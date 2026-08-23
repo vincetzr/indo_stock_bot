@@ -471,21 +471,39 @@ records where the existing repo already meets it, already contradicts it, or can
 reach it. Where the two disagree, the brief wins unless the disagreement is listed here
 as a hard blocker.*
 
-## A1. The data-shape blocker on Phase 1 — read first
+## A1. The data-shape blocker that turned out not to be one — read first
 
-§4 sizes Phase 1 at ~2,500 days × ~800 names. **The free route that actually works from
-here cannot produce that panel**, and it is arithmetic rather than effort:
+**This section was wrong, and it was wrong in the direction that stops work.** It is
+kept rather than deleted because the error is instructive: a costing mistake read as a
+law of nature, and it very nearly cost the project its central experiment.
 
-| route | shape | cost of the §4 panel | status |
+The original claim was that IndoPremier costs **1 request per ticker-day**, so the §4
+panel needs ~2,000,000 requests and ~27 days of fetching, and therefore *"Phase 1 runs
+on a 10-name panel, not an 800-name one."*
+
+That prices the **daily** mode. The same endpoint takes `start` and `end` and returns
+the rekap **aggregated over the whole window for one request** — which
+`scripts/pullback_flow.fetch_window` had already been using, and 1,703 range files were
+sitting in the cache while the appendix said the panel was infeasible.
+
+| route | real shape | real cost | status |
 |---|---|---|---|
-| IndoPremier public module | 1 request per **ticker-day**, top-10 only | ~2,000,000 requests ≈ 27 days of continuous polite fetching | works today |
+| IndoPremier, **range** mode | 1 request per **(ticker, window)**, top-10 | **31,824 requests** for 200 names × fortnightly × 2014-2026 | **done — collected, zero failures** |
+| IndoPremier, daily mode | 1 request per ticker-day | the ~2,000,000 figure above | works, and is the wrong tool |
 | `idx.co.id` broker summary | 1 file per **session, all stocks** | ~2,500 files | 403 from any script — Cloudflare bot check on TLS fingerprint |
 | Sectors licensed API (`api.sectors.app/v2`) | 1 credit per ticker per **fortnight**, full depth | ~143,000 credits | needs a paid key |
 
-So §3's data question is not a convenience issue. **The one-file-per-session shape is
-the only thing that makes §7 feasible at all.** Until one of those three is resolved,
-Phase 1 runs on a 10-name panel, not an 800-name one, and the effective sample must be
-quoted accordingly.
+**The panel exists.** 176 names (64 of them delisted), 329 fortnights, 30,234 labelled
+rows. §7 has been run on it and Gate 1 fails — see `reports/phase1_flow_panel.md` and
+A3 below.
+
+What is genuinely given up on this route is **resolution, not size**: fortnightly flow,
+so §7's decay curve reaches k = 10 and 20 sessions and cannot reach k = 1 or 3.
+Aggregation runs one way — two fortnights make a month, no arithmetic recovers a day.
+
+**The lesson worth keeping:** before recording a constraint as arithmetic, check that
+the unit price is the cheapest one the source offers. This one was off by a factor of
+sixty.
 
 The 403 is a bot check, not a network block or a geo-block — proven, and documented in
 `docs/FULL_REKAP.md`. The three repos §3 cites clear it with `curl_cffi` browser
@@ -499,13 +517,13 @@ API).
 | brief | repo today |
 |---|---|
 | §5 spine | **Gate 0 PASSES** on nine checks (`scripts/gate0.py`, exits 0/1). PIT ARA/ARB + fraksi harga + lot + halt schedules in `src/idxbot/spine/reference.py`; quality gates, corporate-action adjustment, three sourced repairs and a broker-code master alongside. Survivorship **partly repaired**: 121 vanished names recovered with history from a 2019 point-in-time snapshot, giving a measured 2.87%/yr attrition instead of an assumed 1–8% range. **What is left is one-sided** — the snapshot ends 2019-04-07, so the months in which a name actually died are still missing, and the bias figure stays a bound rather than a correction. See `reports/phase0_spine.md`. |
-| §7 Phase 1 | **run and FAILED** on a 1-name panel. See A3. |
+| §7 Phase 1 | **run and FAILED** — first on a 1-name panel, then properly on 176 names (64 delisted) × 241 fortnights. Gate 1 fails on the conjunction: significant in sample but sign-unstable across liquidity and a quintile spread indistinguishable from zero *before* costs. See A3 and `reports/phase1_flow_panel.md`. |
 | §9.3 cohort P&L | **not built.** Previously declined on the starting-inventory problem; the brief's round-trip restriction is a better answer and supersedes that decision. |
 | §9.4 execution style | **built and the §9.4 bias is corrected** — VWAP now excludes each broker's own trades. See A4; the size null it threatened was recomputed and stands. |
 | §9.5 archetypes | not built |
 | §11 purged walk-forward | partial — walk-forward exists; overlapping forward windows are now Newey-West corrected (`layer2_test.one_sided`), but purge/embargo folds do not exist |
-| §11 trial count | `hypotheses.md` now exists; 8 pre-registered trials logged |
-| §13 layout | **conflicts.** Repo is `src/idxbot/`, `scripts/`, `docs/`, `tests/` with 1,547 passing tests. Restructuring wholesale would be destructive for no research gain, so the brief's layout is treated as the target for *new* work and `reports/` + `hypotheses.md` are adopted now. |
+| §11 trial count | `hypotheses.md` now exists; **20 trials** logged through H9 |
+| §13 layout | **conflicts.** Repo is `src/idxbot/`, `scripts/`, `docs/`, `tests/` with 1,574 passing tests. Restructuring wholesale would be destructive for no research gain, so the brief's layout is treated as the target for *new* work and `reports/` + `hypotheses.md` are adopted now. |
 
 **One spine result worth carrying into every later phase.** Every IDX price is an
 exact multiple of that day's fraksi harga, so a price that is not was never
@@ -534,6 +552,40 @@ claim was frozen as Protocol B (`layer2_protocol_b.py`, hash `b8c26de3a02d24f7`)
 control because flow correlates +0.22 with the day's own move.
 
 Anything that reports on H1–H8 must quote the protocol hash it ran under.
+
+### Then it was run properly, on a real cross-section, and it failed again
+
+**H9, 2026-08-23.** 176 names (64 delisted), 241 in-sample fortnights, 21,693 rows,
+holdout reserved. Full memo: `reports/phase1_flow_panel.md`.
+
+**Gate 1 is a conjunction and the panel clears one of its four conditions.**
+
+| condition | result |
+|---|---|
+| significantly non-zero | **YES, in sample.** IC −0.0190, HAC t −2.86; 200 permutation draws through the identical pipeline put it outside every draw, empirical p 0.005. Not an artefact. |
+| stable sign | **NO.** Liquidity Q4 +0.032, Q5 −0.047 — the sign flips between adjacent quintiles. |
+| post-cost | **NO.** Quintile spread −0.215% a fortnight, t −0.70: indistinguishable from zero *before* any cost. |
+| out of sample | **NOT TESTED.** The 24-month holdout is untouched and stays that way. |
+
+It also does not clear the trial count: 8 prior trials plus ~12 here needs p < 0.0025
+under Bonferroni, against an observed 0.005.
+
+**So the honest summary is: a faint, statistically real rank tilt in-sample, far too
+small to trade.** The sign replicated Protocol A's negative direction on a sample it was
+not selected for, which is worth something — but it is a direction without a size.
+
+**Two harness errors, both caught by the null, both now regression-tested.** The first
+run had the NULL at t = −2.96 against the signal's −2.86: the permutations were
+concatenated in period order and assigned positionally against a ticker-sorted frame, so
+every period's shuffled values landed on other periods' rows. A null that certifies
+anything is worse than no null. Then a single null draw at t = −1.53 was briefly
+over-read as systematic bias; a second seed said otherwise. That is what prompted the
+permutation test, which should have been the first statistic rather than the last.
+
+**Do not attempt to rescue this by adding features** (§7). The memo lists the specific
+rescue moves that are forbidden. The live question is now §12's: *which flow is
+persistently dumb*, for which Gate 2b's baseline — aggregate flow — is now measured at
+essentially nothing.
 
 ## A4. The bias §9.4 names WAS present, and is now corrected
 
