@@ -674,3 +674,56 @@ section most exposed to fabrication, and the conditional existed so the
 decision could not be revisited after seeing the answer.
 
 **Trials after H14: 41.** Bonferroni bar α = 0.05/41 = **0.0012**.
+
+---
+
+## O1 — 2026-08-24 — run-state conditioning beats its null. AN OBSERVATION, NOT A TEST.
+
+**Logged as O rather than H on purpose.** This came out of building the daily
+brief (`reports/daily_brief.md`), not out of a pre-registered question, and
+nothing about it was predicted in advance. Recording it as a hypothesis tested
+would be backdating a registration, which is the exact move §11's trial count
+exists to make impossible.
+
+**What was fixed before any cell was seen:** four conditioning dimensions —
+leg direction, run-age tercile, extension tercile (`run_z`, cut separately per
+leg), and index-vol tercile. 54 cells. Outcome: mean forward 20-session return
+minus the equal-weighted mean over all liquid names on the same dates.
+Reference sample 1,127,670 liquid **pre-holdout** bars, 2001–2024.
+
+**What was NOT fixed in advance:** which cells would matter. That is the whole
+problem with reading the result.
+
+| | |
+|---|---|
+| largest cell excess over base | **+1.67%** / 20 sessions |
+| null (state labels shuffled within date), 200 draws | **+0.37%** mean, +0.53% p95 |
+| cell spread observed vs null | **0.68%** vs **0.13%** |
+| p(null ≥ observed) | **0.000** |
+
+**So the conditioning is real.** Old stretched advances continued (+1.0% to
++1.7% over base, intervals excluding zero in all three vol regimes); advances
+old in time but shallow in price underperformed (−0.7% to −1.0%). Coherent,
+and sign-consistent with H13's momentum features.
+
+**Four reasons it is not a result:**
+
+1. **It is the maximum of 54.** The null says *some* cell is extreme; it does
+   not license reading the largest, which is biased upward by the selection
+   that found it. ~3 of 54 uncorrected intervals clear zero by luck.
+2. **The cells were not registered.** Only the dimensions were.
+3. **Entirely in-sample.** The 24-month holdout is untouched and stays so — a
+   brief running twice a day would otherwise spend it inside a week.
+4. **H13 measured very nearly this and found it net-negative.** `mom12_1`,
+   `hi52` and `atr_mom20` all encode "old stretched advance". The construction
+   differs (long-only excess over the cross-sectional mean here; a
+   control-neutralised quintile spread there) and that difference is exactly
+   the kind that manufactures an effect. The burden is on the new one.
+
+**What would turn this into H15:** pre-register the specific cells, the
+long-only rule, the holding period and the cost model in writing; then spend
+the holdout once. Registering after reading the table above does not count.
+
+**Trial count unchanged at 41.** No hypothesis was tested here. The 54 cells
+are recorded so that a future H15 inherits them rather than pretending its
+cells were the first ones looked at.

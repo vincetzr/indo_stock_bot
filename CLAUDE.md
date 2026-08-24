@@ -886,3 +886,71 @@ after the answer was known.
 
 §9 is therefore complete: **broker codes are stable identities whose stable
 part carries no information about returns.**
+
+## A11. The daily brief exists, and building it turned up one thing worth a real test
+
+A9 and A10 closed the research programme. What was asked for next was not a
+statistical edge but a twice-daily situational read: what the market is doing,
+the narratives, potential candidates, is the run over or just started. Built as
+`src/idxbot/report/brief.py` + `scripts/brief.py`, 26 tests. Memo:
+`reports/daily_brief.md`.
+
+**Three of the four are reachable; the fourth is genuinely absent.** There is
+no news, filings or announcement source anywhere in this repo and §3's table
+lists none, so `narrative_gap()` PRINTS the absence rather than leaving a
+heading a reader would fill in themselves. What stands in for it is real:
+components fitted on the 250 sessions ending the day *before* the bar separate
+banks, coal-and-metals and the Prajogo complex out of returns alone, with no
+sector data anywhere in the project. They are printed as constituent lists;
+naming them is the reader's interpretation, per §9.6's rule.
+
+**THE ONE NEW NUMBER, AND IT IS A LEAD, NOT A FINDING.** Bucketing bars on four
+dimensions fixed before any cell was seen — leg, run age, extension (`run_z`,
+cut per leg), index vol — gives 54 cells over 1,127,670 liquid pre-holdout
+bars. Largest cell excess over the same-day base rate **+1.67% per 20
+sessions**, against a label-shuffled null of **+0.37%** (p95 0.53%), cell
+spread **0.68%** against a null **0.13%**, p = 0.000 on 200 draws. Old stretched
+advances continued; advances old in time but shallow in price underperformed.
+
+It is not reported as tradeable and must not be: it is the **maximum of 54**
+in-sample post-hoc cells, and **H13 measured very nearly the same thing and
+found it net-negative** — `mom12_1`, `hi52` and `atr_mom20` all encode "old
+stretched advance". Logged as **O1** in `hypotheses.md`, not H15; the trial
+count stays at 41 because no hypothesis was tested. Turning it into H15 means
+registering the cells, the rule, the horizon and the cost model in writing
+*first*, then spending the holdout once. **The 24-month holdout is untouched
+and every reference table here is built on `holdout == False` rows** — a brief
+running twice a day would otherwise spend it inside a week.
+
+**Four defects surfaced, and all four printed believable output.** Worth
+carrying because each generalises.
+
+*A current date column is not a current cross-section.* The panel held bars
+through 2026-08-21 with only 46 names in the last four sessions — a watchlist
+refresh — and "71.7% of names above the 20-day" was forty large caps.
+`resolve_asof` now falls back to the last representative session and says what
+it skipped.
+
+*Rolling windows on a pivot are indexed by the UNION of trading days.* One
+suspended name inserts NaN rows it never had, and `min_periods` then fails for
+every column at once: the first output read "0 of 830 names above the 200-day".
+Group by ticker; never roll on a pivot.
+
+*`np.argmax` returns the index of a NaN.* NaN compares False against
+everything, so the scan never displaces it. Against 2,327 spine bars with a
+non-positive adjusted close this produced **915 "advances" with a negative
+return from their own anchor** — impossible by the definition, sitting quietly
+in a conditional table. A further 164,627 bars carry `vol60 <= 0`, which makes
+a motionless name infinitely extended.
+
+*`np.isin` is a set test and has no place in a bootstrap.* Selecting drawn
+blocks with it silently dropped duplicates, so every resample was smaller and
+less variable than its sample and every interval came out too narrow. **A
+bootstrap that understates uncertainty is worse than none, because it looks
+like rigour.**
+
+**One limitation kept rather than patched.** `give_back` — how far price has
+come back from the leg's extreme — is arguably the best single "is it over"
+variable and is deliberately NOT a bucket dimension, because the four were
+fixed before any cell was seen and adding a fifth after noticing which cells
+came out large is the trap the trial count exists to catch.
