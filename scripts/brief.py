@@ -1,50 +1,46 @@
 #!/usr/bin/env python3
-"""The twice-daily brief: what the market did, what moved together, where every
-move sits in its own history, and what followed states like it.
+"""The twice-daily brief.
 
-    python3 scripts/brief.py --session pre     # before the 09:00 WIB open
-    python3 scripts/brief.py --session post    # after the 15:50 WIB close
-    python3 scripts/brief.py --ticker BBCA     # one name, in detail
-    python3 scripts/brief.py --build-tables    # recompute the reference tables
+    python3 scripts/refresh.py --panel --tables    # once a day, ~6 min
+    python3 scripts/brief.py --session pre         # before the 09:00 WIB open
+    python3 scripts/brief.py --session post        # after the 15:50 WIB close
+    python3 scripts/brief.py --ticker BBCA         # one name, in detail
+    python3 scripts/brief.py --save                # also write md + html
 
-WHAT THIS IS, STATED ONCE HERE AND AGAIN IN THE OUTPUT
--------------------------------------------------------
-A DESCRIPTION, plus historical frequencies. Not a forecast and not a buy list.
+WHAT IT ANSWERS, AND HOW EACH ANSWER IS GROUNDED
+--------------------------------------------------
+    what the market is doing   breadth, dispersion, regime, limit-ups, movers.
+                               Arithmetic on 800-odd names. Exact.
+    what moved overnight       the markets that trade AFTER Jakarta closes,
+                               with a measured record of which of them IDX has
+                               historically tracked — not folklore about
+                               tailwinds.
+    the narratives             co-movement groups derived from returns, plus
+                               headlines from four public RSS feeds with UMA,
+                               suspension and corporate-action tagging.
+    potential candidates       one fused watchlist: run state, cell history,
+                               event tags, round-trip cost, feature hits.
+    is the run over            where the move sits in its own history and what
+                               followed bars in the same cell — base rate,
+                               effective n, bootstrap interval, permutation
+                               null.
 
-That is not modesty, it is what this repository measured. Four independent
-instruments — aggregate broker flow (H9), broker identity (H10/H11), investor
-class (H12) and price/TA (H13) — were run to their end, and the answer each
-time was that whatever structure exists does not survive the cost of acting on
-it. H13 is the sharpest: all eight registered price features are statistically
-real and every one of them is net-negative after 56 bps of fees plus a
-fraksi-harga half-spread. A tool that quietly ranked names as buys would be
-contradicting the memos sitting beside it in `reports/`.
-
-So each section states its own status:
-
-    MARKET STATE        arithmetic. Exact, and no claim attached.
-    WHAT MOVED TOGETHER derived from returns. Named by constituents only.
-    RUN STATE           where a move sits in its own history. Descriptive.
-    WHAT FOLLOWED       historical frequencies from PRE-HOLDOUT data, with the
-                        base rate, the effective sample size, the bootstrap
-                        interval and the table-wide permutation null.
-    CANDIDATES          a ranking on the eight registered features, each shown
-                        with H13's measured post-cost result for that feature.
+WHAT IT IS NOT
+---------------
+A forecast, and not a buy list. Four instruments were run to their end in this
+repository — aggregate broker flow (H9), broker identity (H10/H11), investor
+class (H12) and price/TA (H13) — and none produced an edge that survived
+costs. H13 is the sharpest: all eight registered price features are
+statistically real and every one is net-negative after 56 bps of fees plus a
+fraksi-harga half-spread. Sections state their own status individually, and
+nothing here is evidence that trading it pays.
 
 THE HOLDOUT
 ------------
 §11 reserves the most recent 24 months to be spent once. Every reference
-distribution here is estimated on `holdout == False` rows. The brief never
-touches the holdout, which also makes its conditionals genuinely out-of-sample
-with respect to the bar being described.
-
-REFRESHING
------------
-Daily bars come from Yahoo. The brief refuses to compute a cross-section on a
-date where only part of the universe has been refreshed — a watchlist refresh
-leaves the panel looking current while the breadth line is really forty blue
-chips. When that happens it says so and falls back to the last complete
-session.
+distribution — the conditional cells, the overnight sensitivities — is
+estimated on `holdout == False` rows, which also makes them out-of-sample with
+respect to the bar being described.
 """
 
 from __future__ import annotations
@@ -53,6 +49,7 @@ import argparse
 import datetime as dt
 import os
 import sys
+import textwrap
 
 import numpy as np
 import pandas as pd
@@ -64,237 +61,322 @@ from idxbot.report import brief as B                          # noqa: E402
 WIB = dt.timezone(dt.timedelta(hours=7))
 PANEL = os.path.join("data", "spine", "price_panel.parquet")
 W = 96
+_LINES: list = []
+
+
+def out(s: str = "") -> None:
+    print(s)
+    _LINES.append(s)
 
 
 def rule(title: str = "") -> None:
-    print("=" * W)
+    out("=" * W)
     if title:
-        print(f" {title}")
-        print("=" * W)
+        out(f" {title}")
+        out("=" * W)
+
+
+def wrap(text: str, indent: str = " ") -> None:
+    for line in textwrap.wrap(text, width=W - 2):
+        out(indent + line)
 
 
 def pct(x, d: int = 1) -> str:
     return "n/a" if x is None or not np.isfinite(x) else f"{x:+.{d}%}"
 
 
-def section_state(P, S, day) -> None:
-    rule("1. MARKET STATE — arithmetic, no claim attached")
+# ==========================================================================
+def section_overnight(loader, day, session: str, blob) -> pd.DataFrame:
+    from idxbot.data import overnight as O
+    rule("1. OVERNIGHT — what moved while Jakarta was shut")
+    bars = O.load(loader, [s for s, _ in O.SYMBOLS])
+    if not bars:
+        out(" no global series available\n")
+        return pd.DataFrame()
+    Bd = O.board(bars, day)
+    out(" Jakarta closes 15:50 WIB = 08:50 UTC. New York closes 20:00 UTC and")
+    out(" London 15:30 UTC ON THE SAME DATE, so their bar dated like today's")
+    out(" IDX session landed hours after it — that is the overnight column.")
+    out(" Tokyo, Hong Kong and Shanghai close BEFORE Jakarta, so their session")
+    out(" was already visible while IDX traded; they show no overnight number")
+    out(" because for IDX there is none, only context.")
+    out("")
+    out(f" {'':<16}{'last':>12}{'overnight':>11}{'1d':>9}{'5d':>9}"
+        f"{'1m':>9}   {'as of':<11}")
+    for group in Bd["group"].unique():
+        g = Bd[Bd["group"] == group]
+        out(f" {group}")
+        for _, r in g.iterrows():
+            ovn = pct(r["overnight"], 2) if np.isfinite(r["overnight"]) \
+                else ("  —" if not r["after_jakarta"] else "  ·")
+            flag = "  (feed behind)" if r["behind"] and r["after_jakarta"] \
+                else ("  " + r["proxy"] if r["proxy"] else "")
+            out(f"   {r['name']:<14}{r['last']:>12,.2f}{ovn:>11}"
+                f"{pct(r['d1']):>9}{pct(r['d5']):>9}{pct(r['d21']):>9}   "
+                f"{str(r['asof'])[:10]:<11}{flag}")
+    out("")
+    out(" '—' = closes before Jakarta, so no overnight number exists.")
+    out(" '·' = closes after Jakarta but has not printed since.")
+
+    if blob is not None and not blob["rows"].empty:
+        S = blob["rows"]
+        out("")
+        out(f" WHICH OF THESE IDX HAS ACTUALLY TRACKED  "
+            f"({blob['n_sessions']:,} pre-holdout sessions, "
+            f"{blob['date_min']} to {blob['date_max']})")
+        out(" Rank correlation of IDX's equal-weighted session return with each")
+        out(" market's PREVIOUS completed move — the one Jakarta could act on.")
+        out("")
+        out(f"   {'':<14}{'rank corr':>11}{'95% CI':>18}{'vs null':>9}"
+            f"{'stale':>8}")
+        for _, r in S.head(10).iterrows():
+            out(f"   {r['name']:<14}{r['r']:>+11.3f}"
+                f"{f'[{r.lo:+.2f},{r.hi:+.2f}]':>18}{r['z']:>+9.1f}"
+                f"{r['stale']:>8.0%}")
+        out("")
+        wrap("RANK correlation, not Pearson: these series carry kurtosis from "
+             "10 to 2,800, and a Pearson estimate on that is a statistic "
+             "about its four largest days. Computing it that way first said "
+             "the S&P was uncorrelated with IDX (-0.001) when the rank "
+             "figure is +0.207. Yahoo's IDR=X also carries decimal-shift "
+             "defects — 888.11 where the true rate was ~8,881 — which are "
+             "dropped, and 'stale' is the share of days a series merely "
+             "repeated its last print.")
+        out("")
+        wrap("EVEN THE STRONGEST OF THESE IS CONTEXT, NOT A SIGNAL. A rank "
+             "correlation of 0.21 explains about 4% of variance; against a "
+             "typical daily cross-sectional spread that is a fraction of the "
+             "56 bps round trip before any spread is added. Asia reads near "
+             "zero partly because the alignment deliberately uses the "
+             "previous session for every market rather than risk a leak.")
+    out("")
+    return Bd
+
+
+def section_state(P, S, day) -> tuple:
+    rule("2. MARKET STATE — arithmetic, no claim attached")
     b = B.breadth(S, day)
     r = B.regime(P, day)
     L = B.limit_moves(S, day)
-    print(f" {b['n_names']} names traded.  "
-          f"{b['advancing']:.0%} advanced, {b['unchanged']:.0%} did not move "
-          f"at all (the illiquid tail), median move {b['median_move']:+.2%}")
-    print(f" cross-sectional spread of today's returns: "
-          f"{b['dispersion']:.2%}")
-    print()
-    print(f" {'':<12}{'1d':>9}{'1w':>9}{'1m':>9}{'3m':>9}{'ytd':>9}"
-          f"{'20d vol':>10}{'vs 5y':>8}")
+    out(f" {b['n_names']} names traded.  {b['advancing']:.0%} advanced, "
+        f"{b['unchanged']:.0%} did not move at all (the illiquid tail), "
+        f"median {b['median_move']:+.2%}")
+    out(f" cross-sectional spread of today's returns: {b['dispersion']:.2%}")
+    out("")
+    out(f" {'':<12}{'1d':>9}{'1w':>9}{'1m':>9}{'3m':>9}{'ytd':>9}"
+        f"{'20d vol':>10}{'vs 5y':>8}")
     for name, lab in (("equal", "equal-wt"), ("turnover", "turnover-wt")):
         if f"{name}_1d" not in r:
             continue
-        print(f" {lab:<12}" + "".join(
-            f"{pct(r[f'{name}_{h}']):>9}" for h in ("1d", "1w", "1m", "3m",
-                                                    "ytd"))
-              + f"{r[f'{name}_vol']:>10.1%}{r[f'{name}_vol_pct']:>8.0%}")
-    print(" turnover-weighted is a PROXY for cap-weighted — this repo has no")
-    print(" shares-outstanding series. A gap between the two rows is the big")
-    print(" names carrying the tape while the median name does not, or vice")
-    print(" versa; it is worth reading, and it is not IHSG.")
-    print()
-    print(f" above the 20-day  {b['above_20d']:>6.0%}   "
-          f"50-day {b['above_50d']:>6.0%}   200-day {b['above_200d']:>6.0%}")
-    print(f" at a 250-day high {b['new_highs']:>6}   "
-          f"at a 250-day low {b['new_lows']:>5}   of {b['n_250d']}")
-    print(f" closed at the auto-rejection band: {L['ara']} ARA, {L['arb']} ARB "
-          f"of {L['n']}")
-    print("   (close test only — the panel has no intraday high or low, so a")
-    print("    name that traded away from the band intraday still counts here.")
-    print("    An upper bound on genuine lock-ups, on the point-in-time band.)")
-    print()
+        out(f" {lab:<12}" + "".join(
+            f"{pct(r[f'{name}_{h}']):>9}"
+            for h in ("1d", "1w", "1m", "3m", "ytd"))
+            + f"{r[f'{name}_vol']:>10.1%}{r[f'{name}_vol_pct']:>8.0%}")
+    out(" turnover-weighted is a PROXY for cap-weighted — no shares-outstanding")
+    out(" series exists here. A gap between the rows is the big names carrying")
+    out(" the tape while the median name does not, or the reverse. Not IHSG.")
+    out("")
+    out(f" above the 20-day  {b['above_20d']:>6.0%}   "
+        f"50-day {b['above_50d']:>6.0%}   200-day {b['above_200d']:>6.0%}")
+    out(f" at a 250-day high {b['new_highs']:>6}   "
+        f"at a 250-day low {b['new_lows']:>5}   of {b['n_250d']}")
+    out(f" closed at the auto-rejection band: {L['ara']} ARA, {L['arb']} ARB "
+        f"of {L['n']}   (close test only — an upper bound)")
+    out("")
     m = B.movers(S)
-    print(f" biggest movers, liquid names only "
-          f"(>= Rp {B.MIN_VALUE/1e9:.0f}bn traded and above the "
-          f"{B.LIQUID_PCT:.0%} turnover percentile)")
+    out(f" biggest movers, >= Rp {B.MIN_VALUE/1e9:.0f}bn traded and above the "
+        f"{B.LIQUID_PCT:.0%} turnover percentile")
     for lab, D in (("up  ", m["up"]), ("down", m["down"])):
-        if D.empty:
-            continue
-        print(f"   {lab}  " + "  ".join(
-            f"{x.ticker} {x.ret:+.1%}" for x in D.itertuples()))
-    print()
+        if not D.empty:
+            out(f"   {lab}  " + "  ".join(f"{x.ticker} {x.ret:+.1%}"
+                                          for x in D.itertuples()))
+    out("")
+    return b, r, L, m
 
 
-def section_narrative(P, day) -> None:
-    rule("2. WHAT MOVED TOGETHER — the only narrative this data supports")
+def section_comovement(P, day) -> pd.DataFrame:
+    rule("3. WHAT MOVED TOGETHER — narrative derived from returns")
     cm = B.comovement(P, day, n_pc=5)
     if cm.empty:
-        print(" not enough liquid names with a year of history\n")
-        return
-    print(" Components fitted on 250 sessions ending the day BEFORE this one,")
-    print(" then today's cross-section projected onto them. A group is named by")
-    print(" its members and nothing else — whether eight coal names moving")
-    print(" together is 'the coal trade' is your interpretation, not a finding.")
-    print()
-    print(f" {'':<5}{'of hist var':>12}{'of today':>10}{'today':>9}"
-          f"{'|size| pct':>12}")
-    # iterrows, not itertuples: "with" is a Python keyword and pandas silently
-    # renames it to a positional _5, which breaks on any column reordering
+        out(" not enough liquid names with a year of history\n")
+        return cm
+    out(" Components fitted on 250 sessions ending the day BEFORE this one,")
+    out(" then today's cross-section projected onto them. A group is named by")
+    out(" its members and nothing else — whether eight coal names moving")
+    out(" together is 'the coal trade' is your reading, not a finding.")
+    out("")
+    out(f" {'':<5}{'of hist var':>12}{'of today':>10}{'today':>9}"
+        f"{'|size| pct':>12}")
     for _, x in cm.iterrows():
-        print(f" PC{x['pc']:<3}{x['var_share']:>12.1%}"
-              f"{x['today_share']:>10.1%}"
-              f"{x['score_z']:>+9.2f}z{x['abs_pct']:>11.0%}")
-        print(f"        with:    {' '.join(x['with'])}")
-        print(f"        against: {' '.join(x['against'])}")
-    print()
+        out(f" PC{x['pc']:<3}{x['var_share']:>12.1%}{x['today_share']:>10.1%}"
+            f"{x['score_z']:>+9.2f}z{x['abs_pct']:>11.0%}")
+        out(f"        with:    {' '.join(x['with'])}")
+        out(f"        against: {' '.join(x['against'])}")
+    out("")
+    return cm
 
 
-def wrap(text: str, indent: str = " ") -> None:
-    import textwrap
-    for line in textwrap.wrap(text, width=W - 2):
-        print(indent + line)
-
-
-def section_news(names, no_news: bool, per: int, limit: int) -> None:
-    rule("3. WHAT IS BEING SAID — public news feeds")
+def section_news(names, no_news: bool, per: int, limit: int):
+    rule("4. WHAT IS BEING SAID — public news feeds")
     if no_news:
-        print(" skipped (--no-news)\n")
-        return
+        out(" skipped (--no-news)\n")
+        return None
     from idxbot.data import news
-    S = news.source_report()
-    ok = S[S["ok"]]
-    print(" sources: " + ("  ".join(f"{r.feed}({r.items})"
-                                    for r in S.itertuples())
-                          if len(S) else "none configured"))
-    if ok.empty:
-        print(" no feed answered — this is an outage, not a quiet day.\n")
-        return
-    print()
+    src = news.source_report()
+    out(" sources: " + "  ".join(f"{r.feed}({r.items})"
+                                 for r in src.itertuples()))
+    if not src["ok"].any():
+        out(" no feed answered — this is an outage, not a quiet day.\n")
+        return None
+    out("")
     M = news.market_news(limit=limit)
-    print(" MARKET")
+    out(" MARKET")
     if M.empty:
-        print("   nothing in the window")
+        out("   nothing in the window")
     for _, r in M.iterrows():
         tg = ("[" + ",".join(r["tags"]) + "] ") if r["tags"] else ""
-        print(f"   {str(r['published'])[:16]}  {tg}{r['title'][:78]}")
-        print(f"      {r['source']}")
+        out(f"   {str(r['published'])[:16]}  {tg}{r['title'][:74]}")
+        out(f"      {r['source']}")
+    T = None
     if names:
-        print()
-        print(f" BY NAME  ({len(names)} names: today's movers and the names in"
-              f" the extreme cells)")
+        out("")
+        out(f" BY NAME  ({len(names)} names on the watchlist)")
         T = news.ticker_news(names, per=per)
-        if T.empty:
-            print("   nothing found for any of them")
-        for tk, g in T.groupby("ticker", sort=False):
-            print(f"   {tk}")
-            for _, r in g.iterrows():
-                tg = ("[" + ",".join(r["tags"]) + "] ") if r["tags"] else ""
-                age = "new" if r["recent"] else "old"
-                print(f"     {age} {str(r['published'])[:10]}  {tg}"
-                      f"{r['title'][:70]}")
-        print()
-        print("   'old' items are corporate actions kept beyond the 14-day")
-        print("   window because they change what the price series MEANS —")
-        print("   a rights issue is §5's named adjustment trap.")
-    print()
+        if T is None or T.empty:
+            out("   nothing found for any of them")
+        else:
+            for tk, g in T.groupby("ticker", sort=False):
+                out(f"   {tk}")
+                for _, r in g.iterrows():
+                    tg = ("[" + ",".join(r["tags"]) + "] ") if r["tags"] else ""
+                    out(f"     {'new' if r['recent'] else 'old'} "
+                        f"{str(r['published'])[:10]}  {tg}{r['title'][:68]}")
+            out("")
+            out("   'old' items are corporate actions kept beyond the 14-day")
+            out("   window because they change what the price series MEANS — a")
+            out("   rights issue is §5's named adjustment trap.")
+    out("")
     wrap(B.news_caveat())
-    print()
+    out("")
+    return T
 
 
-def section_conditional(P, R, day, blob, n: int) -> None:
+def section_watchlist(S, states, C, T, blob, n: int) -> None:
+    rule("5. WATCHLIST — every name the brief noticed, with its own context")
+    Wl = B.watchlist(S, states, C, T, n=n)
+    if Wl.empty:
+        out(" no liquid name has a usable run state today\n")
+        return
     k = blob["k"]
-    rule(f"4. WHERE EVERY MOVE SITS, AND WHAT FOLLOWED — {k} sessions ahead")
+    out(f" Sorted by absolute move today — NOT by attractiveness. There is no")
+    out(f" measured attractiveness here and sorting by one would invent it.")
+    out("")
+    out(f" {'ticker':<7}{'close':>9}{'today':>8}{'leg':>6}{'since':>7}"
+        f"{'run':>9}{'run_z':>7}{'off ext':>9}{'excess':>9}{'cost':>7}"
+        f"{'net':>7}{'f':>3}  events")
+    for _, x in Wl.iterrows():
+        ex = f"{x['diff']:+.2%}" if np.isfinite(x.get("diff", np.nan)) else "  n/a"
+        nt = f"{x['net']:+.2%}" if np.isfinite(x.get("net", np.nan)) else "  n/a"
+        out(f" {x['ticker']:<7}{x['close']:>9,.0f}"
+            f"{x.get('ret1', np.nan):>+8.1%}{x['leg']:>6}"
+            f"{int(x['run_days']):>7}{x['run_pct']:>+9.1%}"
+            f"{x['run_z']:>+7.2f}{x['give_pct']:>+9.1%}{ex:>9}"
+            f"{x['cost']:>7.2%}{nt:>7}{x['n_feat']:>3}  {x['events'][:30]}")
+    out("")
+    out(f" 'excess'  historical mean return of the cell this name currently")
+    out(f"           occupies, over {k} sessions, minus the equal-weighted")
+    out(f"           return of all liquid names on the same dates.")
+    out(" 'cost'    0.56% round trip plus half a tick each way at this price —")
+    out("           a FLOOR, since it assumes a one-tick-wide book.")
+    out(" 'net'     excess minus cost. A HISTORICAL AVERAGE, not an expectation")
+    out("           for this name, and uncorrected for the 54 cells computed.")
+    out(" 'f'       how many of the eight registered features rank this name in")
+    out("           their top decile. A COUNT, not a blend: a composite of eight")
+    out("           separately-tested features is a new signal wearing their")
+    out("           credibility, and H13 measured every one net-negative.")
+    out("")
+
+
+def section_conditional(day, blob, R, P) -> pd.DataFrame:
+    k = blob["k"]
+    rule(f"6. IS THE RUN OVER — what followed states like these, {k} sessions on")
     T, E, N = blob["table"], blob["edges"], blob["null"]
-    print(f" Reference: {blob['n_rows']:,} liquid pre-holdout bars, "
-          f"{blob['date_min']} to {blob['date_max']}, built {blob['built']}.")
-    print(f" A run is measured from the last {B.RUN_WINDOW}-session extreme of")
-    print(" the opposite sign. run_z is the move in standard deviations FOR A")
-    print(" MOVE OF ITS LENGTH, so a quiet name up 30% in ten days and a")
-    print(" volatile one up 30% in two hundred are not confused.")
-    print()
-    print(" THE PERMUTATION NULL FIRST — this repo has four separate occasions")
-    print(" where reading a statistic against zero rather than against its own")
-    print(" shuffled null produced a confident wrong answer.")
-    print(f"   {N['n_cells']} cells.  largest |excess over base rate| "
-          f"observed {N['obs_max_abs']:.2%}")
-    print(f"   under shuffled state labels: {N['null_max_abs_mean']:.2%} "
-          f"mean, {N['null_max_abs_p95']:.2%} at the 95th percentile")
-    print(f"   spread across cells: observed {N['obs_spread']:.2%} against a "
-          f"null {N['null_spread_mean']:.2%}")
-    print(f"   p(null >= observed) = {N['p_max']:.3f}")
+    out(f" Reference: {blob['n_rows']:,} liquid pre-holdout bars, "
+        f"{blob['date_min']} to {blob['date_max']}.")
+    out(f" A run is measured from the last {B.RUN_WINDOW}-session extreme of the")
+    out(" opposite sign; run_z is the move in standard deviations FOR A MOVE OF")
+    out(" ITS LENGTH, so a quiet name up 30% in ten days and a volatile one up")
+    out(" 30% in two hundred are not confused.")
+    out("")
+    out(" THE PERMUTATION NULL FIRST — reading a statistic against zero rather")
+    out(" than against its own shuffled null has produced a confident wrong")
+    out(" answer four separate times in this repo.")
+    out(f"   {N['n_cells']} cells.  largest |excess over base rate| observed "
+        f"{N['obs_max_abs']:.2%}")
+    out(f"   under shuffled state labels: {N['null_max_abs_mean']:.2%} mean, "
+        f"{N['null_max_abs_p95']:.2%} at the 95th percentile")
+    out(f"   spread across cells: observed {N['obs_spread']:.2%} against a null "
+        f"{N['null_spread_mean']:.2%}")
+    out(f"   p(null >= observed) = {N['p_max']:.3f}")
+    out("")
     if N["p_max"] < 0.05:
-        print("   => the state conditioning carries information beyond chance.")
-        print("      IT IS STILL IN-SAMPLE AND THE CELLS WERE NOT")
-        print("      PRE-REGISTERED. Fifty-four cells were computed and the")
-        print("      intervals below are uncorrected, so roughly "
-              f"{N['expected_false_cells']:.0f} clear zero by luck. The largest")
-        print("      cell is the largest OF FIFTY-FOUR and is biased upward by")
-        print("      exactly that selection. Treat it as a lead for a")
-        print("      pre-registered test, not as a result.")
+        wrap("=> the state conditioning carries information beyond chance. IT "
+             "IS STILL IN-SAMPLE AND POST-HOC. Fifty-four cells were computed "
+             "and the intervals are uncorrected, so roughly "
+             f"{N['expected_false_cells']:.0f} clear zero by luck; the largest "
+             "cell is the largest OF FIFTY-FOUR and is biased upward by "
+             "exactly the selection that found it. H13 measured very nearly "
+             "this and found it net-negative after costs. Treat it as a lead "
+             "for a pre-registered test, not a result.", "   ")
     else:
-        print("   => indistinguishable from shuffled labels. Read nothing "
-              "from the cells.")
-    print()
-
+        out("   => indistinguishable from shuffled labels. Read nothing from "
+            "the cells.")
+    out("")
     D = B.current_states(P, R, day, T, E)
-    if D.empty:
-        print(" no liquid name has a usable run state today\n")
-        return
-    print(f" {len(D)} liquid names placed. Historical excess over the base rate")
-    print(" for the cell each currently occupies, and what a round trip costs.")
-    print()
-    print(" 'since' is sessions from the extreme the leg STARTED at, not the")
-    print(" age of today's move; 'off ext' is how far price has come back from")
-    print(" the leg's far end — below the high for an advance, above the low")
-    print(" for a decline. A long leg with a large 'off ext' has already turned.")
-    print()
-    hdr = (f" {'ticker':<8}{'close':>9}{'leg':>6}{'since':>7}{'run':>9}"
-           f"{'run_z':>8}{'off ext':>9}  {'cell':<44}{'excess':>9}"
-           f"{'95% CI':>18}{'cost':>8}{'net':>8}")
-    print(hdr)
-    for x in pd.concat([D.head(n), D.tail(n)]).drop_duplicates(
-            "ticker").itertuples():
-        ci = (f"[{x.diff_lo:+.1%},{x.diff_hi:+.1%}]"
-              if np.isfinite(x.diff_lo) else "n/a")
-        print(f" {x.ticker:<8}{x.close:>9,.0f}{x.leg:>6}{x.run_days:>7}"
-              f"{x.run_pct:>+9.1%}{x.run_z:>+8.2f}{x.give_pct:>+9.1%}  "
-              f"{x.what:<44}{x.diff:>+9.2%}{ci:>18}"
-              f"{x.cost:>8.2%}{x.net:>+8.2%}")
-    print()
-    print(" 'excess' is over the equal-weighted return of all liquid names on")
-    print(" the same dates, so it is what the state added to simply being in")
-    print(" the market. 'cost' is A5's 0.56% round trip plus half a tick each")
-    print(" way at this price — a FLOOR, since it assumes a one-tick book.")
-    print(" 'net' is a HISTORICAL AVERAGE minus that floor. It is not an")
-    print(" expected return for this name, and the interval is uncorrected.")
-    print()
+    if not D.empty:
+        best = D.head(3)
+        worst = D.tail(3)
+        out(" the cells today's liquid names actually occupy, best and worst:")
+        for lab, g in (("best ", best), ("worst", worst)):
+            for _, x in g.iterrows():
+                out(f"   {lab} {x['ticker']:<7}{x['what']:<46}"
+                    f"{x['diff']:>+8.2%} excess   cost {x['cost']:>6.2%}")
+    out("")
+    return D
 
 
-def section_candidates(P, day, n: int) -> None:
-    rule("5. CANDIDATES — ranked on the eight features H13 registered")
-    C = B.candidates(P, day, n=n)
-    if C.empty:
-        print(" nothing passes the liquidity filter today\n")
+def section_flow(names) -> None:
+    rule("7. FLOW — what the repo has, and why it is small")
+    f = os.path.join("data", "spine", "investor_split.csv.gz")
+    if not os.path.exists(f):
+        out(" no flow data collected\n")
         return
-    print(" Every one of these was tested on 1,989,504 pre-holdout rows. The")
-    print(" right-hand column is what that test found. It is printed on every")
-    print(" line because a ranked list with the result omitted reads as a")
-    print(" recommendation no matter what the header says.")
-    print()
-    for f, g in C.groupby("feature", sort=False):
-        sign = int(g["sign"].iloc[0])
-        print(f" {f}  (predicted sign {sign:+d})")
-        print(f"   {'  '.join(g['ticker'].tolist())}")
-        print(f"   H13: {g['h13'].iloc[0]}")
-    ov = B.candidate_overlap(C)
-    if not ov.empty:
-        print()
-        print(" on more than one list:")
-        for x in ov.itertuples():
-            print(f"   {x.ticker:<8} {x.n_lists}  {', '.join(x.lists)}")
-        print("   (overlap is reported instead of a composite score: a blend of")
-        print("    the eight would be a NEW signal that has never been tested,")
-        print("    wearing the credibility of eight that have.)")
-    print()
+    D = pd.read_csv(f)
+    D["window_end"] = pd.to_datetime(D["window_end"])
+    last = D["window_end"].max()
+    out(f" Foreign/domestic split: {D['ticker'].nunique()} names, "
+        f"{len(D):,} class-windows, latest window ending {last.date()}.")
+    L = D[D["window_end"] == last]
+    if not L.empty:
+        piv = L.pivot_table(index="ticker", columns="view",
+                            values="net_value", aggfunc="sum")
+        if "F" in piv:
+            piv = piv.reindex(piv["F"].abs().sort_values(
+                ascending=False).index)
+            out("")
+            out(f"   {'ticker':<8}{'foreign net':>16}{'domestic net':>16}")
+            for t, r in piv.head(8).iterrows():
+                out(f"   {t:<8}{r.get('F', np.nan):>16,.0f}"
+                    f"{r.get('D', np.nan):>16,.0f}")
+    out("")
+    wrap("THIS IS FORTNIGHTLY AND NARROW, AND IT HAS NO PREDICTIVE CONTENT "
+         "HERE. H12 measured foreign margin at -1.70 bps a fortnight "
+         "(p 0.69) and domestic at +1.02 (p 0.82), against a 56 bps cost bar "
+         "— a powered null, 8.8 to 11.3 null-sds from anything tradeable. "
+         "H9 found aggregate broker flow no better and H11 found broker "
+         "identity does not persist. It is printed as description because the "
+         "repo collected it, not because it decides anything.")
+    out("")
 
 
 def section_ticker(P, R, day, blob, t: str) -> None:
@@ -303,123 +385,156 @@ def section_ticker(P, R, day, blob, t: str) -> None:
     D = B.current_states(P, R, day, T, E, min_value=0.0, liquid_pct=0.0)
     row = D[D["ticker"] == t]
     if row.empty:
-        print(f" {t} has no usable run state on {day.date()} — either it did "
-              f"not trade,\n or it lacks {B.RUN_WINDOW} sessions of history.\n")
+        out(f" {t} has no usable run state on {day.date()} — it did not trade,")
+        out(f" or it lacks {B.RUN_WINDOW} sessions of history.\n")
         return
     x = row.iloc[0]
-    print(f" close {x['close']:,.0f}   {x['leg']} leg, anchored "
-          f"{int(x['run_days'])} sessions ago at its 250-day "
-          f"{'low' if x['leg'] == 'up' else 'high'}")
-    print(f" from the anchor: {x['run_pct']:+.1%}  "
-          f"({x['run_z']:+.2f} sd for a move of that length)")
-    print(f" handed back from the leg's extreme: {x['give_pct']:+.1%}")
-    print(f" cell: {x['what']}")
-    if isinstance(x.get("bucket"), str) and np.isfinite(x.get("diff", np.nan)):
-        print(f" historically from that cell, over {blob['k']} sessions:")
-        print(f"   mean {x['fwd_mean']:+.2%} against a base rate of "
-              f"{x['base_mean']:+.2%}  ->  excess {x['diff']:+.2%}")
-        print(f"   95% block-bootstrap CI [{x['diff_lo']:+.2%}, "
-              f"{x['diff_hi']:+.2%}]   n = {int(x['n']):,} bars, "
-              f"n_eff = {int(x['n_eff'])} non-overlapping windows")
-        print(f"   up {x['p_up']:.0%} of the time")
-        print(f"   round trip here costs {x['cost']:.2%}  ->  "
-              f"net {x['net']:+.2%}")
-    print()
-    print(" That is a historical frequency from a cell holding thousands of")
-    print(" other bars. It is not a forecast for this name, and the interval")
-    print(" is uncorrected for the 54 cells the table computes.")
-    print()
+    out(f" close {x['close']:,.0f}   {x['leg']} leg, anchored "
+        f"{int(x['run_days'])} sessions ago at its 250-day "
+        f"{'low' if x['leg'] == 'up' else 'high'}")
+    out(f" from the anchor: {x['run_pct']:+.1%}  ({x['run_z']:+.2f} sd for a "
+        f"move of that length)")
+    out(f" come back from the leg's far end: {x['give_pct']:+.1%}")
+    out(f" cell: {x['what']}")
+    if np.isfinite(x.get("diff", np.nan)):
+        out(f" historically from that cell, over {blob['k']} sessions:")
+        out(f"   mean {x['fwd_mean']:+.2%} against a base rate of "
+            f"{x['base_mean']:+.2%}  ->  excess {x['diff']:+.2%}")
+        out(f"   95% CI [{x['diff_lo']:+.2%}, {x['diff_hi']:+.2%}]   "
+            f"n = {int(x['n']):,} bars, n_eff = {int(x['n_eff'])} "
+            f"non-overlapping windows")
+        out(f"   up {x['p_up']:.0%} of the time")
+        out(f"   round trip here costs {x['cost']:.2%}  ->  net {x['net']:+.2%}")
+    out("")
+    out(" A historical frequency from a cell holding thousands of other bars.")
+    out(" Not a forecast for this name, and uncorrected for 54 cells.")
+    out("")
+
+
+def save(session: str, day) -> None:
+    os.makedirs("reports", exist_ok=True)
+    stamp = f"{day.date()}_{session}"
+    md = os.path.join("reports", f"brief_{stamp}.md")
+    with open(md, "w") as fh:
+        fh.write(f"# IDX brief — {day.date()} {session}\n\n```\n"
+                 + "\n".join(_LINES) + "\n```\n")
+    latest = os.path.join("reports", "brief_latest.md")
+    with open(latest, "w") as fh:
+        fh.write(f"# IDX brief — {day.date()} {session}\n\n```\n"
+                 + "\n".join(_LINES) + "\n```\n")
+    print(f"\n saved {md} and {latest}")
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--session", choices=["pre", "post"], default="post")
     ap.add_argument("--panel", default=PANEL)
-    ap.add_argument("--ticker", default=None, help="detail on one name")
-    ap.add_argument("--horizon", type=int, default=20,
-                    help="sessions ahead for the conditional table")
+    ap.add_argument("--ticker", default=None)
+    ap.add_argument("--horizon", type=int, default=20)
     ap.add_argument("--names", type=int, default=8)
-    ap.add_argument("--no-news", action="store_true",
-                    help="skip the news section (it makes network requests to "
-                         "public RSS feeds)")
-    ap.add_argument("--news-names", type=int, default=14,
-                    help="how many names to pull per-ticker headlines for")
+    ap.add_argument("--watch", type=int, default=20,
+                    help="rows in the fused watchlist")
+    ap.add_argument("--no-news", action="store_true")
+    ap.add_argument("--no-overnight", action="store_true")
+    ap.add_argument("--news-names", type=int, default=12)
     ap.add_argument("--news-per", type=int, default=3)
-    ap.add_argument("--build-tables", action="store_true",
-                    help="recompute the cached reference tables (~2 min)")
+    ap.add_argument("--save", action="store_true",
+                    help="write reports/brief_<date>_<session>.md")
+    ap.add_argument("--build-tables", action="store_true")
     ap.add_argument("--draws", type=int, default=200)
     a = ap.parse_args()
 
     if not os.path.exists(a.panel):
-        print(f"no panel at {a.panel} — run scripts/price_panel_build.py first")
+        print(f"no panel at {a.panel} — run scripts/price_panel_build.py")
         return 1
     now = dt.datetime.now(tz=WIB)
     P = pd.read_parquet(a.panel)
 
+    from idxbot.config import load_config
+    from idxbot.data.cache import Cache
+    from idxbot.data.ohlcv import YahooOHLCV
+    cfg = load_config()
+    loader = YahooOHLCV(cfg, Cache(cfg.path("data.cache_dir", "data/cache")))
+
     if a.build_tables:
         print(f" building reference tables (draws={a.draws}) …", flush=True)
         B.build_tables(P, ks=(5, 20), draws=a.draws, null_draws=a.draws)
+        B.build_sensitivity(P, loader, draws=a.draws)
         print(" done")
 
     blob = B.load_table(a.horizon)
     if blob is None:
-        print(f" no reference table for k={a.horizon}. "
-              f"Run with --build-tables once.")
+        print(f" no reference table for k={a.horizon}. Run --build-tables once.")
         return 1
+    sens = B.load_sensitivity()
 
     day = B.resolve_asof(P)
     warn = B.coverage_warning(P, day)
 
     rule()
-    print(f" IDX BRIEF — {a.session.upper()} session, {now:%Y-%m-%d %H:%M} WIB")
-    print(f" bars through {day.date()}"
-          + (f"  ({(now.date() - day.date()).days} calendar days behind)"
-             if (now.date() - day.date()).days else ""))
+    out(f" IDX BRIEF — {a.session.upper()} session, {now:%Y-%m-%d %H:%M} WIB")
+    out(f" IDX bars through {day.date()}")
     rule()
-    print(" A DESCRIPTION, plus historical frequencies. Not a forecast, not a")
-    print(" buy list. Four instruments were run to their end in this repo and")
-    print(" none produced an edge that survived costs; H13 in particular found")
-    print(" all eight registered price features net-negative after fees and")
-    print(" spread. Sections state their own status individually.")
-    if a.session == "pre":
-        print()
-        print(" PRE-OPEN: nothing here is newer than the last close. There is")
-        print(" no overnight or pre-market IDX data in this repo, so a morning")
-        print(" run and an evening run differ only in what has settled, not in")
-        print(" what is known.")
     if warn:
-        print()
-        print(" ! " + warn)
-    print()
+        out(" ! " + warn)
+        out("")
 
     S = B.snapshot(P, day)
     R = B.run_state(P)
+    b = B.breadth(S, day)
+    reg = B.regime(P, day)
+    L = B.limit_moves(S, day)
+    cm_pre = B.comovement(P, day, n_pc=5)
+    Bd = pd.DataFrame()
+    if not a.no_overnight:
+        from idxbot.data import overnight as O
+        Bd = O.board(O.load(loader, [s for s, _ in O.SYMBOLS]), day)
 
+    out(" THE READ")
+    for line in B.headline(b, reg, L, Bd if not Bd.empty else None, cm_pre):
+        wrap(line, "   ")
+    out("")
+    wrap("Every clause above is a printed number from the sections below. "
+         "Nothing here says what happens next: four instruments were run to "
+         "their end in this repo and none produced an edge that survived "
+         "costs.")
+    if a.session == "pre":
+        out("")
+        wrap("PRE-OPEN: IDX data is unchanged since the last close. What IS "
+             "new is section 1 — the markets that traded after Jakarta shut.")
+    out("")
+
+    if not a.no_overnight:
+        section_overnight(loader, day, a.session, sens)
     section_state(P, S, day)
-    section_narrative(P, day)
+    section_comovement(P, day)
 
-    # the names worth a headline: today's biggest movers both ways, plus the
-    # names sitting in the most extreme conditional cells, plus any --ticker
-    mv = B.movers(S, n=a.news_names // 2)
+    mv = B.movers(S, n=max(4, a.news_names // 2))
     watch = list(dict.fromkeys(
         list(mv["up"]["ticker"]) + list(mv["down"]["ticker"])
         + ([a.ticker.upper()] if a.ticker else [])))[:a.news_names]
-    section_news(watch, a.no_news, a.news_per, a.names + 4)
+    T = section_news(watch, a.no_news, a.news_per, a.names + 4)
 
-    section_conditional(P, R, day, blob, a.names)
-    section_candidates(P, day, a.names)
+    states = B.current_states(P, R, day, blob["table"], blob["edges"])
+    C = B.candidates(P, day, n=max(10, a.watch))
+    section_watchlist(S, states, C, T, blob, a.watch)
+    section_conditional(day, blob, R, P)
+    section_flow(watch)
     if a.ticker:
         section_ticker(P, R, day, blob, a.ticker.upper())
 
     rule("WHAT WOULD CHANGE THE PICTURE")
-    print(" The cells in section 3 beat their permutation null, which means")
-    print(" the state conditioning is real. It does NOT mean it is tradeable:")
-    print(" the cells are post-hoc, in-sample, and uncorrected for 54 tests.")
-    print(" The test that would settle it is a pre-registered one — pick the")
-    print(" cells and the rule BEFORE looking, then spend the 24-month holdout")
-    print(" once. That has not been done, the holdout is untouched, and until")
-    print(" it is, nothing in this brief is evidence that trading it pays.")
-    print()
+    out(" The conditional cells beat their permutation null, so the state")
+    out(" conditioning is real. That does NOT make it tradeable: the cells are")
+    out(" post-hoc, in-sample and uncorrected for 54 tests, and H13 measured")
+    out(" nearly the same thing net-negative. The test that would settle it is")
+    out(" pre-registered — fix the cells, the rule, the horizon and the cost")
+    out(" model in writing, then spend the 24-month holdout once. That has not")
+    out(" been done. The holdout is untouched and every reference table here")
+    out(" is built on pre-holdout rows only.")
+    out("")
+    if a.save:
+        save(a.session, day)
     return 0
 
 

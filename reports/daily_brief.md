@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-24
 **Built:** `src/idxbot/report/brief.py`, `src/idxbot/data/news.py`,
-`scripts/brief.py`, `scripts/refresh.py`.
+`src/idxbot/data/overnight.py`, `scripts/brief.py`, `scripts/refresh.py`.
 **Run it:** `python3 scripts/refresh.py --panel --tables` then
 `python3 scripts/brief.py --session post [--ticker BBCA]`
 
@@ -18,9 +18,10 @@ how that went, because the error matters more than the fix.
 
 | asked for | status |
 |---|---|
+| what moved overnight | **built.** The markets that trade AFTER Jakarta closes — Wall Street, the dollar, Treasuries, energy, metals, the listed mining complex — with a MEASURED record of which of them IDX has historically tracked. See §1.2: the first version of that table was wrong. |
 | what the market is doing | **built.** Arithmetic on 829 names: breadth on three horizons, advance/decline, cross-sectional dispersion, 250-day extremes, equal- and turnover-weighted index returns and vol percentile, and a count of names closed at the point-in-time auto-rejection band. |
 | the narratives | **built, both halves.** Co-movement groups from a factorisation fitted strictly before the bar, PLUS real headlines from four public RSS feeds with UMA, suspension and corporate-action tagging. The news half was written off without a request being made; see below and CLAUDE.md A12. |
-| potential candidates | **built, with its own refutation attached.** The eight H13-registered features, ranked in their registered direction, each line carrying H13's measured post-cost result. |
+| potential candidates | **built as ONE fused watchlist.** Per name: today's move, run state, the historical excess of the cell it occupies, round-trip cost, net, event tags from the news layer, and a count of registered-feature hits. It replaced eight separate feature lists that no one could read. |
 | is the run over or just started | **built as a description plus a historical frequency.** Where the move sits in its own history, and what followed bars in the same cell — with the base rate, the effective sample size, a block-bootstrap interval and a permutation null. |
 
 ### 1.1 The news narrative WAS declared absent, and that was wrong
@@ -71,6 +72,47 @@ config file. **They are printed as constituent lists and nothing else.**
 Whether PC3 is "the coal trade" is an interpretation, and §9.6's rule — state
 the regularity, mark the interpretation separately — applies here as much as
 it does to a broker dossier.
+
+---
+
+### 1.2 The overnight table was wrong the first time, and the estimator was why
+
+`--session pre` originally admitted in its own banner that it knew nothing a
+post-close run did not. That is now fixed — Yahoo serves ^GSPC, DXY, USDIDR,
+^TNX and every metal from the same unauthenticated endpoint the `.JK` names
+use — but getting it right took two corrections worth recording.
+
+**The clock.** Wall Street's bar dated 2026-08-24 lands eleven hours AFTER
+Jakarta's bar of the same name, so it is overnight news; Tokyo's bar of that
+date closed two hours BEFORE Jakarta's and is not. Testing `date > idx_day`
+finds nothing and prints a silent NaN for the whole board, which is what the
+first version did.
+
+**The estimator, and this one inverted the headline.** The first sensitivity
+table used Pearson and reported the S&P 500 as essentially unrelated to IDX
+(r = **−0.001**), with Glencore the strongest link. On rank correlation the
+S&P is the **strongest at +0.207 (z = +14.9)**. These series carry kurtosis
+from 10 to **2,800**; Pearson on that is a statistic about its four largest
+days. The block bootstrap was separately verified unbiased against a synthetic
+sample of known correlation, which is what allowed the blame to be pinned on
+the estimator rather than the intervals.
+
+Two data defects fell out of the same check: Yahoo's `IDR=X` carries
+decimal-shift errors (888.11 against a true ~8,881, reversing the next day),
+now dropped and counted; and `^TNX` is a *rate*, so it is differenced — it fell
+0.93 → 0.50 in March 2020, a real 43 bp move and a spurious −46% return.
+
+**What the corrected table says**, on 6,091 pre-holdout sessions: S&P +0.207,
+Nasdaq +0.199, BHP +0.185, Rio +0.169, Glencore +0.160, Brent +0.123, copper
++0.096, DXY **−0.080**, USDIDR **−0.042**, Asia indistinguishable from zero.
+The conventional reads are real and signed as folklore says. **None is
+tradeable** — the strongest explains about 4% of variance against a 56 bps
+round trip.
+
+This is the fifth confident wrong answer in this repo, and the first caused by
+a mis-specified estimator rather than a missing benchmark. The four before it
+came from reading a statistic against zero instead of its own permutation null.
+The generalisation: **check the distribution before choosing the statistic.**
 
 ---
 

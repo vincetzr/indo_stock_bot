@@ -44,6 +44,7 @@ When I ask for a result, give effect size and uncertainty, not a p-value alone.
 | **EOD broker summary** | **Free** | `idx.co.id` publishes it; endpoints reverse-engineered in `NeaByteLab/IDX-API`, `nichsedge/idx-bei`, `ExRonin/Stock-Scrapper-IDX` |
 | Corporate actions | Free | IDX announcements; needs parsing |
 | **News / narrative** | **Free** | *Added 2026-08-24, after this table's silence was misread as absence.* Public RSS: Google News (per-query and per-ticker), CNBC Indonesia, Kontan, Detik finance. Verified 200-OK with parseable items; Bisnis.com and idnfinancials 403. `src/idxbot/data/news.py`. **No point-in-time archive, so it may never enter a statistic** |
+| **Overnight / global** | **Free** | *Added 2026-08-25.* The same unauthenticated Yahoo chart endpoint the `.JK` names use also serves ^GSPC, ^IXIC, DX-Y.NYB, IDR=X, ^TNX, BZ=F, CL=F, GC=F, HG=F, ALI=F, TIO=F, GLEN.L, BHP, RIO — and `^JKSE` itself. `src/idxbot/data/overnight.py`. No free front-month series exists for coal, nickel or CPO; the listed miners stand in, labelled |
 | Foreign net flow | Free | IDX trading summary |
 | Macro (USDIDR, BI rate, DXY, UST) | Free | BI, FRED |
 | Real-time tick / running trade | **Licensed** | IDX Data Services. Free route is scraping my own broker session — brittle, ToS-grey |
@@ -1017,3 +1018,65 @@ edge and fell back, which was right but left it permanently stale.
 `scripts/refresh.py` pulls the whole universe (~0.34 s/name, ~5 min for 843)
 and rebuilds the panel and the brief's tables behind it: **829 names, 98%,
 current.**
+
+## A13. The pre-open brief that knew nothing, and the estimator that inverted its headline
+
+A11's brief shipped a `--session pre` mode whose own banner admitted the
+problem: *"a morning run and an evening run differ only in what has settled,
+not in what is known."* That makes half the stated use case pointless, because
+what a pre-open read is FOR is the overnight gap.
+
+**The gap was free and had never been fetched.** Jakarta closes 15:50 WIB =
+08:50 UTC; New York closes 20:00 UTC and London 15:30 UTC. `YahooOHLCV` —
+already in this repo, already serving every `.JK` name — returns all of them
+from the same unauthenticated endpoint. This is A12's lesson again, one section
+later: the tool was in hand and was not tried.
+
+**THE CLOCK IS THE WHOLE DIFFICULTY.** Wall Street's bar dated 2026-08-24 lands
+eleven hours AFTER Jakarta's bar of the same name, so it is overnight news;
+Tokyo's bar of that date closed two hours BEFORE Jakarta's and is not. A naive
+`date > idx_day` test finds nothing and reports a silent NaN for the entire
+board, which is what the first version did. `AFTER_JAKARTA` encodes which is
+which, and the historical alignment deliberately uses the previous session for
+every market rather than risk a leak.
+
+**AND THE HEADLINE INVERTED WHEN THE ESTIMATOR CHANGED.** The first
+sensitivity table used Pearson and reported that the S&P 500 has essentially no
+relationship with IDX (r = **−0.001**), with Glencore the strongest link. On
+rank correlation the S&P is the **strongest** at **+0.207 (z = +14.9)** and
+Glencore third. The cause is measured, not guessed: these series carry kurtosis
+from 10 to **2,800**, and Pearson on a sample like that is a statistic about
+its four largest days.
+
+Two data defects fell out of the same check. Yahoo's `IDR=X` carries
+**decimal-shift errors** — 2010-11-01 prints 888.11 against a true ~8,881 and
+reverses the next day, a +903% return followed by −90% — which are dropped and
+counted, not winsorised into something plausible. And `^TNX` is a **rate**: it
+fell 0.93 → 0.50 in March 2020, a real 43 bp move and a spurious −46% return,
+so rates are differenced and prices are not.
+
+**This is a different error from the null one.** A10 and A11 record four
+occasions where reading a statistic against zero instead of its own
+permutation null gave a confident wrong answer. This is the fifth confident
+wrong answer but the first from a mis-specified *estimator* rather than a
+missing *benchmark*. The generalisation: check the distribution before choosing
+the statistic. The block bootstrap was verified unbiased against a synthetic
+sample of known correlation, which is what let the blame be pinned on Pearson
+rather than on the intervals.
+
+**What the measured table actually says**, on 6,091 pre-holdout sessions:
+S&P +0.207, Nasdaq +0.199, BHP +0.185, Rio +0.169, Glencore +0.160, Brent
++0.123, copper +0.096, DXY **−0.080**, USDIDR **−0.042**, and Asia
+indistinguishable from zero. So the conventional reads — a strong dollar is a
+headwind, the commodity complex matters — are real and signed as folklore says.
+**None of it is tradeable.** The strongest explains about 4% of variance, a
+fraction of the 56 bps round trip.
+
+**The brief is also now one document rather than eight lists.** The candidate
+section printed the top names on each registered feature in turn — forty
+tickers in eight columns with no name appearing beside its own context. It is
+replaced by a single fused watchlist: today's move, run state, the historical
+excess of the cell it occupies, round-trip cost, net, an event-tag column from
+the news layer, and a COUNT of how many registered features rank it top-decile.
+A count, not a blend — a composite of eight separately-tested features is a new
+signal wearing their credibility.

@@ -1002,6 +1002,111 @@ def current_states(P: pd.DataFrame, R: pd.DataFrame, day: pd.Timestamp,
     return D.sort_values("diff", ascending=False).reset_index(drop=True)
 
 
+def watchlist(S: pd.DataFrame, states: pd.DataFrame, C: pd.DataFrame,
+              news: Optional[pd.DataFrame] = None,
+              n: int = 20) -> pd.DataFrame:
+    """One row per name, fusing everything the brief knows about it.
+
+    WHY THIS REPLACES EIGHT SEPARATE LISTS. The candidate section used to print
+    the top names on each registered feature in turn, which is faithful to how
+    H13 tested them and nearly useless to read: forty tickers in eight columns,
+    no name appearing with its own context, and the reader left to do the join.
+    A daily brief is read in two minutes or not at all.
+
+    The columns are ordered by what actually decides anything: today's move,
+    where the run sits, what the cell historically did, what a round trip
+    costs, and whether there is an event attached. `n_feat` counts how many of
+    the eight registered features rank the name in their top decile — reported
+    as a count rather than a blended score, because a composite of eight
+    separately-tested features is a NEW signal wearing their credibility.
+
+    Sorted by absolute move today. Not by attractiveness: there is no measured
+    attractiveness here, and sorting by one would invent it.
+    """
+    if states is None or states.empty:
+        return pd.DataFrame()
+    D = states.copy()
+    if not C.empty:
+        cnt = (C[C["pct"] >= 0.90].groupby("ticker")["feature"]
+               .agg(["nunique", lambda s: ",".join(sorted(set(s)))]))
+        cnt.columns = ["n_feat", "features"]
+        D = D.merge(cnt.reset_index(), on="ticker", how="left")
+    else:
+        D["n_feat"], D["features"] = 0, ""
+    D["n_feat"] = D["n_feat"].fillna(0).astype(int)
+    D["features"] = D["features"].fillna("")
+
+    if "ret1" in S:
+        D = D.merge(S[["ret1"]].reset_index(), on="ticker", how="left")
+
+    if news is not None and not news.empty:
+        ev = (news[news["tags"].map(len) > 0]
+              .groupby("ticker")["tags"]
+              .agg(lambda ts: ",".join(sorted({t for x in ts for t in x}))))
+        D = D.merge(ev.rename("events").reset_index(), on="ticker", how="left")
+    if "events" not in D:
+        D["events"] = ""
+    D["events"] = D["events"].fillna("")
+    D["absret"] = D["ret1"].abs() if "ret1" in D else 0.0
+    return D.sort_values("absret", ascending=False).head(n).reset_index(
+        drop=True)
+
+
+def headline(b: Dict[str, object], reg: Dict[str, object],
+             L: Dict[str, int], ov: Optional[pd.DataFrame],
+             cm: pd.DataFrame) -> List[str]:
+    """The two-sentence read at the top, assembled ONLY from computed numbers.
+
+    Every clause below traces to a value in one of the arguments. There is no
+    adjective that is not a printed threshold, and no claim about what happens
+    next — §9.6's rule for a behavioural read, applied to a market read.
+    """
+    out = []
+    adv, up20, up200 = (b.get("advancing"), b.get("above_20d"),
+                        b.get("above_200d"))
+    d1 = reg.get("equal_1d", np.nan)
+    tv = reg.get("turnover_1d", np.nan)
+    vp = reg.get("equal_vol_pct", np.nan)
+    parts = []
+    if np.isfinite(d1):
+        parts.append(f"the average liquid name moved {d1:+.2%}")
+    if np.isfinite(tv) and np.isfinite(d1) and abs(tv - d1) > 0.004:
+        parts.append(f"but the turnover-weighted index {tv:+.2%} — "
+                     f"the big names and the median name disagree")
+    if np.isfinite(adv):
+        parts.append(f"{adv:.0%} of names advanced")
+    out.append("; ".join(parts) + ".")
+
+    trend = []
+    if np.isfinite(up20) and np.isfinite(up200):
+        trend.append(f"{up20:.0%} sit above their 20-day and {up200:.0%} "
+                     f"above their 200-day")
+    if np.isfinite(vp):
+        trend.append(f"20-day index vol is at its {vp:.0%} percentile of the "
+                     f"last five years")
+    if L.get("ara", 0) or L.get("arb", 0):
+        trend.append(f"{L['ara']} closed limit-up and {L['arb']} limit-down")
+    if trend:
+        out.append("; ".join(trend) + ".")
+
+    if ov is not None and not ov.empty:
+        o = ov[ov["overnight"].notna()]
+        if not o.empty:
+            big = o.reindex(o["overnight"].abs().sort_values(
+                ascending=False).index).head(3)
+            out.append("Overnight, while Jakarta was shut: "
+                       + ", ".join(f"{r['name']} {r['overnight']:+.2%}"
+                                   for _, r in big.iterrows()) + ".")
+    if not cm.empty:
+        top = cm.reindex(cm["today_share"].sort_values(
+            ascending=False).index).iloc[0]
+        out.append(f"The largest single co-movement group took "
+                   f"{top['today_share']:.0%} of today's cross-sectional "
+                   f"variance ({top['score_z']:+.1f} sd): "
+                   + " ".join(top["with"][:5]) + ".")
+    return out
+
+
 def cost_bar(price: float, day, fee: float = ROUND_TRIP_FEE) -> Dict[str, float]:
     """What one round trip costs at this price on this date, as a fraction.
 
@@ -1058,6 +1163,45 @@ def build_tables(P: pd.DataFrame, ks: Sequence[int] = (5, 20),
         os.replace(tmp, table_path(k))
         out[k] = blob
     return out
+
+
+SENS_PATH = os.path.join(TABLE_DIR, "overnight_sensitivity.json")
+
+
+def build_sensitivity(P: pd.DataFrame, loader, draws: int = 200,
+                      seed: int = 20260824) -> Dict[str, object]:
+    """Cache which overnight moves IDX has historically tracked.
+
+    Pre-holdout only, like every other reference distribution here. Cached
+    because it takes a few seconds and changes only when the panel does — a
+    brief run twice a day should not recompute twenty years of correlations to
+    print eighteen numbers.
+    """
+    from ..data import overnight as O
+    bars = O.load(loader, [s for s, _ in O.SYMBOLS])
+    ref = P[~P["holdout"].astype(bool)]
+    idx = index_series(ref, "equal").pct_change().dropna()
+    S = O.sensitivity(bars, idx, draws=draws, seed=seed)
+    blob = {"built": dt.date.today().isoformat(),
+            "n_sessions": int(len(idx)),
+            "date_min": str(idx.index.min().date()),
+            "date_max": str(idx.index.max().date()),
+            "rows": S.to_dict(orient="records")}
+    os.makedirs(TABLE_DIR, exist_ok=True)
+    tmp = SENS_PATH + ".tmp"
+    with open(tmp, "w") as fh:
+        json.dump(blob, fh)
+    os.replace(tmp, SENS_PATH)
+    return blob
+
+
+def load_sensitivity() -> Optional[Dict[str, object]]:
+    if not os.path.exists(SENS_PATH):
+        return None
+    with open(SENS_PATH) as fh:
+        blob = json.load(fh)
+    blob["rows"] = pd.DataFrame(blob["rows"])
+    return blob
 
 
 def load_table(k: int) -> Optional[Dict[str, object]]:
