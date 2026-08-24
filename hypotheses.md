@@ -437,3 +437,62 @@ realised P&L.
 
 **Trials after H12: 30.** Bonferroni bar α = 0.05/30 = **0.0017**; the best
 p-value here is 0.587.
+
+---
+
+## H13 — do PRICE/TA and structural features predict IDX returns? (PRE-REGISTERED)
+
+**Registered 2026-08-23, before any feature was computed and before any
+statistic was run.** §8 requires that every feature be justified by a prior
+mechanism *before* it is tested, with the prediction logged. That is what this
+entry is.
+
+**Why now.** §4 ordered the work by cost-to-falsify and the flow branch has been
+run to its end: aggregate flow (H9), broker identity (H10/H11) and investor
+class (H12) all returned nulls. Price and structural features have never been
+tested, are free, need no broker data at all — and therefore run at **daily**
+resolution on the **full ~1,000-name spine** rather than fortnightly on 176.
+That is far more power than anything the flow branch had.
+
+**Design.** Identical to Gate 1's, deliberately, so the results are comparable:
+per-day cross-sectional Spearman IC of the control-neutralised feature against
+the forward return; Newey–West HAC t on the IC series; a 200-draw permutation
+null shuffling the feature within each day; IC by liquidity decile; costs
+charged to the quintile spread at A5's **56 bps** round trip plus the
+point-in-time fraksi-harga half-spread. Locked (ARA/ARB) and stale bars are
+excluded — a day at ARA is a day you could not buy.
+
+**Controls:** `mom12_1`, `rev1`, `log_turnover`, `vol60`, plus 5 statistical
+factors standing in for the unavailable sector control. When a tested feature
+*is* one of the controls it is left out of its own control set, and that is
+stated in the output.
+
+**Horizons:** k ∈ {1, 5, 10, 20} trading days. The **full decay curve is
+reported**, never the best k. The confirmatory statistic is pre-specified at
+**k = 5**.
+
+**Holdout:** the most recent 24 months stay untouched, exactly as H9 left them.
+
+### The eight features, their mechanisms, and their predicted signs
+
+| # | feature | mechanism (stated before testing) | predicted IC |
+|---|---|---|---|
+| 1 | `rev5` = −return(5d) | short-horizon liquidity provision: demanders of immediacy push price away from value, which reverts as inventory unwinds | **+** |
+| 2 | `mom12_1` | slow diffusion of information; under-reaction to news | **+** |
+| 3 | `lowvol` = −vol60 | leverage-constrained investors bid up high-volatility names, so low vol earns the premium (betting-against-beta) | **+** |
+| 4 | `amihud60` = mean(\|ret\|/value) | illiquidity premium — compensation for price impact | **+** |
+| 5 | `volz20` = volume z-score | attention-induced buying: retail buys what is salient, and salience-driven demand reverses | **−** |
+| 6 | `hi52` = close / 252d high | anchoring on the 52-week high causes under-reaction near it | **+** |
+| 7 | `atr_mom20` = ret20 / ATR20 | risk-adjusted momentum: volatility-normalising makes the cross-section comparable | **+** |
+| 8 | `squeeze` = ATR20 / ATR250 | **NEGATIVE CONTROL.** Range compression predicts the SIZE of the next move, not its sign, so it has no signed cross-sectional return prediction. | **0** |
+
+Feature 8 is included deliberately as a feature that *should* come back null.
+A pipeline that finds signal everywhere, including where no mechanism predicts
+it, is finding its own artefacts. This is the check for that.
+
+**Gate:** the same conjunction §7 states — post-cost, liquidity-filtered,
+control-neutralised IC significantly non-zero, with a stable sign, out of
+sample. All four, or it fails.
+
+**Trial count: 8 confirmatory trials.** Trials after H13 will be **38**, so the
+Bonferroni bar is α = 0.05/38 = **0.0013**.
