@@ -551,3 +551,126 @@ not a business, and the quintile spread is long-short while **A5 forbids
 shorting**, so even those cells describe a portfolio this project cannot hold.
 
 **Trials after H13: 38.** Bonferroni bar α = 0.05/38 = **0.0013**.
+
+---
+
+## H14 — does a broker's STYLE persist even though its EDGE does not? (PRE-REGISTERED)
+
+**Registered 2026-08-24, before any fingerprint was computed.** H11 established
+that a broker code's *margin rank* does not persist (year-over-year +0.032,
+inside its null). It said nothing about whether a broker's **behaviour** is
+stable, and those are different claims: a firm can have a completely stable
+business model — always crossing, always patient, always concentrated in three
+names — while having no stable edge at all. §9.4–9.6 ask for exactly that
+fingerprint, and §9.5 attaches two falsifiable checks to it.
+
+**The fingerprint,** per (broker, year), from the fortnightly range store —
+89 codes, 217 tickers, 2014–2026. Each metric is in §9.4 and is computable
+without the footer the range files lack:
+
+| metric | §9.4 group | what it means |
+|---|---|---|
+| `cross` | Positioning | min(buy,sell)/max(buy,sell) value — high implies market-making churn, low implies directional conviction |
+| `hhi` | Positioning | Herfindahl of gross value across tickers — specialist vs generalist |
+| `edge_buy` | Execution | (visible VWAP − buy avg)/VWAP — positive means patient, negative means paying up |
+| `edge_sell` | Execution | (sell avg − visible VWAP)/VWAP |
+| `ar1` | Horizon | AR(1) of the sign of net-buy across windows — persistence vs alternation |
+| `share` | size | log share of total visible gross |
+| `censor` | data artefact | fraction of rows one-sided under the top-10 cut |
+
+**The VWAP here is a VISIBLE-broker VWAP**, value over lots across the brokers
+the top-10 cut shows, not IDX's published one — `pullback_flow.fetch_window`
+never kept the footer (A7). It is self-excluded per §9.4's mandatory bias
+correction. It is named `visible_vwap` everywhere so it is never mistaken for
+the real thing, and `censor` is carried alongside precisely because it bounds
+how wrong it can be.
+
+### Three questions, three predictions, all registered now
+
+**Q1 — does style persist?** Year-over-year rank correlation of each metric,
+against the identical 200-draw within-ticker-window label shuffle H11 used.
+
+> **Prediction: style persists far more strongly than margin's +0.078.** A
+> fingerprint reflects a firm's business model rather than skill, and H11
+> already found one structural attribute — `censor` — persisting at **+0.801**.
+> I expect `cross`, `hhi` and `share` above +0.5, and the execution-edge metrics
+> weaker but still above margin.
+
+**Q2 — does distinctiveness DEGRADE?** §6.3 says large players split orders
+across brokers precisely because the summary is public, and §9.5 says to plot
+distinctiveness by year and "report it prominently rather than averaging it
+away". Measure: mean pairwise Euclidean distance between brokers' standardised
+fingerprints, per year, plus each metric's cross-sectional dispersion.
+
+> **Prediction: distinctiveness declines over 2014–2026.** If it does, that is
+> a real finding about the dataset's shelf life. If it does not, §6.3's premise
+> is not visible at this resolution and that is worth saying too.
+
+**Q3 — are archetypes stable?** §9.5's mandatory check: fit clusters on
+**2014–2019**, assign **2020–2026**, and measure whether assignments persist.
+Both HDBSCAN and GMM, compared. Also whether the *number* of stable clusters is
+stable.
+
+> **Prediction: assignments persist for the structural metrics and the cluster
+> COUNT is not stable.** I expect broad separation (a churn/market-making group
+> vs a directional group) to survive and finer splits not to.
+
+**§9.6 dossiers are conditional on Q3.** If archetypes do not prove stable,
+the honest output is "no stable archetype" and no dossier is written. §9.6's
+own rule — below the minimum sample threshold, write "insufficient data" and
+move on — governs. Fabricating a behavioural read is the specific failure mode
+that section exists to prevent.
+
+**Trial count: 3 confirmatory trials (Q1, Q2, Q3).** Trials after H14 will be
+**41**, so the Bonferroni bar is α = 0.05/41 = **0.0012**.
+
+### H14 — RESULT
+
+**Run 2026-08-24.** 89 codes, 13 years, 1,015 broker-years, 2014–2026.
+Full memo: `reports/phase2b_fingerprints.md`.
+
+**Q1 — style persistence. THE NULL INVERTED THE ANSWER.**
+
+| metric | observed | null | distance | verdict |
+|---|---|---|---|---|
+| `censor` | +0.845 | +0.484 ± 0.025 | **+14.6 sd** | real, but a data artefact |
+| `cross` | +0.521 | +0.245 ± 0.038 | **+7.3 sd** | **real style persistence** |
+| `edge_buy` | +0.104 | +0.009 ± 0.035 | +2.7 sd | weak |
+| `hhi` | +0.603 | +0.575 ± 0.014 | +2.1 sd | weak — mostly artefact |
+| `edge_sell` | +0.058 | +0.010 ± 0.031 | +1.6 sd | nothing |
+| `ar1` | +0.009 | +0.002 ± 0.032 | +0.2 sd | nothing |
+| `share` | **+0.912** | **+0.919 ± 0.002** | **−2.5 sd** | **BELOW its own null** |
+
+**`share` persisting at +0.912 is not a finding — its null is +0.919.** The
+shuffle permutes labels *within* each ticker-window, so every code keeps the
+exact set of windows it appeared in; a broker present in 5,000 windows still
+draws 5,000 times, so annual gross is driven by presence, which is conserved by
+construction. `hhi` fails identically (+0.603 vs +0.575). **Reading either
+against zero gives a confident wrong answer — the fourth such occasion in this
+repo**, after H9's broken null, H10's WAC bug and H11's off-centre Track A null.
+
+**Prediction partly failed.** I registered `cross`, `hhi`, `share` above +0.5,
+which the raw numbers satisfy — but only `cross` survives its null. The honest
+answer is narrower: **the shape of the book persists; nothing resembling skill
+does.**
+
+**Q2 — degradation. PREDICTION FAILED: there is no trend.** Distinctiveness
+runs 3.41 (2014) → 3.48 (2026); slope −0.0026/yr, rank correlation with year
+**+0.132** (wrong sign for a decline), last above first, full range 7.4% of the
+level. §6.3's order-splitting is not visible at fortnightly top-10 resolution.
+An earlier output labelled this "DECLINING" from the slope alone while printing
+endpoints that contradicted it; the verdict now requires slope, rank
+correlation and endpoints to agree.
+
+**Q3 — archetypes. THEY DO NOT EXIST.** **HDBSCAN finds zero clusters on the
+early era and labels 100% of codes noise.** Forced partitions confirm it: GMM
+k=2 agrees across eras 77% against 63% chance, KMeans 83% against 67%, both
+degrading toward chance as k rises. k-means and GMM always return k clusters
+and cannot report that there are none; HDBSCAN can, and did. Prediction
+CORRECT and stronger than registered.
+
+**§9.6 dossiers: NOT WRITTEN**, per the pre-registered conditional. §9.6 is the
+section most exposed to fabrication, and the conditional existed so the
+decision could not be revisited after seeing the answer.
+
+**Trials after H14: 41.** Bonferroni bar α = 0.05/41 = **0.0012**.

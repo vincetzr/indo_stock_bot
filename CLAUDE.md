@@ -840,3 +840,49 @@ and it is the answer to §1's question.
 What has not been tested is whether a lower cost base changes it — institutional
 commissions, or a horizon long enough that turnover stops mattering. Both are
 outside what §3's free data and A5's schedule can reach.
+
+## A10. §9 is complete, and the null inverted its headline
+
+A9 closed the price branch. §9's remaining sections — 9.4 fingerprints, 9.5
+archetypes, 9.6 dossiers — are now done as H14, on 89 codes over 13 years.
+Memo: `reports/phase2b_fingerprints.md`.
+
+**The result: one style dimension persists, archetypes do not exist, and no
+dossiers were written.**
+
+**THE HEADLINE NUMBER WAS AN ARTEFACT, AND ONLY THE NULL SHOWED IT.** A
+broker's share of gross persists year-over-year at **+0.912** — and its
+label-shuffled null is **+0.919**, higher. The shuffle permutes labels *within*
+each ticker-window, so every code keeps the exact set of windows it appeared
+in; a code present in 5,000 windows still draws 5,000 times, so annual gross
+measures **presence, not size**, and presence is conserved by construction.
+`hhi` fails the same way (+0.603 against a +0.575 null). This is the fourth
+time here that reading a statistic against zero rather than its own null would
+have produced a confident wrong answer, and it is the most dramatic.
+
+**What actually survives is `cross`** — the crossing ratio, at **+7.3 null-sds**.
+How much of a broker's flow is matched on both sides is a genuine stable
+property of the firm. `edge_buy` survives weakly (+2.7 sd); execution edge on
+the sell side, and horizon (`ar1`), are noise. **The shape of the book persists;
+nothing resembling skill does.**
+
+**ARCHETYPES DO NOT EXIST — and the method mattered.** §9.5 asks for HDBSCAN
+and GMM compared. **HDBSCAN finds zero clusters and labels 100% of codes
+noise.** GMM and k-means, forced to k, return partitions that beat chance by
+~15 points at k=2 and decay to chance by k=5. The lesson generalises: a method
+that must return k clusters cannot tell you there are none, so always pair it
+with one that can.
+
+**§6.3's predicted degradation is not there.** Fingerprint distinctiveness is
+flat 2014–2026 (slope −0.0026/yr, rank correlation with year **+0.132**, last
+above first). Order-splitting may be spreading; it is not visible at
+fortnightly top-10 resolution.
+
+**No dossiers, by prior agreement.** H14 pre-registered that §9.6 dossiers
+would be written only if archetypes proved stable. They did not. §9.6 is the
+section most exposed to fabrication — a headed template invites filling in —
+and the conditional existed precisely so the decision could not be revisited
+after the answer was known.
+
+§9 is therefore complete: **broker codes are stable identities whose stable
+part carries no information about returns.**
