@@ -779,3 +779,64 @@ free and neither is worth buying on the strength of three negative results.
 end on the flow branch. The unexplored cheap ground is §8's price/TA and
 structural families, on a spine that Gate 0 passes — and they have not been
 tested at all.
+
+## A9. §8 has now been tested too, and the whole programme has one answer
+
+A8 recommended stopping work on §12 and testing §8's price/TA and structural
+families, which had never been tried. That is now done as H13, on a panel two
+orders of magnitude larger than anything the flow branch had — 891 names,
+daily, 1,989,504 in-sample rows, because price features need no broker data.
+
+**The result inverts the flow branch's failure mode.** Flow had no signal.
+Price has abundant signal and no economics: every one of the eight registered
+features is significant, five carry HAC t above 10 against H9's −2.86, and
+**every single one is net-negative after costs at every horizon**. The cost of
+one rebalance is 1.7–1.9%; the gross quintile spread is 0.15–0.36% a period.
+Memo: `reports/phase3_price_features.md`.
+
+Three things to carry rather than re-derive.
+
+**THE NEGATIVE CONTROL FIRED, and it changes how every t in this repo should be
+read.** `squeeze` was registered as predicted-null on the grounds that range
+compression forecasts the size of the next move, not its sign. It came back at
+**t = +3.55**. At two million observations a t-statistic is nearly free: an IC
+of 0.008 clears any conventional threshold while meaning nothing. **On panels
+this size, significance is not evidence.** Effect size against cost is the only
+thing that discriminates. Register a predicted-null feature in every future
+sweep — it is the cheapest possible check that the pipeline is not manufacturing
+its own signal.
+
+**A rank tilt is not a return spread.** `lowvol` reads IC +0.0398 (t +14.49)
+and a quintile spread of −0.430% a period (t −5.24) — a robust rank correlation
+across the whole cross-section, negative in the tails where a few high-vol
+names deliver enormous returns. H9 met the same wedge from the other side.
+When the two disagree, **the spread decides tradeability**, because the spread
+is what would actually be held.
+
+**The binding constraint is the cost structure, and it is the same wall from
+four directions.** 56 bps round trip plus a fraksi-harga half-spread that on
+cheap names is several times the fee. Phase 2b found the median cohort round
+trip already loses 25–32 bps to the spread before any fee. H13 finds real
+price structure that the same spread swallows whole. Restricting to the most
+liquid 5% halves the cost and collapses the signal's t fivefold; the best
+post-hoc cell lands at +1.6%/yr with t = 2.00 out of a 24-cell sweep, and the
+long-short construction it describes is one **A5 forbids** anyway.
+
+### Where the programme stands
+
+| | instrument | result |
+|---|---|---|
+| H9 | aggregate broker flow | no signal |
+| H10/H11 | broker identity | no signal, no persistence |
+| H12 | investor class | no signal, powered null |
+| H13 | price/TA and structural | **strong signal, no economics** |
+
+§4 ordered the work by cost-to-falsify and both branches have now been run to
+the end. The honest summary of the research programme is that **the Indonesian
+retail cost structure is wide enough to swallow every effect this data can
+measure.** That is a finding about the market, reached four independent ways,
+and it is the answer to §1's question.
+
+What has not been tested is whether a lower cost base changes it — institutional
+commissions, or a horizon long enough that turnover stops mattering. Both are
+outside what §3's free data and A5's schedule can reach.

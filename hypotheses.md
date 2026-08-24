@@ -496,3 +496,58 @@ sample. All four, or it fails.
 
 **Trial count: 8 confirmatory trials.** Trials after H13 will be **38**, so the
 Bonferroni bar is α = 0.05/38 = **0.0013**.
+
+### H13 — RESULT
+
+**Run 2026-08-24.** 891 names (89 delisted), 5,909 days, **1,989,504** tradeable
+in-sample rows, 2000-03-30 … 2024-08-21. Holdout untouched.
+Full memo: `reports/phase3_price_features.md`.
+
+**Result: Gate 1 fails on COST, for all eight — the opposite failure to the
+flow branch, which failed on signal.**
+
+| feature | pred | IC (k=5) | HAC t | liq sign | net %/yr k=5 | net %/yr k=20 |
+|---|---|---|---|---|---|---|
+| lowvol | + | +0.0398 | **+14.49** | stable | −116.7 | −36.7 |
+| mom12_1 | + | +0.0274 | +10.75 | stable | −81.5 | −14.6 |
+| rev5 | + | +0.0270 | **+14.09** | stable | −72.1 | −18.9 |
+| hi52 | + | +0.0261 | +10.13 | flips Q1 | −92.6 | −21.0 |
+| amihud60 | + | +0.0169 | +5.98 | flips Q1 | −96.4 | −25.1 |
+| volz20 | **−** | +0.0136 | +7.18 | stable | −66.9 | −7.4 |
+| squeeze | **0 ctrl** | +0.0083 | +3.55 | stable | −84.8 | −18.0 |
+| atr_mom20 | + | +0.0061 | +3.32 | flips Q1 | −77.7 | −12.5 |
+
+Every IC lies outside all 100 permutation draws. Five carry HAC t > 10 — H9's
+flow signal managed −2.86 on the identical statistic. **And every net cell is
+negative.** Cost per rebalance is 1.7–1.9% against a gross quintile spread of
+0.15–0.36% per period.
+
+**THE NEGATIVE CONTROL FIRED, and it is the most useful thing in the run.**
+`squeeze` was registered as predicted-null (range compression forecasts the
+SIZE of the next move, not its sign). It returns t = **+3.55**. That is not a
+defect in the feature — it says that **at two million observations a
+t-statistic is nearly free**, and an IC of 0.008 clears any conventional bar
+while meaning nothing economically. Every t in the table must be read through
+it. This is why the control was registered.
+
+**`volz20` failed its registered sign** — predicted negative on an
+attention-buying mechanism, observed +0.0136. Logged as failed.
+
+**A rank tilt is not a return spread.** `lowvol` shows IC +0.0398 (t +14.49)
+with a quintile spread of **−0.430%/period (t −5.24)**: robust rank correlation
+across the whole cross-section, negative in the tails where a few high-vol names
+deliver huge returns. When the two disagree the spread decides tradeability.
+
+**The decay curves have the shapes their mechanisms predict** — reversal decays
+with k (0.0270 → 0.0155), momentum and 52-week-high strengthen (0.0157 →
+0.0417, 0.0162 → 0.0375). Evidence the features are real rather than fitted.
+
+**EXPLORATORY, not in the trial count: the liquidity-restricted sweep.**
+Restricting to the top 5% by turnover halves cost (1.77% → 1.02%) and collapses
+the t five- to sevenfold. Two of 24 cells cross zero — `mom12_1` k=20 at
+**+1.6%/yr (t +2.00)** and `hi52` k=20 at **+2.0%/yr (t +0.95)**. Not a
+finding: a 24-cell post-hoc search, neither t clears the 3.21 bar, +2%/yr is
+not a business, and the quintile spread is long-short while **A5 forbids
+shorting**, so even those cells describe a portfolio this project cannot hold.
+
+**Trials after H13: 38.** Bonferroni bar α = 0.05/38 = **0.0013**.
