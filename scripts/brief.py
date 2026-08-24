@@ -220,14 +220,14 @@ def section_news(names, no_news: bool, per: int, limit: int):
     rule("4. WHAT IS BEING SAID — public news feeds")
     if no_news:
         out(" skipped (--no-news)\n")
-        return None
+        return (None, None)
     from idxbot.data import news
     src = news.source_report()
     out(" sources: " + "  ".join(f"{r.feed}({r.items})"
                                  for r in src.itertuples()))
     if not src["ok"].any():
         out(" no feed answered — this is an outage, not a quiet day.\n")
-        return None
+        return (None, None)
     out("")
     M = news.market_news(limit=limit)
     out(" MARKET")
@@ -258,7 +258,7 @@ def section_news(names, no_news: bool, per: int, limit: int):
     out("")
     wrap(B.news_caveat())
     out("")
-    return T
+    return (M, T)
 
 
 def section_watchlist(S, states, C, T, blob, n: int) -> None:
@@ -440,6 +440,8 @@ def main() -> int:
     ap.add_argument("--news-per", type=int, default=3)
     ap.add_argument("--save", action="store_true",
                     help="write reports/brief_<date>_<session>.md")
+    ap.add_argument("--html", default=None, metavar="PATH",
+                    help="also render the brief as a self-contained page")
     ap.add_argument("--build-tables", action="store_true")
     ap.add_argument("--draws", type=int, default=200)
     a = ap.parse_args()
@@ -513,7 +515,8 @@ def main() -> int:
     watch = list(dict.fromkeys(
         list(mv["up"]["ticker"]) + list(mv["down"]["ticker"])
         + ([a.ticker.upper()] if a.ticker else [])))[:a.news_names]
-    T = section_news(watch, a.no_news, a.news_per, a.names + 4)
+    ctx_news = section_news(watch, a.no_news, a.news_per, a.names + 4)
+    T = ctx_news[1]
 
     states = B.current_states(P, R, day, blob["table"], blob["edges"])
     C = B.candidates(P, day, n=max(10, a.watch))
@@ -535,6 +538,23 @@ def main() -> int:
     out("")
     if a.save:
         save(a.session, day)
+    if a.html:
+        from idxbot.report import html as H
+        ctx = {"day": day, "session": a.session, "now": now, "warn": warn,
+               "headline": B.headline(b, reg, L,
+                                      Bd if not Bd.empty else None, cm_pre),
+               "overnight": Bd,
+               "sens": sens["rows"] if sens else None,
+               "breadth": b, "regime": reg, "limits": L,
+               "movers": B.movers(S), "comovement": cm_pre,
+               "market_news": ctx_news[0], "ticker_news": ctx_news[1],
+               "news_caveat": B.news_caveat(),
+               "watchlist": B.watchlist(S, states, C, ctx_news[1], n=a.watch),
+               "k": blob["k"], "null": blob["null"],
+               "table_meta": blob}
+        with open(a.html, "w") as fh:
+            fh.write(H.render(ctx))
+        print(f"\n rendered {a.html}")
     return 0
 
 

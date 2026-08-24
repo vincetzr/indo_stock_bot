@@ -2,8 +2,16 @@
 """Refresh the WHOLE universe, then rebuild what depends on it.
 
     python3 scripts/refresh.py                 # bars only
-    python3 scripts/refresh.py --panel         # bars, then rebuild the panel
+    python3 scripts/refresh.py --panel           # bars, then rebuild the panel
     python3 scripts/refresh.py --panel --tables  # ... and the brief's tables
+
+    # the one command to run each morning and each evening:
+    python3 scripts/refresh.py --panel --brief pre
+    python3 scripts/refresh.py --panel --brief post
+
+Tables only need rebuilding when the panel changes materially — weekly is
+plenty — so the daily runs above leave --tables off and take about six
+minutes rather than ten.
 
 WHY THIS EXISTS
 ----------------
@@ -128,6 +136,8 @@ def main() -> int:
                     help="rebuild the price panel afterwards")
     ap.add_argument("--tables", action="store_true",
                     help="rebuild the brief's conditional tables afterwards")
+    ap.add_argument("--brief", choices=["pre", "post"], default=None,
+                    help="run the brief afterwards and save md + html")
     a = ap.parse_args()
 
     now = dt.datetime.now(tz=WIB)
@@ -176,6 +186,11 @@ def main() -> int:
     if a.tables:
         rc |= run([sys.executable, "scripts/brief.py", "--build-tables",
                    "--no-news"])
+    if a.brief:
+        os.makedirs("reports", exist_ok=True)
+        rc |= run([sys.executable, "scripts/brief.py",
+                   "--session", a.brief, "--save",
+                   "--html", os.path.join("reports", "brief_latest.html")])
     print("\n done." if rc == 0 else "\n done, with a failing rebuild step.")
     return rc
 

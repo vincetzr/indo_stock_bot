@@ -18,6 +18,7 @@ reports/*
 # ... except the DAILY BRIEF, which is regenerated output that happens to be
 # markdown. The phase memos are the deliverable; a dated brief is scrollback.
 reports/brief_*.md
+reports/brief_*.html
 
 data/Dataset-Saham-IDX/
 

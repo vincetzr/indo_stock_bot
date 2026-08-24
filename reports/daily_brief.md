@@ -3,8 +3,17 @@
 **Date:** 2026-08-24
 **Built:** `src/idxbot/report/brief.py`, `src/idxbot/data/news.py`,
 `src/idxbot/data/overnight.py`, `scripts/brief.py`, `scripts/refresh.py`.
-**Run it:** `python3 scripts/refresh.py --panel --tables` then
-`python3 scripts/brief.py --session post [--ticker BBCA]`
+**Run it, once each morning and once each evening:**
+
+```
+python3 scripts/refresh.py --panel --brief pre     # ~6 min, before the open
+python3 scripts/refresh.py --panel --brief post    # ~6 min, after the close
+```
+
+That refreshes all 843 names, rebuilds the panel, writes
+`reports/brief_latest.md` and `reports/brief_latest.html`, and prints the
+brief. Add `--tables` about once a week to recompute the reference
+distributions. `scripts/brief.py --ticker BBCA` gives one name in detail.
 
 ---
 
