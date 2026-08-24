@@ -1,8 +1,10 @@
 # The daily brief — what it reports, and the one thing in it that is new
 
 **Date:** 2026-08-24
-**Built:** `src/idxbot/report/brief.py`, `scripts/brief.py`, 26 tests.
-**Run it:** `python3 scripts/brief.py --session post [--ticker BBCA]`
+**Built:** `src/idxbot/report/brief.py`, `src/idxbot/data/news.py`,
+`scripts/brief.py`, `scripts/refresh.py`.
+**Run it:** `python3 scripts/refresh.py --panel --tables` then
+`python3 scripts/brief.py --session post [--ticker BBCA]`
 
 ---
 
@@ -10,25 +12,48 @@
 
 The request was a twice-daily read on: what the market is doing, the
 narratives, potential candidates, and whether a given move is over or just
-starting. Three of the four are reachable from the spine. One is not, and the
-distinction is worth stating precisely because it is not a matter of effort.
+starting. All four are now built. Three came off the spine; the fourth was
+declared unreachable without a single request being made, and §1.1 records
+how that went, because the error matters more than the fix.
 
 | asked for | status |
 |---|---|
 | what the market is doing | **built.** Arithmetic on 829 names: breadth on three horizons, advance/decline, cross-sectional dispersion, 250-day extremes, equal- and turnover-weighted index returns and vol percentile, and a count of names closed at the point-in-time auto-rejection band. |
-| the narratives | **half built, and the half that is missing is the half most people mean.** Co-movement groups are derived from a factorisation fitted on the 250 sessions ending the day *before* the bar. WHY those names moved is not in this data. |
+| the narratives | **built, both halves.** Co-movement groups from a factorisation fitted strictly before the bar, PLUS real headlines from four public RSS feeds with UMA, suspension and corporate-action tagging. The news half was written off without a request being made; see below and CLAUDE.md A12. |
 | potential candidates | **built, with its own refutation attached.** The eight H13-registered features, ranked in their registered direction, each line carrying H13's measured post-cost result. |
 | is the run over or just started | **built as a description plus a historical frequency.** Where the move sits in its own history, and what followed bars in the same cell — with the base rate, the effective sample size, a block-bootstrap interval and a permutation null. |
 
-### The news narrative is genuinely absent, not merely unbuilt
+### 1.1 The news narrative WAS declared absent, and that was wrong
 
-There is no news, filings or announcement source anywhere in this repository,
-and §3's data table lists none. `narrative_gap()` exists as a function rather
-than an omitted section so the absence is printed: a brief that simply had no
-narrative heading would read as though there were nothing to say.
+This memo originally said a news narrative was unreachable because "there is
+no news, filings or announcement source anywhere in this repo, and §3's data
+table lists none". Both facts were true. The conclusion was false, and **not a
+single request had been made before it was written** — §3 listed none because
+nobody had looked.
 
-What the co-movement section gives instead is real and, for this purpose,
-arguably better than a sector map. §7 already uses trailing principal
+Eight endpoints were then tested in about a minute and five answered. Google
+News RSS takes an arbitrary query, so it works per-market and per-ticker;
+CNBC Indonesia, Kontan and Detik finance all serve market feeds. Yahoo's
+per-ticker `.JK` feed returns nothing usable for IDX; Bisnis.com and
+idnfinancials 403; idx.co.id 403s behind Cloudflare exactly as
+`docs/FULL_REKAP.md` records.
+
+On the first real run the section returned an ADHI trading halt over a missed
+bond coupon, a UMA flag on PACK/FUJI/BDKR, an SWAP IPO bookbuilding and a
+Rp140.7bn rights issue on BABY. None of that is inferable from a price series,
+and the ADHI halt explains a missing bar the panel would otherwise read as a
+gap. It is in `src/idxbot/data/news.py`, and CLAUDE.md A12 records the error
+because it was the third of its kind.
+
+**It is quarantined, and a test enforces that.** There is no point-in-time news
+archive, so a headline visible today cannot be reconstructed as it stood on a
+past bar; anything under `spine/` or `features/` importing it would make every
+downstream backtest look-ahead by construction. `tests/test_news.py` walks the
+AST of both packages and fails if either does. The section is for reading —
+that is a real job and it is the only one.
+
+The co-movement half stands on its own and is, for this purpose, arguably
+better than a sector map. §7 already uses trailing principal
 components as a sector substitute because this repo has no sector data — the
 `sectors.app` module is the licensed API and needs a key. A sector label is a
 fixed opinion about which names belong together; a component is measured from
@@ -114,7 +139,7 @@ pre-registered test that would settle it does not exist yet.
 
 ---
 
-## 3. Three defects the build surfaced, all of which produced believable output
+## 3. Defects the build surfaced, all of which produced believable output
 
 Every one of these printed something a reader would have accepted.
 
@@ -125,6 +150,15 @@ caps. `resolve_asof` now falls back to the last session with a representative
 cross-section and `coverage_warning` prints what it skipped. The failure mode
 generalises: a date column being current is not the same as a cross-section
 being current.
+
+That detection was the right behaviour and it was only half the fix — it left
+the brief permanently ten days stale. The cause was that nothing refreshed the
+universe: `daily_update.py` only ever pulled a 40–60 name watchlist.
+`scripts/refresh.py` now pulls all 843 names (~0.34 s each, about five
+minutes) and rebuilds the panel and the reference tables behind it. **818 of
+830 names, 98.6%, current.** Rebuilding the tables on the refreshed panel moved
+the headline cell from +1.67% to +1.66% and its null from +0.37% to +0.37%,
+which is a useful stability check on §2 rather than a new result.
 
 **Moving averages on a pivot returned nothing.** A wide date × ticker frame is
 indexed by the union of every name's trading days, so a suspended name

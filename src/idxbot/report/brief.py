@@ -455,19 +455,25 @@ def comovement(P: pd.DataFrame, day: pd.Timestamp, n_pc: int = 4,
     return pd.DataFrame(rows)
 
 
-def narrative_gap() -> str:
-    """The sentence that goes where a news narrative would go.
+def news_caveat() -> str:
+    """What the news section is, and the one thing it must never be used for.
 
-    Kept as a function rather than a string literal in the runner so that the
-    absence is a deliberate, testable part of the output. A brief that simply
-    omitted the section would read as though there were nothing to say.
+    THIS REPLACES A WRONG CLAIM. The first version of this function said a news
+    narrative was "not available… there is no news source anywhere in this repo
+    and §3's data table lists none". Both facts were true; the conclusion was
+    not. §3 listed none because nobody had looked. Eight endpoints were tested
+    in about a minute and five answered — see `idxbot.data.news`. The failure
+    is the one CLAUDE.md A1 already records, and its lesson stands: check the
+    cheapest route before writing down the constraint.
     """
     return (
-        "NEWS NARRATIVE: not available. There is no news, filings or "
-        "announcement source anywhere in this repo, and CLAUDE.md section 3's "
-        "data table lists none. The co-movement groups above are derived from "
-        "returns; WHY those names moved together is not in this data and is "
-        "not guessed at here.")
+        "These are public RSS syndication feeds — headline, link, source and "
+        "timestamp only, no article bodies, nothing republished. THEY MAY NOT "
+        "ENTER ANY STATISTIC. There is no point-in-time news archive, so a "
+        "headline visible today cannot be reconstructed as it stood on a past "
+        "bar, and any backtest built on it is look-ahead by construction "
+        "(A5). This section is for reading. A quiet section is not the same "
+        "as a quiet day — the source line above says which feeds answered.")
 
 
 # ==========================================================================

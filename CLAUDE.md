@@ -43,6 +43,7 @@ When I ask for a result, give effect size and uncertainty, not a p-value alone.
 | Daily OHLCV | Free | yfinance `.JK`, and IDX's own summary endpoints |
 | **EOD broker summary** | **Free** | `idx.co.id` publishes it; endpoints reverse-engineered in `NeaByteLab/IDX-API`, `nichsedge/idx-bei`, `ExRonin/Stock-Scrapper-IDX` |
 | Corporate actions | Free | IDX announcements; needs parsing |
+| **News / narrative** | **Free** | *Added 2026-08-24, after this table's silence was misread as absence.* Public RSS: Google News (per-query and per-ticker), CNBC Indonesia, Kontan, Detik finance. Verified 200-OK with parseable items; Bisnis.com and idnfinancials 403. `src/idxbot/data/news.py`. **No point-in-time archive, so it may never enter a statistic** |
 | Foreign net flow | Free | IDX trading summary |
 | Macro (USDIDR, BI rate, DXY, UST) | Free | BI, FRED |
 | Real-time tick / running trade | **Licensed** | IDX Data Services. Free route is scraping my own broker session — brittle, ToS-grey |
@@ -895,14 +896,14 @@ the narratives, potential candidates, is the run over or just started. Built as
 `src/idxbot/report/brief.py` + `scripts/brief.py`, 26 tests. Memo:
 `reports/daily_brief.md`.
 
-**Three of the four are reachable; the fourth is genuinely absent.** There is
-no news, filings or announcement source anywhere in this repo and §3's table
-lists none, so `narrative_gap()` PRINTS the absence rather than leaving a
-heading a reader would fill in themselves. What stands in for it is real:
-components fitted on the 250 sessions ending the day *before* the bar separate
-banks, coal-and-metals and the Prajogo complex out of returns alone, with no
-sector data anywhere in the project. They are printed as constituent lists;
-naming them is the reader's interpretation, per §9.6's rule.
+**Three of the four are reachable; the fourth was written off and should not
+have been — see A12.** The co-movement half of the narrative section is real
+and stands: components fitted on the 250 sessions ending the day *before* the
+bar separate banks, coal-and-metals and the Prajogo complex out of returns
+alone, with no sector data anywhere in the project. They are printed as
+constituent lists; naming them is the reader's interpretation, per §9.6's rule.
+The news half was declared unavailable without a single request being made;
+A12 records how that went.
 
 **THE ONE NEW NUMBER, AND IT IS A LEAD, NOT A FINDING.** Bucketing bars on four
 dimensions fixed before any cell was seen — leg, run age, extension (`run_z`,
@@ -954,3 +955,65 @@ come back from the leg's extreme — is arguably the best single "is it over"
 variable and is deliberately NOT a bucket dimension, because the four were
 fixed before any cell was seen and adding a fifth after noticing which cells
 came out large is the trap the trial count exists to catch.
+
+## A12. The news source that was declared absent without one request being made
+
+A11 shipped a function whose whole job was to print *"there is no news,
+filings or announcement source anywhere in this repo, and §3's data table
+lists none."* Both halves were true. The conclusion drawn from them — that a
+news narrative was unreachable — was false, and **no request was made before
+writing it.** §3 listed none because nobody had looked.
+
+Eight endpoints were then tested in about a minute:
+
+| endpoint | result |
+|---|---|
+| Google News RSS, arbitrary query | **200, 100 items** — takes any query, so it works per-market AND per-ticker |
+| CNBC Indonesia `/market/rss` | **200, 100 items** |
+| Detik finance RSS | **200, 100 items** |
+| Kontan investasi RSS | **200, 25 items** |
+| Yahoo per-ticker `.JK` RSS | 200 but 0–1 items — useless for IDX |
+| Bisnis.com RSS | 403 |
+| idnfinancials RSS | 403 |
+| idx.co.id announcements | 403, Cloudflare, exactly as `docs/FULL_REKAP.md` records |
+
+On the first real run it returned an ADHI trading halt over a missed bond
+coupon, a UMA flag on PACK/FUJI/BDKR, an SWAP IPO bookbuilding, and a Rp140.7bn
+rights issue on BABY. **None of that is inferable from a price series**, and
+ADHI's halt explains a missing bar the panel would otherwise treat as a data
+gap.
+
+**THIS IS THE THIRD TIME.** A1 priced IndoPremier per ticker-day and called an
+800-name panel infeasible when the same endpoint returns a whole window per
+request — off by sixty. A7 assumed the investor split needed a per-ticker-day
+pull when `fd=F` composes with `start`/`end`. A11 assumed no news source
+existed without issuing a request. The shape is identical: **a true observation
+about what is present, converted into a false claim about what is possible.**
+
+`docs/STANDING_ORDERS.md` is the corrective, and its short form belongs in
+`~/.claude/CLAUDE.md` so it applies beyond this repo. The operative rules:
+"not in X" is never "does not exist"; one query is a sample of size one;
+testing an endpoint beats reading about it; name the tool you used before
+declaring a limit; and a negative answer is unfinished until it says what
+would change it and what that would cost.
+
+**Two things about the news layer that are load-bearing.**
+
+*It is quarantined, and a test enforces it.* There is no point-in-time news
+archive, so a headline visible today cannot be reconstructed as it stood on a
+past bar — anything under `spine/` or `features/` importing it would make every
+downstream backtest look-ahead by construction. `tests/test_news.py` walks the
+AST of both packages and fails if either imports it. It is for reading.
+
+*The relevance filter is not optional.* Many IDX tickers are ordinary words —
+GULA (sugar), KOTA (city), RAJA (king), CASH, BABY, COAL — so an unfiltered
+query returns the commodity and the municipality. Requiring the ticker as a
+standalone token cuts GULA from 100 items to 73 and KOTA from 100 to 40.
+
+**And the refresh that was actually broken is fixed.** `daily_update.py` only
+ever refreshed a 40–60 name watchlist, so the panel carried 830 names through
+2026-08-14 and then 46 for four more sessions. The brief detected the ragged
+edge and fell back, which was right but left it permanently stale.
+`scripts/refresh.py` pulls the whole universe (~0.34 s/name, ~5 min for 843)
+and rebuilds the panel and the brief's tables behind it: **829 names, 98%,
+current.**

@@ -2,6 +2,19 @@
 
 data:
   cache_dir: "data/cache"
+  # Public RSS syndication feeds for the brief's narrative section. Unlike
+  # broker_allowed_hosts this ships POPULATED, because RSS exists to be
+  # consumed by readers and nothing here parses a rendered page or defeats a
+  # bot check. idx.co.id is deliberately absent: its endpoints sit behind a
+  # Cloudflare check and docs/FULL_REKAP.md 3 explains why this repo does not
+  # go through it. Headlines only - no article bodies, nothing republished.
+  # Remove any host you would rather not touch; the fetcher refuses anything
+  # not on this list.
+  news_allowed_hosts:
+    - news.google.com
+    - www.cnbcindonesia.com
+    - investasi.kontan.co.id
+    - finance.detik.com
   # Providers are tried in order; the first that returns data wins.
   # See README "Data sources" for what each one needs.
   ohlcv_provider: "yahoo"

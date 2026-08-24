@@ -146,13 +146,63 @@ def section_narrative(P, day) -> None:
         print(f"        with:    {' '.join(x['with'])}")
         print(f"        against: {' '.join(x['against'])}")
     print()
-    print(" " + B.narrative_gap())
+
+
+def wrap(text: str, indent: str = " ") -> None:
+    import textwrap
+    for line in textwrap.wrap(text, width=W - 2):
+        print(indent + line)
+
+
+def section_news(names, no_news: bool, per: int, limit: int) -> None:
+    rule("3. WHAT IS BEING SAID — public news feeds")
+    if no_news:
+        print(" skipped (--no-news)\n")
+        return
+    from idxbot.data import news
+    S = news.source_report()
+    ok = S[S["ok"]]
+    print(" sources: " + ("  ".join(f"{r.feed}({r.items})"
+                                    for r in S.itertuples())
+                          if len(S) else "none configured"))
+    if ok.empty:
+        print(" no feed answered — this is an outage, not a quiet day.\n")
+        return
+    print()
+    M = news.market_news(limit=limit)
+    print(" MARKET")
+    if M.empty:
+        print("   nothing in the window")
+    for _, r in M.iterrows():
+        tg = ("[" + ",".join(r["tags"]) + "] ") if r["tags"] else ""
+        print(f"   {str(r['published'])[:16]}  {tg}{r['title'][:78]}")
+        print(f"      {r['source']}")
+    if names:
+        print()
+        print(f" BY NAME  ({len(names)} names: today's movers and the names in"
+              f" the extreme cells)")
+        T = news.ticker_news(names, per=per)
+        if T.empty:
+            print("   nothing found for any of them")
+        for tk, g in T.groupby("ticker", sort=False):
+            print(f"   {tk}")
+            for _, r in g.iterrows():
+                tg = ("[" + ",".join(r["tags"]) + "] ") if r["tags"] else ""
+                age = "new" if r["recent"] else "old"
+                print(f"     {age} {str(r['published'])[:10]}  {tg}"
+                      f"{r['title'][:70]}")
+        print()
+        print("   'old' items are corporate actions kept beyond the 14-day")
+        print("   window because they change what the price series MEANS —")
+        print("   a rights issue is §5's named adjustment trap.")
+    print()
+    wrap(B.news_caveat())
     print()
 
 
 def section_conditional(P, R, day, blob, n: int) -> None:
     k = blob["k"]
-    rule(f"3. WHERE EVERY MOVE SITS, AND WHAT FOLLOWED — {k} sessions ahead")
+    rule(f"4. WHERE EVERY MOVE SITS, AND WHAT FOLLOWED — {k} sessions ahead")
     T, E, N = blob["table"], blob["edges"], blob["null"]
     print(f" Reference: {blob['n_rows']:,} liquid pre-holdout bars, "
           f"{blob['date_min']} to {blob['date_max']}, built {blob['built']}.")
@@ -220,7 +270,7 @@ def section_conditional(P, R, day, blob, n: int) -> None:
 
 
 def section_candidates(P, day, n: int) -> None:
-    rule("4. CANDIDATES — ranked on the eight features H13 registered")
+    rule("5. CANDIDATES — ranked on the eight features H13 registered")
     C = B.candidates(P, day, n=n)
     if C.empty:
         print(" nothing passes the liquidity filter today\n")
@@ -289,6 +339,12 @@ def main() -> int:
     ap.add_argument("--horizon", type=int, default=20,
                     help="sessions ahead for the conditional table")
     ap.add_argument("--names", type=int, default=8)
+    ap.add_argument("--no-news", action="store_true",
+                    help="skip the news section (it makes network requests to "
+                         "public RSS feeds)")
+    ap.add_argument("--news-names", type=int, default=14,
+                    help="how many names to pull per-ticker headlines for")
+    ap.add_argument("--news-per", type=int, default=3)
     ap.add_argument("--build-tables", action="store_true",
                     help="recompute the cached reference tables (~2 min)")
     ap.add_argument("--draws", type=int, default=200)
@@ -341,6 +397,15 @@ def main() -> int:
 
     section_state(P, S, day)
     section_narrative(P, day)
+
+    # the names worth a headline: today's biggest movers both ways, plus the
+    # names sitting in the most extreme conditional cells, plus any --ticker
+    mv = B.movers(S, n=a.news_names // 2)
+    watch = list(dict.fromkeys(
+        list(mv["up"]["ticker"]) + list(mv["down"]["ticker"])
+        + ([a.ticker.upper()] if a.ticker else [])))[:a.news_names]
+    section_news(watch, a.no_news, a.news_per, a.names + 4)
+
     section_conditional(P, R, day, blob, a.names)
     section_candidates(P, day, a.names)
     if a.ticker:

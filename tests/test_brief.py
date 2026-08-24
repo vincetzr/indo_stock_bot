@@ -392,9 +392,15 @@ def test_the_reference_sample_never_reads_the_holdout():
         assert pd.to_datetime(D["date"]).max() < pd.Timestamp("2021-06-01")
 
 
-def test_the_news_gap_is_stated_rather_than_filled():
-    """§9.6's rule generalises: a story is easy to write and hard to falsify.
-    A section that were simply omitted would read as nothing to say."""
-    g = B.narrative_gap()
-    assert "not available" in g
-    assert "no news" in g.lower()
+def test_the_news_caveat_no_longer_claims_news_is_unavailable():
+    """THIS TEST USED TO ASSERT THE OPPOSITE. It pinned a `narrative_gap()`
+    that printed "no news source is available", which was a true statement
+    about the repo turned into a false one about the world — §3 listed no news
+    source because nobody had looked. Eight endpoints were then tested and five
+    answered. The assertion is inverted deliberately so the old claim cannot
+    quietly come back.
+    """
+    c = B.news_caveat()
+    assert "not available" not in c.lower()
+    assert "MAY NOT ENTER ANY STATISTIC" in c
+    assert "point-in-time" in c, "the real limit is the archive, not access"
