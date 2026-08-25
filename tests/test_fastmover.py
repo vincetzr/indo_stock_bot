@@ -137,3 +137,22 @@ def test_the_tight_tier_is_the_one_with_the_significance_test():
     assert EVIDENCE["p"] < EVIDENCE["bar"], (
         "the tight screen is the only result in this project that clears the "
         "Bonferroni bar and the constants must keep saying so")
+
+
+# ============================================ what the cost model leaves out
+def test_the_capacity_limits_travel_with_the_screen():
+    """A screen on Rp1-2bn/day names cannot be shown without its capacity, and
+    `cost_bar` models fees and half-spread only — no impact, no suspension, no
+    auto-rejection."""
+    from fastmover import CAPACITY as C
+    assert C["median_dtv"] < 5e9, "these are thin names and must say so"
+    assert C["untradeable_gt5"] > 0.20, (
+        "more than a fifth of these name-years spend real time untradeable")
+    assert C["arb_days"] * 252 >= 2.0
+
+
+def test_a_material_position_is_a_large_share_of_daily_volume():
+    from fastmover import CAPACITY as C
+    assert 500e6 / C["median_dtv"] > 0.20, (
+        "a Rp500m position is over a fifth of a day's volume; the quoted "
+        "1.38% round trip does not include the impact of that")

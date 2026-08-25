@@ -88,6 +88,20 @@ EVIDENCE = {
     "early_lift": 1.51, "late_lift": 2.06, "cost_median": 0.0138,
 }
 
+#: WHAT THE COST MODEL DOES NOT CONTAIN, measured on the same 1,228 screen
+#: name-years. `brief.cost_bar` is fees plus a point-in-time fraksi-harga
+#: half-spread. It has NO market-impact term, NO suspension term and NO
+#: auto-rejection term, and on names this thin all three bite.
+CAPACITY = {
+    "median_dtv": 1.77e9,          # rupiah traded per day, median screen name
+    "untradeable_mean": 0.0454,    # share of sessions in the year after entry
+    "untradeable_gt5": 0.281,      # share of name-years >5% untradeable
+    "untradeable_gt20": 0.040,
+    "arb_days": 0.0140,            # share of sessions down >=9%
+    "ara_days": 0.0051,
+    "n": 1228,
+}
+
 #: Blend curve: weight in the screen sleeve -> (median CAGR, terminal x,
 #: P(ending below 1.0x)). 23 years, 2001-2024, 500 draws, index on a
 #: total-return basis at the measured 1.77% yield.
@@ -247,6 +261,52 @@ def main() -> int:
         dbl = "—" if w == 0 else f"{10 * e['touch2x']:.1f} of 10"
         print(f"   {w:<9.0%}{cagr:>+13.1%}{term:>10.1f}x{ruin:>10.1%}"
               f"{dbl:>23}{note}")
+    c = CAPACITY
+    print("\n" + "=" * W)
+    print(" WHAT THE COST MODEL DOES NOT CONTAIN")
+    print("=" * W)
+    print(" `cost_bar` is fees plus a point-in-time fraksi-harga half-spread.")
+    print(" It has NO market-impact, NO suspension and NO auto-rejection term.")
+    print(f" Measured on the same {c['n']:,} screen name-years:\n")
+    print(f"   median daily traded value of a screen name   "
+          f"Rp{c['median_dtv'] / 1e9:.2f}bn")
+    print(f"   {'position':<14}{'% of one day':>14}"
+          f"{'days to exit at 10% participation':>36}")
+    for pos in (50e6, 100e6, 500e6, 1_000e6):
+        sh = pos / c["median_dtv"]
+        print(f"   Rp{pos / 1e6:>10,.0f}m{sh:>13.1%}{sh / 0.10:>30.1f}")
+    print(f"\n   sessions UNTRADEABLE in the year after entry: mean "
+          f"{c['untradeable_mean']:.2%}")
+    print(f"   name-years more than 5% untradeable:  "
+          f"{c['untradeable_gt5']:.1%}")
+    print(f"   name-years more than 20% untradeable: "
+          f"{c['untradeable_gt20']:.1%}")
+    print(f"   sessions down >=9% (near or at auto-rejection): "
+          f"{c['arb_days']:.2%}")
+    print(f"   -> about {c['arb_days'] * 252:.0f} sessions a year per name"
+          f" where selling may be impossible")
+    print("\n   ALL THREE RUN AGAINST THE HOLDER AND NONE IS IN ANY NUMBER")
+    print("   ABOVE. On a Rp500m position the exit alone is ~3 days of full")
+    print("   participation, and the year in which you most want out is the")
+    print("   year the name is suspended or locked down.")
+
+    print("\n" + "=" * W)
+    print(" IF THIS IS SOMEONE ELSE'S MONEY, READ THIS")
+    print("=" * W)
+    print(" This screen is a VOLATILITY SORT. It carries no directional")
+    print(" forecast: it selects names with high variance, which raises the")
+    print(" chance of touching ANY level. 2.1 double and 1.9 halve per ten.")
+    print("\n Three things make it unsuitable as a discretionary")
+    print(" recommendation for a third party, and none is fixable from this")
+    print(" dataset:")
+    print("   1. THE HOLDOUT IS SPENT (H16). Every number here is in-sample.")
+    print("      There is no untouched period left to validate against.")
+    print("   2. NO IMPACT MODEL, on names where a modest position is a")
+    print("      quarter of a day's volume.")
+    print("   3. NO LIVE TRACK RECORD. This has never been run forward.")
+    print("\n A suitability assessment is a regulated judgement about a")
+    print(" specific client and is not something this repo can supply.")
+
     print("\n   Each 10% of the account moved into the sleeve costs roughly")
     print("   1 point of CAGR. At 20-30% you keep 94-96% of the index's")
     print("   compounding and still watch two names double a year.")

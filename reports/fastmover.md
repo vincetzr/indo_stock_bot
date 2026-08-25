@@ -112,3 +112,63 @@ have measured odds and **inherited** significance, which is weaker.
 
 **Unchanged limits:** the holdout is spent (H16), and this is the max of ~25
 feature cells plus 3 combinations, so the trial count now stands at 78.
+
+---
+
+## 6. What the cost model does not contain — added after "this is a customer's money"
+
+`brief.cost_bar` is fees plus a point-in-time fraksi-harga half-spread. It has
+**no market-impact term, no suspension term and no auto-rejection term**, and on
+names this thin all three bite. Measured on the same 1,228 screen name-years:
+
+**Capacity.** Median daily traded value of a screen name is **Rp1.77bn**.
+
+| position | % of one day's volume | days to exit at 10% participation |
+|---|---|---|
+| Rp 50m | 2.8% | 0.3 |
+| Rp 100m | 5.6% | 0.6 |
+| **Rp 500m** | **28.2%** | **2.8** |
+| Rp 1,000m | 56.5% | 5.6 |
+
+**Suspension.** In the twelve months after entry, **4.54%** of sessions are
+untradeable on average. **28.1% of name-years spend more than 5% of sessions
+untradeable**; 4.0% spend more than 20%.
+
+**Auto-rejection.** 1.40% of sessions are down ≥9% — near or at the ARB band —
+which is roughly **four sessions a year per name where selling may be
+impossible at any price.**
+
+All three run against the holder, none is in any number in §1–§4, and the year
+in which you most want out is the year the name is suspended or locked down.
+
+## 7. If this is someone else's money
+
+**What the screen is:** a volatility sort. Two lines: percentile rank on 60-day
+realised vol, and a turnover filter. It is **not** technical analysis — no
+pattern, indicator or trend rule enters the selection. It is **not** narrative —
+the news layer is quarantined from every statistic and `tests/test_news.py`
+fails the build if `spine/` or `features/` imports it. It is **not** guessing —
+it is measured on 443 name-years with a clustered permutation null.
+
+**What it is not:** a forecast. It contains **zero directional information.** It
+selects names with high variance, which raises the probability of touching *any*
+level. That is why 2.1 double and 1.9 halve per ten names a year, and why H13's
+predicted-null control ranks third in the same sweep.
+
+**Three reasons it is unsuitable as a discretionary recommendation for a third
+party, none fixable from this dataset:**
+
+1. **The holdout is spent** (H16). Every number here is in-sample. There is no
+   untouched period left in this data to validate against.
+2. **No impact model**, on names where a Rp500m position is over a quarter of a
+   day's volume.
+3. **No live track record.** This has never been run forward, not once.
+
+A suitability assessment is a regulated judgement about a specific client's
+circumstances, objectives and capacity for loss. This repo cannot supply it, and
+nothing in it should be presented to a client as a validated strategy.
+
+**The repo's own framing assumes personal capital.** CLAUDE.md §1 calls this a
+research programme; A5 fixes costs to *"the user's actual Mandiri schedule"*.
+Managing a third party's money is a different activity with different
+obligations, and none of the work here was built for it.

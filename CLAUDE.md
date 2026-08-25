@@ -1655,6 +1655,45 @@ names the tier it used, and carries that tier's own odds; only the tight tier
 has the null behind it and the wider ones inherit significance, which is
 weaker and is said so.
 
+## A23. "This is a customer's money" — what the cost model never contained
+
+Asked directly whether the fast screen is technical analysis, narrative or
+guessing, and told the capital belongs to a client. The first two answers are
+easy and the third is the point. Memo `reports/fastmover.md` §6–§7.
+
+**IT IS A VOLATILITY SORT.** Percentile rank on `vol60` plus a turnover filter.
+Not TA — no pattern, indicator or trend rule enters the selection. Not
+narrative — the news layer is quarantined and `tests/test_news.py` fails the
+build if `spine/` or `features/` imports it. Not guessing — 443 name-years, a
+clustered permutation null, p = 0.00020. **And it carries zero directional
+information**, which is the honest headline: it raises the chance of touching
+ANY level, which is why 2.1 double and 1.9 halve.
+
+**THE COST MODEL HAS NO IMPACT, SUSPENSION OR AUTO-REJECTION TERM, AND ON
+THESE NAMES ALL THREE BITE.** `cost_bar` is fees plus a fraksi-harga
+half-spread and nothing else. Measured on the same 1,228 screen name-years:
+median daily traded value **Rp1.77bn**, so a **Rp500m position is 28% of one
+day's volume** and ~3 days to exit at a 10% participation cap; **4.54% of
+sessions untradeable** in the year after entry with **28.1% of name-years above
+5%**; and **1.40% of sessions down ≥9%**, about four a year per name where
+selling may be impossible at any price. All three run against the holder, none
+was in any earlier number, and the year you most want out is the year the name
+is suspended.
+
+**THE GENERALISATION.** Every cost figure in this repo is a FEE plus a SPREAD.
+That is the cost of a small order. On the thin end it is not the cost of a
+position, and the gap grows with size — so a result measured at retail scale
+does not survive being repeated at client scale, and nothing here was built to
+find out where it breaks.
+
+**AND THE REPO'S OWN FRAMING ASSUMES PERSONAL CAPITAL.** §1 calls this a
+research programme; A5 fixes costs to "the user's actual Mandiri schedule".
+Third-party money is a different activity: the holdout is spent so every number
+is in-sample, there is no live track record at all, and a suitability
+assessment is a regulated judgement about a specific client that this repo
+cannot supply. **Nothing here should be presented to a client as a validated
+strategy.**
+
 ### Where the programme stands now
 
 Every branch has been run to its end and the answer is the same from six
