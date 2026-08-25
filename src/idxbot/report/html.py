@@ -243,22 +243,27 @@ def render(ctx: Dict[str, object]) -> str:
     parts.append(card("02", "Market state", "exact",
                       _state(ctx["breadth"], ctx["regime"], ctx["limits"],
                              ctx["movers"])))
+    # ---- 2b sector breadth
+    if ctx.get("sector_breadth") is not None and not ctx["sector_breadth"].empty:
+        parts.append(card("03", "Sector breadth", "exact",
+                          _sectors(ctx["sector_breadth"], ctx.get("sector_cov"),
+                                   ctx.get("sector_note", ""))))
     # ---- 3 co-movement
     if ctx.get("comovement") is not None and not ctx["comovement"].empty:
-        parts.append(card("03", "What moved together", "derived",
+        parts.append(card("04", "What moved together", "derived",
                           _comovement(ctx["comovement"])))
     # ---- 4 news
     if ctx.get("market_news") is not None:
-        parts.append(card("04", "What is being said", "derived",
+        parts.append(card("05", "What is being said", "derived",
                           _news(ctx["market_news"], ctx.get("ticker_news"),
                                 ctx.get("news_caveat", ""))))
     # ---- 5 watchlist
     if ctx.get("watchlist") is not None and not ctx["watchlist"].empty:
-        parts.append(card("05", "Watchlist", "hist",
+        parts.append(card("06", "Watchlist", "hist",
                           _watchlist(ctx["watchlist"], ctx["k"])))
     # ---- 6 conditional
     if ctx.get("null"):
-        parts.append(card("06", f"Is the run over — {ctx['k']} sessions on",
+        parts.append(card("07", f"Is the run over — {ctx['k']} sessions on",
                           "nosig", _conditional(ctx["null"], ctx["table_meta"])))
 
     parts.append(
@@ -457,6 +462,7 @@ def _watchlist(Wl, k) -> str:
             f'<th></th><th class="n">Close</th><th class="n">Today</th>'
             f'<th>Leg</th><th class="n">Since</th><th class="n">Run</th>'
             f'<th class="n">run_z</th><th class="n">Off ext</th>'
+            f'<th class="n">P(up)</th>'
             f'<th class="n">Excess</th><th class="n">Cost</th>'
             f'<th class="n">Net</th><th class="n">Feat</th><th>Events</th>'
             f'</tr></thead><tbody>{"".join(rows)}</tbody></table></div>'
@@ -502,3 +508,27 @@ def _conditional(N, meta) -> str:
             f'is the largest <em>of fifty-four</em> and is biased upward by '
             f'exactly the selection that found it. Treat it as a lead for a '
             f'pre-registered test, not a result.</div>')
+
+
+def _sectors(SB, cov, note: str) -> str:
+    rows = "".join(
+        f'<tr><td class="tick">{e(r["sector"])}</td>'
+        f'<td class="n dim">{int(r["n"])}</td>'
+        f'<td class="n"><strong>{plain(r["above_ma"], 0)}</strong></td>'
+        f'<td class="n">{plain(r["advancing"], 0)}</td>'
+        f'<td class="n">{num(r["median_move"], 2)}</td></tr>'
+        for _, r in SB.iterrows())
+    c = ""
+    if cov:
+        c = (f'<p class="note">{cov["n_classified"]}/{cov["n_universe"]} names '
+             f'classified ({cov["share"]:.0%}); {cov["n_missing"]} listed after '
+             f'the snapshot froze and are shown as <em>unclassified</em> rather '
+             f'than borrowed from an incompatible taxonomy.</p>')
+    return (f'<p class="note">Share of each IDX-IC sector trading above its own '
+            f'20-day average. The market-wide number cannot tell you whether an '
+            f'advance is broad or one sector carrying the tape; this can.</p>'
+            f'<div class="tablewrap"><table><thead><tr><th></th>'
+            f'<th class="n">Names</th><th class="n">Above 20d</th>'
+            f'<th class="n">Advancing</th><th class="n">Median</th>'
+            f'</tr></thead><tbody>{rows}</tbody></table></div>{c}'
+            f'<p class="note dim">{e(note)}</p>')

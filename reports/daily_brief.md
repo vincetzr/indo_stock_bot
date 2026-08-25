@@ -283,3 +283,56 @@ found it net-negative after costs. The honest status is a lead awaiting a
 pre-registered test against a holdout that is still untouched.
 
 **Unchanged:** everything in A9. Nothing here reopens H9, H11, H12 or H13.
+
+---
+
+## 6. Where it stands, after the forecast question was asked properly
+
+**It answers all five things asked of it**, and the honest reading of each is
+stamped on the section that produces it.
+
+| | |
+|---|---|
+| what moved overnight | US, FX, rates, energy, metals, palm oil, the mining complex — with a MEASURED rank correlation to IDX's next session, not folklore |
+| what the market is doing | breadth on three horizons, dispersion, vol regime, limit-ups on the correct per-name board, and **sector breadth** |
+| the narratives | co-movement components annotated by sector purity, plus tagged headlines from four public RSS feeds |
+| potential candidates | one fused watchlist: move, run state, calibrated P(up), cell excess, cost, net, events, feature hits |
+| is the run over | where the move sits, what followed matched states, base rate, effective n, bootstrap interval, permutation null |
+
+### The forecast is real, calibrated, and has no skill
+
+Asked properly — walk-forward, 20-session embargo, 1,059,858 scored forecasts
+— the answer is unambiguous. Raw cell frequencies scored a Brier skill of
+**−0.0093**, *worse than saying "45%" every day*, predicting 99.4% where
+reality was 58.9%. Empirical-Bayes shrinkage repaired the calibration and the
+prior it chose is the finding: given a free choice across seven orders of
+magnitude, the inner cross-validation picked **10,000–30,000
+pseudo-observations** — the data saying *shrink almost all the way to
+climatology*. The algebra agrees independently.
+
+**Result: resolution p = 0.000 against a within-date shuffle, skill +0.0008.**
+Predicted range **40.8% to 51.1%** against a 45% base rate. The most confident
+statement the model will ever make is 51%.
+
+### The economic question closed WITHOUT spending the holdout
+
+The pre-registered version of O1 — the whole stretched-advance family, not the
+argmax cell — earns **+0.586%** per 20 sessions gross and **−0.314%** after a
+0.90% round trip. The argmax was a third larger, which is the selection bias
+measured rather than asserted.
+
+And the holdout could not have rescued it: 481 sessions is **24
+non-overlapping periods**, powered to detect **+1.97%** nominal and **+3.07%**
+after Bonferroni, at **12.5%** and **0.5%** power respectively against the real
+effect. Running it would have burned the only clean sample on a test that could
+not answer the question. `scripts/power.py` reproduces this and touches no
+holdout row.
+
+**The 24-month holdout remains untouched.** Trials: 43.
+
+### What "supercomputer" can and cannot mean here
+
+It is a good daily intelligence instrument. It is not, and on this data cannot
+be, a profitable forecaster — measured five independent ways and then confirmed
+by a power calculation rather than assumed. That distinction is the deliverable
+as much as the tool is.

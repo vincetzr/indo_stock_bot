@@ -469,6 +469,20 @@ def save(session: str, day) -> None:
     print(f"\n saved {md} and {latest}")
 
 
+def _sector_ctx(S) -> dict:
+    """Sector breadth for the HTML context, absent rather than wrong on error."""
+    try:
+        from idxbot.data import classification as CL
+        D = CL.load()
+        if D.empty:
+            return {}
+        return {"sector_breadth": CL.sector_breadth(S, D),
+                "sector_cov": CL.coverage(D, S.index),
+                "sector_note": CL.ATTRIBUTION}
+    except Exception:                                          # noqa: BLE001
+        return {}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--session", choices=["pre", "post"], default="post")
@@ -591,6 +605,7 @@ def main() -> int:
                "sens": sens["rows"] if sens else None,
                "breadth": b, "regime": reg, "limits": L,
                "movers": B.movers(S), "comovement": cm_pre,
+               **_sector_ctx(S),
                "market_news": ctx_news[0], "ticker_news": ctx_news[1],
                "news_caveat": B.news_caveat(),
                "watchlist": B.watchlist(S, states, C, ctx_news[1], n=a.watch),
