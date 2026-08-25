@@ -188,6 +188,28 @@ def section_state(P, S, day) -> tuple:
     out(f"   six-month-average-price rule; testing them all against the main")
     out(f"   ladder — as an earlier version did — simply misses their lock-ups.")
     out("")
+    try:
+        from idxbot.data import classification as CL
+        D = CL.load()
+        SB = CL.sector_breadth(S, D)
+        if not SB.empty:
+            cov = CL.coverage(D, S.index)
+            out(f" SECTOR BREADTH — share of each IDX-IC sector above its own "
+                f"{20}-day")
+            out(f" {'sector':<26}{'n':>5}{'above 20d':>11}{'advancing':>11}"
+                f"{'median':>9}")
+            for _, r in SB.iterrows():
+                out(f" {r['sector']:<26}{int(r['n']):>5}{r['above_ma']:>11.0%}"
+                    f"{r['advancing']:>11.0%}{r['median_move']:>+9.2%}")
+            out(f"   {cov['n_classified']}/{cov['n_universe']} names classified "
+                f"({cov['share']:.0%}); {cov['n_missing']} listed after the")
+            out(f"   snapshot froze and are shown as 'unclassified' rather than")
+            out(f"   borrowed from an incompatible taxonomy.")
+            out(f"   {CL.ATTRIBUTION}")
+            out("")
+    except Exception as exc:
+        out(f" sector breadth unavailable ({type(exc).__name__})")
+        out("")
     m = B.movers(S)
     out(f" biggest movers, >= Rp {B.MIN_VALUE/1e9:.0f}bn traded and above the "
         f"{B.LIQUID_PCT:.0%} turnover percentile")
@@ -212,9 +234,16 @@ def section_comovement(P, day) -> pd.DataFrame:
     out("")
     out(f" {'':<5}{'of hist var':>12}{'of today':>10}{'today':>9}"
         f"{'|size| pct':>12}")
+    try:
+        from idxbot.data import classification as CL
+        cm = CL.annotate_components(cm, CL.load())
+    except Exception:                                          # noqa: BLE001
+        pass
     for _, x in cm.iterrows():
+        lab = x.get("sector_label", "")
         out(f" PC{x['pc']:<3}{x['var_share']:>12.1%}{x['today_share']:>10.1%}"
-            f"{x['score_z']:>+9.2f}z{x['abs_pct']:>11.0%}")
+            f"{x['score_z']:>+9.2f}z{x['abs_pct']:>11.0%}   "
+            f"{lab or '(spans sectors)'}")
         out(f"        with:    {' '.join(x['with'])}")
         out(f"        against: {' '.join(x['against'])}")
     out("")
