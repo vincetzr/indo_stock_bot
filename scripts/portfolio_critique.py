@@ -286,6 +286,31 @@ def power(x: np.ndarray, target: float) -> Dict:
             "covers_target": bool(lo <= target <= hi)}
 
 
+def add_liquidity(D: pd.DataFrame) -> pd.DataFrame:
+    """Attach each name's liquidity AT ITS COHORT DATE, from the panel.
+
+    Joined rather than rebuilt: `log_turnover` is already a panel column, so
+    this costs a merge instead of the twenty minutes `build()` takes, and the
+    per-name return table stays byte-identical.
+    """
+    P = pd.read_parquet(PANEL, columns=["date", "ticker", "log_turnover"])
+    P = P.rename(columns={"date": "as_of"})
+    out = D.merge(P, on=["as_of", "ticker"], how="left")
+    #  within-cohort tercile, so this ranks the cross-section and not the
+    #  market-wide rise in turnover over twenty years
+    out["liq3"] = out.groupby("as_of")["log_turnover"].transform(
+        lambda s: pd.qcut(s.rank(method="first"), 3, labels=False)
+        if s.notna().sum() >= 3 else np.nan)
+    return out
+
+
+def gross(D: pd.DataFrame, rule: str = "hold 252") -> pd.DataFrame:
+    """The same table with costs added back, to split shortfall from toll."""
+    G = D.copy()
+    G[rule] = G[rule] + G["cost"]
+    return G
+
+
 def main() -> int:
     D = pd.read_parquet(NAMES)
     S = index_series()
@@ -404,6 +429,94 @@ def main() -> int:
     print("   independent trials, so the interval understates uncertainty.")
     print("   It is quoted because it is the FAVOURABLE reading and the")
     print("   picks still do not win it.")
+
+    # --------------------------------------------------------------- C3c --
+    head("C3c — IS THE SHORTFALL THE COST, OR THE SELECTION?")
+    print(" It matters which, because only one of them has a fix. If the")
+    print(" 2.5% is the toll, a lower-turnover version of the same rule")
+    print(" recovers it. If it is the picking, nothing about execution does.\n")
+    Sn = slots(baskets(D, "hold 252", "picked"), SLOTS)
+    Sg = slots(baskets(gross(D), "hold 252", "picked"), SLOTS)
+    bn = bench_slots(S, Sn, top)["d"].mean()
+    bg = bench_slots(S, Sg, top)["d"].mean()
+    print(f"   picks NET of cost   {agg(Sn)[0]:>+7.1%}   vs index  {bn:>+7.2%}")
+    print(f"   picks GROSS         {agg(Sg)[0]:>+7.1%}   vs index  {bg:>+7.2%}")
+    print(f"   -> the round trips cost {agg(Sg)[0] - agg(Sn)[0]:.2%} a year;")
+    print(f"      {abs(bg):.2%} of the shortfall survives removing them"
+          f" entirely.")
+    print("   Charging the index nothing at all and the picks nothing at all")
+    print("   still leaves them behind, so this is a SELECTION shortfall and")
+    print("   no amount of patience or lower turnover addresses it.")
+
+    # --------------------------------------------------------------- C3d --
+    head("C3d — DOES THE EDGE SURVIVE WHERE THE INDEX ACTUALLY LIVES?")
+    print(" The picks are equal-weighted mid-caps and the IHSG is")
+    print(" cap-weighted large-caps, so most of the gap may be a SIZE")
+    print(" effect rather than a bad rule. Splitting the pool by")
+    print(" within-cohort liquidity tercile separates the two.\n")
+    L = add_liquidity(D)
+    tot = int(L["picked"].sum())
+    print(f"   {'tercile':<10}{'picks':>9}{'share':>8}{'cohorts':>10}"
+          f"{'median basket':>15}{'readable?':>11}")
+    cells = {}
+    for t in (0, 1, 2):
+        d = L[L["liq3"] == t]
+        B = baskets(d, "hold 252", "picked")
+        n = int(d["picked"].sum())
+        med = float(B["n"].median()) if len(B) else np.nan
+        ok = len(B) >= 0.75 * D["as_of"].nunique() and med >= 8
+        cells[t] = (d, B, ok)
+        lbl = ("thin", "middle", "liquid")[t]
+        print(f"   {lbl:<10}{n:>9,}{n / tot:>8.1%}"
+              f"{len(B):>6}/{D['as_of'].nunique():<4}{med:>15.1f}"
+              f"{('yes' if ok else 'NO'):>11}")
+
+    print("\n   THE SEGMENT HANDICAP IS READABLE, because a RANDOM draw of")
+    print("   twelve from a tercile is a full basket even where the picked")
+    print("   one is not — ~100 names per tercile per cohort:")
+    print(f"\n   {'tercile':<10}{'random pool CAGR':>18}{'vs index TR':>13}")
+    for t in (0, 1, 2):
+        d = cells[t][0]
+        rr = [agg(slots(baskets(d, "hold 252", "random", size=12,
+                                seed=1000 + k), SLOTS)) for k in range(DRAWS)]
+        rn = float(np.mean([r[0] for r in rr]))
+        Sr = slots(baskets(d, "hold 252", "random", size=12, seed=1000), SLOTS)
+        vb = bench_slots(S, Sr, top)["d"].mean() if not Sr.empty else np.nan
+        print(f"   {('thin', 'middle', 'liquid')[t]:<10}{rn:>+18.1%}"
+              f"{vb:>+13.2%}")
+
+    print("\n   THAT ANSWERS THE QUESTION, AND IT ANSWERS IT BACKWARDS.")
+    print("   The size story predicted the LIQUID tercile would do best and")
+    print("   close the gap. It does WORST — +3.7% against the thin end's")
+    print("   +7.9%, and -9.5% against the index against the thin end's")
+    print("   -3.5%. Every tercile trails the index, and moving upmarket")
+    print("   makes it worse, not better.")
+    print("\n   So the shortfall is NOT a small-cap handicap. What it is:")
+    print("   an EQUAL-WEIGHTED basket of IDX names lost to the CAP-WEIGHTED")
+    print("   index over this sample, because a handful of mega-caps carried")
+    print("   it — and the pool's liquid tercile is still far below those in")
+    print("   capitalisation, so it inherits none of that and keeps the")
+    print("   equal-weighting penalty. The size explanation is not a rescue.")
+    print(f"\n   For the record the rule leans thin — "
+          f"{cells[0][0]['picked'].sum() / tot:.0%} of picks in the thin "
+          f"tercile against {cells[2][0]['picked'].sum() / tot:.0%} liquid — ")
+    print("   which given the table above is the BETTER end to lean toward.")
+    print("   It is not the source of the shortfall.")
+
+    print("\n   THE CONDITIONAL RETURN IS NOT READABLE AND IS NOT REPORTED.")
+    print("   Splitting a twelve-name basket three ways leaves the liquid")
+    print("   cell scoring "
+          f"{len(cells[2][1])}/{D['as_of'].nunique()} cohorts at a median of "
+          f"{cells[2][1]['n'].median():.0f} names.")
+    print("   Compounding a four-name basket across non-contiguous cohorts")
+    print("   is not a portfolio. An earlier draft of this section printed")
+    print("   -13.9% for that cell and it is a degenerate-cell artefact of")
+    print("   exactly the kind this repo has already recorded twice — the")
+    print("   smallest cell producing the largest effect. Answering the")
+    print("   question properly means RE-RANKING inside the liquid tercile")
+    print("   and taking a full basket there, which needs the cell scores")
+    print("   `build()` does not persist: about twenty minutes of rebuild,")
+    print("   not a limit of the data.")
 
     # ---------------------------------------------------------------- C1 --
     head("C1 — IS THE LATE HALF A NULL, OR IS IT UNPOWERED?")

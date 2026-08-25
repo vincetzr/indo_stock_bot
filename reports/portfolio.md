@@ -204,6 +204,55 @@ picks cost eighteen round trips, single-name concentration and a −50% drawdown
 to arrive at, at best, the same place. **A tie against the cheap alternative is
 a loss for the expensive one.**
 
+### Is the shortfall the cost, or the selection?
+
+Only one of those has a fix. If the 2.5% is the toll, a lower-turnover version
+of the same rule recovers it; if it is the picking, no amount of patience does.
+
+| | picks | vs index TR |
+|---|---|---|
+| net of cost | +10.5% | −2.53% |
+| **gross, all round trips refunded** | **+12.3%** | **−0.82%** |
+
+The eighteen round trips cost **1.76% a year** — most of the gap — but
+**refunding every one of them still leaves the picks behind.** This is a
+selection shortfall with a large toll on top, not a toll alone.
+
+### Is it just that the picks are small caps?
+
+The obvious rescue: the picks are equal-weighted mid-caps and the IHSG is
+cap-weighted large-caps, so perhaps the rule is fine and the segment is the
+handicap. Split the pool by within-cohort liquidity tercile. **The picked
+baskets fragment and cannot answer** — the liquid cell scores 54 of 212
+cohorts at a median of 4 names, and compounding a four-name basket across
+non-contiguous cohorts is not a portfolio. An earlier draft of this section
+printed −13.9% for that cell; it is a degenerate-cell artefact of exactly the
+kind recorded twice already in this repo, the smallest cell producing the
+largest effect, and it is **not reported**.
+
+A *random* draw of twelve is a full basket in every tercile, though, so the
+segment handicap itself is readable — and it answers the question **backwards**:
+
+| tercile | random pool CAGR | vs index TR |
+|---|---|---|
+| thin | +7.9% | −3.54% |
+| middle | +4.8% | −6.69% |
+| **liquid** | **+3.7%** | **−9.48%** |
+
+The size story predicted the liquid tercile would close the gap. It is the
+**worst** of the three. Every tercile trails the index and moving upmarket
+makes it worse. So the shortfall is not a small-cap handicap: it is that an
+**equal-weighted** basket of IDX names lost to the **cap-weighted** index over
+this sample, because a handful of mega-caps carried it, and even the pool's
+liquid tercile sits far below those in capitalisation — inheriting none of the
+mega-cap return while keeping the equal-weighting penalty. For the record the
+rule leans thin (51% of picks against 15% liquid), which given this table is
+the better end to lean toward and is not the source of the shortfall.
+
+Answering the picked version properly means re-ranking *inside* the liquid
+tercile and taking a full basket there. That needs the cell scores `build()`
+does not persist: about twenty minutes of rebuild, not a limit of the data.
+
 ## 6. Two more critiques of §3–§4, and they split
 
 **"The entry is a coin flip after 2017" was a power statement written as an

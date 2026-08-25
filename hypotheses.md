@@ -1236,6 +1236,48 @@ cost 18 round trips, single-name concentration and a −50% drawdown to reach th
 same place. **A tie against the cheap alternative is a loss for the expensive
 one.**
 
+### C3c — the shortfall is SELECTION, not the toll
+
+| | picks | vs index TR |
+|---|---|---|
+| net of cost | +10.5% | −2.53% |
+| gross, every round trip refunded | **+12.3%** | **−0.82%** |
+
+The 18 round trips cost **1.76%/yr** — most of the gap — but refunding all of
+them still leaves the picks behind. A lower-turnover version of the same rule
+does not rescue it.
+
+### C3d — and it is NOT a small-cap handicap; that answer came back backwards
+
+The obvious rescue is that the picks are equal-weighted mid-caps against a
+cap-weighted large-cap index. Split by within-cohort liquidity tercile. **The
+picked baskets fragment and cannot answer** — the liquid cell scores 54/212
+cohorts at a median of 4 names. An earlier draft printed **−13.9%** for that
+cell; it is a degenerate-cell artefact of the kind already recorded twice here
+(smallest cell, largest effect) and is **not reported**.
+
+A random draw of twelve IS a full basket in every tercile, so the segment
+handicap is readable:
+
+| tercile | random pool CAGR | vs index TR |
+|---|---|---|
+| thin | +7.9% | −3.54% |
+| middle | +4.8% | −6.69% |
+| **liquid** | **+3.7%** | **−9.48%** |
+
+**The size story predicted the liquid tercile would close the gap; it is the
+worst of the three.** Every tercile trails the index and moving upmarket makes
+it worse. The shortfall is that an EQUAL-WEIGHTED basket of IDX names lost to
+the CAP-WEIGHTED index over this sample — a handful of mega-caps carried it,
+and even the pool's liquid tercile sits far below those in capitalisation, so
+it inherits none of that return and keeps the equal-weighting penalty. The rule
+leans thin (51% vs 15%), which given this table is the better end and is not
+the source of the gap.
+
+Answering the picked version properly needs re-ranking inside the liquid
+tercile, which needs cell scores `build()` does not persist: ~20 minutes of
+rebuild, not a limit of the data.
+
 ### C1 — "a coin flip since 2017" was a POWER statement written as an EFFECT one
 
 A8's exact distinction, and H20 made the wrong side of it. Taking the SLOT as

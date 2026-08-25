@@ -19,7 +19,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir,
                                 "scripts"))
 
 from portfolio_critique import (LANDMARKS, agg, bench_slots,  # noqa: E402
-                                index_cagr, max_dd, power, validate_index)
+                                gross, index_cagr, max_dd, power,
+                                validate_index)
 from portfolio_sim import slots                                 # noqa: E402
 
 
@@ -245,6 +246,26 @@ def test_the_real_ihsg_has_no_decimal_shift_and_only_holiday_gaps():
     v = validate_index(_real())
     assert v["n_moves_over_20pct"] == 0
     assert v["n_gaps_over_12d"] == 0             # Idul Fitri is <= 12 days
+
+
+# ================================================ cost versus selection (C3c)
+def test_gross_adds_the_cost_back_to_the_named_rule_only():
+    D = pd.DataFrame({"as_of": pd.to_datetime(["2010-01-01"] * 3),
+                      "ticker": list("ABC"), "picked": True,
+                      "cost": [0.01, 0.02, 0.03],
+                      "A": [0.10, 0.20, 0.30], "B": [0.5, 0.5, 0.5]})
+    G = gross(D, "A")
+    assert np.allclose(G["A"], [0.11, 0.22, 0.33])
+    assert np.allclose(G["B"], D["B"])          # the other rule is untouched
+
+
+def test_gross_does_not_mutate_the_caller_s_frame():
+    """The per-name table is reused by every later section; an in-place add
+    would silently refund costs for the rest of the run."""
+    D = pd.DataFrame({"cost": [0.01], "A": [0.10]})
+    before = D["A"].copy()
+    gross(D, "A")
+    assert np.allclose(D["A"], before)
 
 
 @_skip

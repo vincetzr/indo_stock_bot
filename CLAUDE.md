@@ -1416,6 +1416,27 @@ stopped at it. Paired per slot over each slot's own span, the shortfall is
 fix made it stronger. *Every* error in this section ran the same way: comparing
 quantities measured over different windows.
 
+**AND IT IS THE SELECTION, NOT THE TOLL, AND NOT SIZE.** Refunding every one
+of the eighteen round trips — worth **1.76% a year** — still leaves the picks
+behind by 0.82%, so a lower-turnover version of the same rule does not rescue
+it. And the small-cap rescue came back **backwards**: by within-cohort
+liquidity tercile the random pool reads +7.9% / +4.8% / **+3.7%** against the
+index at −3.5% / −6.7% / **−9.5%**, so the LIQUID end is the worst and moving
+upmarket makes it worse. The shortfall is that an EQUAL-WEIGHTED basket of IDX
+names lost to the CAP-WEIGHTED index over this sample: a handful of mega-caps
+carried it, and even this pool's liquid tercile sits far below those in
+capitalisation, inheriting none of that return while keeping the equal-weighting
+penalty.
+
+**And the picked half of that test was refused rather than reported.** Splitting
+a twelve-name basket three ways leaves the liquid cell scoring 54 of 212 cohorts
+at a median of four names. A first draft printed **−13.9%** for it — the
+smallest cell producing the largest effect, the degenerate-cell trap this repo
+has already recorded twice. The readable half (random draws, full baskets in
+every tercile) is what is quoted; the unreadable half says "insufficient data"
+and names what answering it would cost (~20 minutes of rebuild, since `build()`
+does not persist cell scores).
+
 **It does not rest on significance either.** Slot dispersion [+6.7%, +13.8%]
 contains the index, so read as a tie the picks still cost 18 round trips,
 single-name concentration and a −50% drawdown to reach the same place. **A tie
