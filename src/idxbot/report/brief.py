@@ -196,6 +196,52 @@ def index_series(P: pd.DataFrame, weight: str = "equal") -> pd.Series:
     return (1.0 + r.fillna(0.0)).cumprod()
 
 
+def ihsg(loader, day: pd.Timestamp, hist: int = 1250) -> Dict[str, object]:
+    """The real Jakarta Composite, not a proxy built from the cross-section.
+
+    The brief printed two home-made indices and a paragraph explaining that
+    neither was IHSG — while `^JKSE` sat behind the same unauthenticated
+    endpoint every `.JK` name already uses. That is the A12 error in miniature:
+    the substitute was fine, the note about it was honest, and nobody checked
+    whether the real thing was one request away.
+
+    The proxies are kept beside it rather than replaced. IHSG is
+    capitalisation-weighted over every listed name, so it answers "what did the
+    index do"; the equal-weighted line answers "what did the median name do",
+    and the gap between them is exactly the information a breadth reader wants.
+
+    ``lag`` is reported because Yahoo's `^JKSE` can trail the individual names
+    by a session, and an index quietly one day stale next to fresh constituents
+    would be read as a divergence that is really a clock difference.
+    """
+    try:
+        d = loader.get("^JKSE", max_age=3600.0)
+    except Exception:                                           # noqa: BLE001
+        return {}
+    if d is None or getattr(d, "empty", True) or "date" not in d:
+        return {}
+    d = d.copy()
+    d["date"] = pd.to_datetime(d["date"])
+    d = d.sort_values("date")
+    d = d[d["date"] <= day]
+    px = pd.to_numeric(d["close"], errors="coerce").dropna()
+    if len(px) < 70:
+        return {}
+    out: Dict[str, object] = {"level": float(px.iloc[-1]),
+                              "asof": d["date"].iloc[-1],
+                              "lag": int((day - d["date"].iloc[-1]).days)}
+    for k, lab in ((1, "1d"), (5, "1w"), (21, "1m"), (63, "3m")):
+        out[lab] = float(px.iloc[-1] / px.iloc[-1 - k] - 1.0) \
+            if len(px) > k else np.nan
+    yr = px[d.set_index("date").index.year == day.year] \
+        if len(d) == len(px) else px
+    out["ytd"] = float(px.iloc[-1] / yr.iloc[0] - 1.0) if len(yr) > 1 else np.nan
+    rv = px.pct_change().rolling(20, min_periods=20).std() * np.sqrt(252)
+    out["vol"] = float(rv.iloc[-1]) if rv.notna().any() else np.nan
+    out["vol_pct"] = _pct_rank(rv.iloc[-hist:].to_numpy(), out["vol"])
+    return out
+
+
 def _pct_rank(hist: np.ndarray, x: float) -> float:
     """Where ``x`` sits in ``hist``, as a fraction in [0, 1]."""
     h = np.asarray(hist, dtype=float)
@@ -993,7 +1039,7 @@ def current_states(P: pd.DataFrame, R: pd.DataFrame, day: pd.Timestamp,
     D["bucket"] = bucket_of(D["run_days"], D["run_z"], D["ivol"],
                             edges, D["leg"]).to_numpy()
     cols = ["bucket", "n", "n_eff", "fwd_mean", "base_mean", "diff",
-            "diff_lo", "diff_hi", "p_up"]
+            "diff_lo", "diff_hi", "p_up", "p_up_cal"]
     D = D.merge(T[[c for c in cols if c in T]], on="bucket", how="left")
     D["cost"] = [cost_bar(p, day)["total"] for p in D["close"]]
     D["net"] = D["diff"] - D["cost"]
@@ -1143,6 +1189,7 @@ def build_tables(P: pd.DataFrame, ks: Sequence[int] = (5, 20),
     Written atomically: a half-written reference table that still parses is
     worse than none, because the brief would carry on quoting it.
     """
+    from . import forecast as FC
     R = run_state(P)
     out = {}
     os.makedirs(TABLE_DIR, exist_ok=True)
@@ -1150,12 +1197,32 @@ def build_tables(P: pd.DataFrame, ks: Sequence[int] = (5, 20),
         D, edges = conditional_frame(P, R, k)
         T, _ = conditional_table(P, R, k, draws=draws, seed=seed)
         N = conditional_null(D, k, draws=null_draws, seed=seed)
+
+        # THE CALIBRATED FORECAST. Raw cell frequencies scored a Brier skill of
+        # -0.0093 — worse than quoting the base rate every day — because a cell
+        # with a few hundred bars was being trusted like one with forty
+        # thousand. Shrinkage fixes the calibration; the prior strength is
+        # chosen by walk-forward on training folds only, and it comes back
+        # enormous (10,000-30,000 pseudo-observations), which is itself the
+        # result: the data says trust climatology almost entirely.
+        fwd = f"fwd{k}"
+        base = float((D[fwd] > 0).mean())
+        prior = FC.pick_prior(D, fwd)
+        up = (D[fwd] > 0).astype(float)
+        g = D.assign(_u=up).groupby("bucket")["_u"]
+        p_up = FC.shrink(g.count(), g.sum(), base, prior)
+        p_up = p_up.where(g.count() >= 200, base)
+        T = T.merge(p_up.rename("p_up_cal").reset_index(), on="bucket",
+                    how="left")
+        W = FC.walk_forward(D, k=k, embargo=k)
         blob = {"k": k, "built": dt.date.today().isoformat(),
                 "n_rows": int(len(D)),
                 "date_min": str(pd.to_datetime(D["date"]).min().date()),
                 "date_max": str(pd.to_datetime(D["date"]).max().date()),
                 "edges": {a: np.asarray(b, dtype=float).tolist()
                           for a, b in edges.items()},
+                "base_rate": base, "prior": float(prior),
+                "verification": FC.verify(W) if not W.empty else {},
                 "null": N, "table": T.to_dict(orient="records")}
         tmp = table_path(k) + ".tmp"
         with open(tmp, "w") as fh:
@@ -1163,6 +1230,94 @@ def build_tables(P: pd.DataFrame, ks: Sequence[int] = (5, 20),
         os.replace(tmp, table_path(k))
         out[k] = blob
     return out
+
+
+STATE_PATH = os.path.join(TABLE_DIR, "brief_state.json")
+
+
+def capture_state(day: pd.Timestamp, session: str, b: Dict[str, object],
+                  Wl: pd.DataFrame, news: Optional[pd.DataFrame] = None
+                  ) -> Dict[str, object]:
+    """The small amount of this run worth remembering for the next one."""
+    names = {}
+    if Wl is not None and not Wl.empty:
+        for _, r in Wl.iterrows():
+            names[str(r["ticker"])] = {
+                "leg": str(r["leg"]),
+                "bucket": str(r.get("bucket") or ""),
+                "run_days": int(r["run_days"]),
+                "close": float(r["close"]),
+                "events": str(r.get("events") or "")}
+    return {"day": str(day.date()), "session": session,
+            "breadth": {k: (float(v) if isinstance(v, (int, float, np.floating))
+                            and np.isfinite(v) else None)
+                        for k, v in b.items() if k != "asof"},
+            "names": names}
+
+
+def save_state(state: Dict[str, object]) -> None:
+    os.makedirs(TABLE_DIR, exist_ok=True)
+    prev = load_state()
+    # keep exactly one predecessor, so a diff always has something to compare
+    # against without the file growing without bound
+    blob = {"current": state, "previous": prev.get("current") if prev else None}
+    tmp = STATE_PATH + ".tmp"
+    with open(tmp, "w") as fh:
+        json.dump(blob, fh)
+    os.replace(tmp, STATE_PATH)
+
+
+def load_state() -> Optional[Dict[str, object]]:
+    if not os.path.exists(STATE_PATH):
+        return None
+    try:
+        with open(STATE_PATH) as fh:
+            return json.load(fh)
+    except (ValueError, OSError):
+        return None
+
+
+def diff_state(prev: Optional[Dict[str, object]],
+               cur: Dict[str, object]) -> Dict[str, object]:
+    """What changed since the last brief.
+
+    A twice-daily tool with no memory makes the reader do the diff, which is
+    the one job a machine is unambiguously better at. Only genuine state
+    changes are reported — a leg that flipped, a cell that moved, an event tag
+    that is new, a name that entered or left the watchlist — because "BBCA is
+    still in a decline" is not news on the second morning.
+
+    Returns empty when there is no predecessor, and says so rather than
+    presenting a first run as a quiet one.
+    """
+    if not prev:
+        return {"first_run": True}
+    p, c = prev.get("names", {}), cur.get("names", {})
+    entered = sorted(set(c) - set(p))
+    left = sorted(set(p) - set(c))
+    flipped, moved, tagged = [], [], []
+    for t in sorted(set(c) & set(p)):
+        a, b = p[t], c[t]
+        if a.get("leg") != b.get("leg"):
+            flipped.append({"ticker": t, "from": a.get("leg"),
+                            "to": b.get("leg")})
+        elif a.get("bucket") and b.get("bucket") and \
+                a["bucket"] != b["bucket"]:
+            moved.append({"ticker": t, "from": a["bucket"], "to": b["bucket"]})
+        new_ev = ({e for e in str(b.get("events", "")).split(",") if e}
+                  - {e for e in str(a.get("events", "")).split(",") if e})
+        if new_ev:
+            tagged.append({"ticker": t, "events": sorted(new_ev)})
+    bd = {}
+    for k in ("above_20d", "above_200d", "advancing"):
+        x, y = (prev.get("breadth") or {}).get(k), (cur.get("breadth")
+                                                    or {}).get(k)
+        if x is not None and y is not None and abs(y - x) >= 0.03:
+            bd[k] = {"from": x, "to": y}
+    return {"first_run": False, "since": prev.get("day"),
+            "since_session": prev.get("session"),
+            "entered": entered, "left": left, "flipped": flipped,
+            "moved": moved, "tagged": tagged, "breadth": bd}
 
 
 SENS_PATH = os.path.join(TABLE_DIR, "overnight_sensitivity.json")

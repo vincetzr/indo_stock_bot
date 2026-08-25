@@ -272,17 +272,27 @@ def section_watchlist(S, states, C, T, blob, n: int) -> None:
     out(f" measured attractiveness here and sorting by one would invent it.")
     out("")
     out(f" {'ticker':<7}{'close':>9}{'today':>8}{'leg':>6}{'since':>7}"
-        f"{'run':>9}{'run_z':>7}{'off ext':>9}{'excess':>9}{'cost':>7}"
-        f"{'net':>7}{'f':>3}  events")
+        f"{'run':>9}{'run_z':>7}{'off ext':>9}{'P(up)':>7}{'excess':>9}"
+        f"{'cost':>7}{'net':>7}{'f':>3}  events")
     for _, x in Wl.iterrows():
         ex = f"{x['diff']:+.2%}" if np.isfinite(x.get("diff", np.nan)) else "  n/a"
         nt = f"{x['net']:+.2%}" if np.isfinite(x.get("net", np.nan)) else "  n/a"
         out(f" {x['ticker']:<7}{x['close']:>9,.0f}"
             f"{x.get('ret1', np.nan):>+8.1%}{x['leg']:>6}"
             f"{int(x['run_days']):>7}{x['run_pct']:>+9.1%}"
-            f"{x['run_z']:>+7.2f}{x['give_pct']:>+9.1%}{ex:>9}"
-            f"{x['cost']:>7.2%}{nt:>7}{x['n_feat']:>3}  {x['events'][:30]}")
+            f"{x['run_z']:>+7.2f}{x['give_pct']:>+9.1%}"
+            f"{(f'{x[chr(112)+chr(95)+chr(117)+chr(112)+chr(95)+chr(99)+chr(97)+chr(108)]:.1%}' if np.isfinite(x.get('p_up_cal', np.nan)) else '   n/a'):>7}"
+            f"{ex:>9}{x['cost']:>7.2%}{nt:>7}{x['n_feat']:>3}  "
+            f"{x['events'][:26]}")
     out("")
+    out(f" 'P(up)'   the CALIBRATED probability this name is higher in {k}")
+    out(f"           sessions, shrunk toward the base rate by a prior chosen")
+    out(f"           on training folds only. Raw cell frequencies scored a")
+    out(f"           Brier skill of -0.0093 — WORSE than quoting the base rate")
+    out(f"           every day — because a thin cell was trusted like a thick")
+    out(f"           one. Shrunk, calibration error falls 5x and skill lands at")
+    out(f"           +0.0008. Note the RANGE: the most confident thing this")
+    out(f"           model ever says is about 50% against a 45% base rate.")
     out(f" 'excess'  historical mean return of the cell this name currently")
     out(f"           occupies, over {k} sessions, minus the equal-weighted")
     out(f"           return of all liquid names on the same dates.")

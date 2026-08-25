@@ -727,3 +727,78 @@ the holdout once. Registering after reading the table above does not count.
 **Trial count unchanged at 41.** No hypothesis was tested here. The 54 cells
 are recorded so that a future H15 inherits them rather than pretending its
 cells were the first ones looked at.
+
+---
+
+## H15 — 2026-08-25 — the forecast question, asked properly, and answered
+
+**"I want you to forecast" is two questions.** Whether the brief can produce a
+calibrated probabilistic forecast, and whether that forecast is worth trading.
+They have different answers and conflating them is how a good forecaster gets
+mistaken for an edge. Both are settled here.
+
+### The economic question: closed WITHOUT spending the holdout
+
+O1 recorded a state-conditioning effect whose largest cell was +1.66% per 20
+sessions. The pre-registered version — **the whole family `leg=up, extension
+tercile=2`, nine cells, motivated a priori as "stretched advances continue"
+rather than picked as the argmax** — measures:
+
+| | |
+|---|---|
+| gross excess over the liquid equal-weighted universe | **+0.586%** / 20 sessions |
+| non-overlapping rebalance periods, in sample | 271, sd 3.30%, **t +2.92** |
+| round-trip cost at the observed median price | **0.90%** |
+| **net** | **−0.314%** |
+
+**The a-priori family is a third of the argmax cell.** That gap is the
+selection bias O1 warned about, measured rather than asserted.
+
+**And the holdout could not have rescued it.** 481 sessions = **24
+non-overlapping periods**. At the in-sample effect size, power is **12.5%** at
+nominal α and **0.5%** after Bonferroni over 42 trials. The minimum detectable
+excess at 80% power is **+1.97%** per period nominal, **+3.07%** Bonferroni —
+three to five times the effect that exists, and the effect that exists is
+already net-negative before it gets there.
+
+**So the holdout is NOT spent.** Running it would have burned the only clean
+sample on a test that could not answer the question. `scripts/power.py`
+reproduces the calculation; it touches no holdout row.
+
+### The forecasting question: real resolution, no skill
+
+Walk-forward with a 20-session embargo, 5 folds, 1,059,858 scored forecasts.
+
+**The first attempt was WORSE THAN USELESS and the verification caught it.**
+Raw cell frequencies scored a **Brier skill of −0.0093** — worse than saying
+"45%" every day — with a reliability curve predicting **99.4% where reality was
+58.9%**. Resolution was genuinely non-zero, so the conditioning knew something;
+overconfidence threw it away, because a cell holding a few hundred bars was
+quoted like one holding forty thousand.
+
+**Shrinkage repairs it, and the prior it chooses is the finding.** Empirical
+Bayes toward the base rate, prior strength selected by inner walk-forward on
+training folds only:
+
+| | raw | shrunk |
+|---|---|---|
+| Brier skill vs climatology | **−0.0093** | **−0.0008** |
+| skill vs walk-forward base rate | −0.0077 | **+0.0008** |
+| calibration error | 0.00230 | **0.00044** |
+| resolution | 0.00041 | 0.00024 |
+| resolution vs shuffle null | p = 0.000 | **p = 0.000** |
+| predicted range | 25% → 100% | **40.8% → 51.1%** |
+
+**The chosen prior was 10,000–30,000 pseudo-observations.** Given a free choice
+across seven orders of magnitude, the data said *shrink almost all the way to
+climatology*. An independent check: the optimal shrinkage weight
+τ²/(τ²+σ²) at the panel's signal-to-noise is ~0.17, equivalent to a prior near
+10,000. The cross-validation and the algebra agree.
+
+**So: the forecasts carry real resolution (p = 0.000 against a within-date
+shuffle) and essentially zero skill (+0.0008).** The most confident statement
+this model will ever make is **51% against a 45% base rate**. That is an honest
+forecast and it is not an edge.
+
+**Trials after H15: 43.** Bonferroni bar α = 0.05/43 = **0.0012**.
+**The 24-month holdout remains untouched.**
