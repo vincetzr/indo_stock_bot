@@ -28,15 +28,33 @@ signal. The whole research programme in this repo (A9) found nothing that
 survived costs, and a daily macro correlation is not exempt: the effect sizes
 below are a fraction of the 56 bps round trip before a spread is added.
 
-WHAT IS NOT REACHABLE, HAVING BEEN CHECKED
---------------------------------------------
-IDX's economy is coal, nickel and palm oil, and none of the three has a usable
-free front-month series. Newcastle coal (`MTF=F`) stops in 2025-12; there is no
-Yahoo symbol for Bursa Malaysia CPO or for LME nickel. What stands in is the
-listed mining complex — Glencore, BHP, Rio Tinto — which trades in London and
-New York after Jakarta closes and carries the same exposure at one remove. The
-substitution is stated in the output rather than hidden, because a proxy that
-is not labelled becomes the thing it stands for.
+PALM OIL, COAL AND NICKEL — AND A CLAIM THAT WAS WRONG
+--------------------------------------------------------
+This docstring used to assert: *"there is no Yahoo symbol for Bursa Malaysia
+CPO or for LME nickel."* **The first half was false.** `CPO=F` is live, carries
+3,929 daily bars from 2010-05-25 to the current session, and comes from the
+same unauthenticated endpoint as everything else here. It was found by a
+systematic probe an hour after this file was written — which is the A12 shape a
+fourth time, and this time in code written by the same author on the same day
+as `docs/STANDING_ORDERS.md`. The rule is easy to write down and hard to obey.
+
+Indonesia is the world's largest palm-oil exporter, so its absence from an
+overnight board was not a small gap.
+
+What IS still unreachable, having now been tested properly across 21 symbol
+roots and Yahoo's own search endpoint: **LME nickel**. That one stands.
+
+`MTF=F` is also mislabelled in the old prose. It is **API2 CIF ARA** —
+Rotterdam-delivered European coal — not Newcastle: the median ratio against the
+World Bank's `Coal, Australian` series is 0.781 over 139 months. Wrong basin
+for an Indonesian exporter panel, and dead since 2025-12-26 in any case. It is
+correctly absent from :data:`GROUPS`; the point is that calling it Newcastle
+was wrong on top of being stale.
+
+So thermal coal and nickel still have no free front-month series, and the
+listed mining complex — Glencore, BHP, Rio Tinto — stands in for them. That
+substitution is printed with the numbers rather than hidden, because a proxy
+that is not labelled becomes the thing it stands for.
 """
 
 from __future__ import annotations
@@ -55,7 +73,8 @@ GROUPS: Dict[str, Sequence[Tuple[str, str]]] = {
              ("000001.SS", "Shanghai")),
     "FX and rates": (("IDR=X", "USDIDR"), ("DX-Y.NYB", "DXY"),
                      ("^TNX", "UST 10y")),
-    "Energy": (("BZ=F", "Brent"), ("CL=F", "WTI"), ("NG=F", "Nat gas")),
+    "Energy": (("BZ=F", "Brent"), ("CL=F", "WTI"), ("NG=F", "Nat gas"),
+               ("CPO=F", "Palm oil")),
     "Metals": (("GC=F", "Gold"), ("HG=F", "Copper"), ("ALI=F", "Aluminium"),
                ("TIO=F", "Iron ore")),
     "Mining complex": (("GLEN.L", "Glencore"), ("BHP", "BHP"),
@@ -79,6 +98,7 @@ AFTER_JAKARTA = frozenset({
     "^GSPC", "^IXIC",                       # New York, 20:00 UTC
     "IDR=X", "DX-Y.NYB", "^TNX",            # continuous / NY-stamped
     "BZ=F", "CL=F", "NG=F",                 # ICE and NYMEX settlements
+    "CPO=F",                                # Bursa Malaysia, 18:00 WIB
     "GC=F", "HG=F", "ALI=F", "TIO=F",       # COMEX, LME-linked, SGX
     "GLEN.L",                               # London, 15:30 UTC
     "BHP", "RIO",                           # NYSE-listed lines
@@ -109,6 +129,7 @@ IMPLAUSIBLE = 0.50
 #: Printed with the numbers: an unlabelled proxy becomes the thing it proxies.
 PROXY_NOTE = {
     "GLEN.L": "coal and nickel — no free front-month series for either",
+    "CPO=F": "Indonesia is the largest palm-oil exporter; Bursa Malaysia FCPO",
     "BHP": "bulk commodities — iron ore, copper",
     "RIO": "bulk commodities — iron ore, aluminium",
 }

@@ -182,6 +182,11 @@ def section_state(P, S, day) -> tuple:
         f"at a 250-day low {b['new_lows']:>5}   of {b['n_250d']}")
     out(f" closed at the auto-rejection band: {L['ara']} ARA, {L['arb']} ARB "
         f"of {L['n']}   (close test only — an upper bound)")
+    out(f"   {L.get('thin', 0)} of those sit on Papan Pemantauan Khusus or")
+    out(f"   Akselerasi, whose band is a flat +/-10% rather than the main")
+    out(f"   ladder's +35%/-15%. The board is inferred per name from IDX's own")
+    out(f"   six-month-average-price rule; testing them all against the main")
+    out(f"   ladder — as an earlier version did — simply misses their lock-ups.")
     out("")
     m = B.movers(S)
     out(f" biggest movers, >= Rp {B.MIN_VALUE/1e9:.0f}bn traded and above the "

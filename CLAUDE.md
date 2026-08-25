@@ -44,7 +44,7 @@ When I ask for a result, give effect size and uncertainty, not a p-value alone.
 | **EOD broker summary** | **Free** | `idx.co.id` publishes it; endpoints reverse-engineered in `NeaByteLab/IDX-API`, `nichsedge/idx-bei`, `ExRonin/Stock-Scrapper-IDX` |
 | Corporate actions | Free | IDX announcements; needs parsing |
 | **News / narrative** | **Free** | *Added 2026-08-24, after this table's silence was misread as absence.* Public RSS: Google News (per-query and per-ticker), CNBC Indonesia, Kontan, Detik finance. Verified 200-OK with parseable items; Bisnis.com and idnfinancials 403. `src/idxbot/data/news.py`. **No point-in-time archive, so it may never enter a statistic** |
-| **Overnight / global** | **Free** | *Added 2026-08-25.* The same unauthenticated Yahoo chart endpoint the `.JK` names use also serves ^GSPC, ^IXIC, DX-Y.NYB, IDR=X, ^TNX, BZ=F, CL=F, GC=F, HG=F, ALI=F, TIO=F, GLEN.L, BHP, RIO — and `^JKSE` itself. `src/idxbot/data/overnight.py`. No free front-month series exists for coal, nickel or CPO; the listed miners stand in, labelled |
+| **Overnight / global** | **Free** | *Added 2026-08-25.* The same unauthenticated Yahoo chart endpoint the `.JK` names use also serves ^GSPC, ^IXIC, DX-Y.NYB, IDR=X, ^TNX, BZ=F, CL=F, GC=F, HG=F, ALI=F, TIO=F, GLEN.L, BHP, RIO — and `^JKSE` itself. `src/idxbot/data/overnight.py`. **Palm oil `CPO=F` added 2026-08-25 after the claim that it did not exist was disproved (A14).** Thermal coal and LME nickel genuinely have no free front-month series; the listed miners stand in, labelled |
 | Foreign net flow | Free | IDX trading summary |
 | Macro (USDIDR, BI rate, DXY, UST) | Free | BI, FRED |
 | Real-time tick / running trade | **Licensed** | IDX Data Services. Free route is scraping my own broker session — brittle, ToS-grey |
@@ -1080,3 +1080,66 @@ excess of the cell it occupies, round-trip cost, net, an event-tag column from
 the news layer, and a COUNT of how many registered features rank it top-decile.
 A count, not a blend — a composite of eight separately-tested features is a new
 signal wearing their credibility.
+
+## A14. A parallel source sweep, and three defects it found in code written the same day
+
+A13 closed the overnight board. A systematic probe of every free source the
+brief does not use — 8 categories, tested rather than researched, then
+adversarially re-verified — returned three corrections to code written hours
+earlier, plus a shortlist worth building.
+
+**PALM OIL WAS REACHABLE ALL ALONG.** `overnight.py` asserted *"there is no
+Yahoo symbol for Bursa Malaysia CPO or for LME nickel."* **`CPO=F` carries
+3,929 daily bars from 2010 to the current session**, from the same
+unauthenticated endpoint the rest of the board uses. Indonesia is the world's
+largest palm-oil exporter, so this was not a small omission. **This is the
+fourth instance of the A12 shape, and the first committed on the same day as
+`docs/STANDING_ORDERS.md` by its own author.** Writing the rule down does not
+make it operate.
+
+The nickel half of that sentence is now *properly* true: tested across 21
+symbol roots and Yahoo's own search endpoint.
+
+**Measured, palm oil does nothing at daily frequency:** r = **+0.026**,
+z = +1.5, CI [−0.008, +0.061], 6.5% stale. The conventional link between CPO
+and IDX is not visible in the daily cross-section. That is a real finding and
+it was only obtainable by adding the series the docstring said did not exist.
+
+**`MTF=F` WAS MISLABELLED.** The prose called it Newcastle coal. It is **API2
+CIF ARA** — Rotterdam-delivered European coal, median ratio 0.781 against the
+World Bank's `Coal, Australian` over 139 months. Wrong basin for an Indonesian
+exporter panel, and dead since 2025-12-26 regardless.
+
+**THE AUTO-REJECTION BAND WAS WRONG FOR THE THIN BOARD.** `limit_moves` called
+`auto_rejection(p, day)` and took the default `board="main"` for every ticker.
+`reference.py` has carried the thin-board ladder all along — Papan Pemantauan
+Khusus and Akselerasi trade a flat **±10%** against the main ladder's
+**+35%/−15%** — and `infer_board` derives membership from IDX's published
+six-month-average-price rule. **41 of 818 live names sit on that board** and
+every one was being tested against a ceiling three and a half times too high;
+fixing it immediately surfaced a limit-up the main ladder had missed (ARA
+1 → 2). The machinery existed; the caller did not use it.
+
+Two notes on the fix. `infer_board` answers `"unknown"` for a sub-Rp-51 name
+before 2023-06-12, because Papan Pemantauan Khusus did not exist then — those
+names are skipped rather than banded on a guess, and stay in the denominator so
+the printed ratio is honest about what was untestable. And a test asserting the
+new behaviour failed until its synthetic panel was dated after that rule
+existed: the point-in-time discipline working exactly as designed.
+
+**What the sweep found and did NOT get built, with the reason.**
+
+*The IDX-IC sector map is reachable*, contradicting a bounded "not found" this
+session recorded. Eleven CSVs under `wildangunawan/Dataset-Saham-IDX`,
+**934 tickers across the 11 official IDX-IC sectors**, plus listing board,
+listing date and **shares outstanding** — the last being the series whose
+absence forces the turnover-weighted index proxy. **CC BY-NC 4.0**, frozen at
+2024-07-10, so it misses the 41 post-July-2024 listings.
+
+*TradingView's screener* covers 838/838 with index membership for 18 IDX
+indices verified exactly (LQ45 45, IDX30 30, IDX80 80, KOMPAS100 100). It is
+**not built**, because A5 is explicit that a host is added only after the user
+has checked its licensing, and this one is an undocumented internal endpoint
+whose `/indonesia/scan` path its own robots.txt disallows. It is also *wrong*
+on taxonomy — ASII, a top-ten name, comes back as "Technology Services". That
+is the user's call to make, not this repo's.

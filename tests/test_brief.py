@@ -404,3 +404,47 @@ def test_the_news_caveat_no_longer_claims_news_is_unavailable():
     assert "not available" not in c.lower()
     assert "MAY NOT ENTER ANY STATISTIC" in c
     assert "point-in-time" in c, "the real limit is the archive, not access"
+
+
+# --------------------------------------------------------------------------
+# THE AUTO-REJECTION BAND MUST FOLLOW THE BOARD
+# --------------------------------------------------------------------------
+def test_a_thin_board_name_is_banded_at_ten_percent_not_thirty_five():
+    """Papan Pemantauan Khusus and Akselerasi trade a flat +/-10%; the main
+    ladder is +35%/-15%. An earlier version took the default board="main" for
+    every ticker, so a name locked limit-up at +10% did not register at all.
+    On the live cross-section 41 of 818 names sit on the thin board.
+    """
+    from idxbot.spine import reference
+    day = pd.Timestamp("2026-08-24")
+    # a penny stock whose six-month average is under Rp 51 -> thin board
+    assert reference.infer_board(day, 30.0, 30.0) in reference.THIN_BOARDS
+    assert reference.infer_board(day, 3000.0, 3000.0) in reference.MAIN_BOARDS
+    assert day >= reference.WATCHLIST_START, "the rule must exist on this date"
+    thin_up, _ = reference.auto_rejection(30.0, day, "watchlist")
+    main_up, _ = reference.auto_rejection(30.0, day, "main")
+    assert thin_up == pytest.approx(0.10)
+    assert main_up > 3 * thin_up, "the two ladders must genuinely differ"
+
+
+def test_limit_moves_counts_a_thin_board_lock_the_main_ladder_would_miss():
+    # THE PANEL MUST BE DATED AFTER 2023-06-12. Papan Pemantauan Khusus did not
+    # exist before then, so `infer_board` correctly answers "unknown" for a
+    # sub-Rp-51 name in 2020 rather than inventing a board — which is the
+    # point-in-time discipline working, and which broke an earlier version of
+    # this test that started the panel in 2020.
+    px = [30.0] * 300
+    P = panel({"THIN": px + [33.0]}, start="2024-01-01")
+    day = B.resolve_asof(P)
+    S = B.snapshot(P, day)
+    L = B.limit_moves(S, day)
+    assert L["thin"] >= 1, "the six-month rule must place this name"
+    assert L["ara"] >= 1, "+10% on the thin board IS a lock-up"
+
+
+def test_the_snapshot_carries_the_six_month_average_the_board_rule_needs():
+    P = panel({"AAAA": list(np.linspace(100, 200, 300))})
+    day = B.resolve_asof(P)
+    S = B.snapshot(P, day)
+    assert "avg_price_6m" in S
+    assert np.isfinite(S["avg_price_6m"].iloc[0])

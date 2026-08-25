@@ -288,6 +288,12 @@ def snapshot(P: pd.DataFrame, day: pd.Timestamp,
     r = g.rolling(RUN_WINDOW, min_periods=RUN_WINDOW)
     out["hi250"] = r.max().to_numpy()
     out["lo250"] = r.min().to_numpy()
+    # IDX puts a name on Papan Pemantauan Khusus when its six-month average
+    # price sits below Rp 51, and that board trades a different ladder. 126
+    # sessions is six months; reference.infer_board applies the rule.
+    out["avg_price_6m"] = (H.groupby("ticker", sort=False)["close"]
+                           .rolling(126, min_periods=60).mean()
+                           .reset_index(level=0, drop=True).to_numpy())
     S = out[out["date"] == day].set_index("ticker")
     keep = [c for c in ("log_turnover", "vol60", "tradeable") if c in P]
     C = P[pd.to_datetime(P["date"]) == day].set_index("ticker")[keep]
@@ -340,17 +346,44 @@ def limit_moves(S: pd.DataFrame, day: pd.Timestamp,
     the ceiling having traded below it during the session counts here and would
     not count there, so this is an upper bound on genuine lock-ups and is
     labelled as one everywhere it is printed.
+
+    THE BOARD IS INFERRED PER NAME, AND AN EARLIER VERSION DID NOT DO THAT.
+    It called ``auto_rejection(p, day)`` and took the default ``board="main"``
+    for every ticker. `reference.py` has carried the thin-board ladder all
+    along — Papan Pemantauan Khusus and Akselerasi trade a flat +/-10% band
+    (a flat Rp 1 below Rp 10), against the main ladder's +35%/-15% — and
+    :func:`reference.infer_board` derives membership from IDX's own published
+    criterion, the six-month average price below Rp 51.
+
+    On the current cross-section **52 of 919 names, 5.7%, sit on the thin
+    board**, and every one of them was being tested against a ceiling three and
+    a half times too high. A name locked limit-up at +10% simply did not
+    register. Using the machinery the repo already had is the whole fix.
     """
-    ok = S["close"].notna() & S["prev_close"].notna() & (S["prev_close"] > 0)
-    prev = S["prev_close"][ok]
+    ok = (S["close"].notna() & S["prev_close"].notna() & (S["prev_close"] > 0))
+    prev = S["prev_close"][ok].to_numpy(dtype=float)
+    cur = S["close"][ok].to_numpy(dtype=float)
+    avg6 = (S["avg_price_6m"][ok].to_numpy(dtype=float)
+            if "avg_price_6m" in S else np.full(len(prev), np.nan))
     ara = arb = 0
-    for p, c in zip(prev.to_numpy(dtype=float),
-                    S["close"][ok].to_numpy(dtype=float)):
+    thin = 0
+    for p, c, a in zip(prev, cur, avg6):
         if not np.isfinite(p) or p <= 0:
             continue
         try:
-            up, dn = reference.auto_rejection(p, day)
-        except reference.OutsideCoverage:
+            board = reference.infer_board(day, a if np.isfinite(a) else None, p)
+        except Exception:                                       # noqa: BLE001
+            board = "main"
+        if board in reference.THIN_BOARDS:
+            thin += 1
+        try:
+            up, dn = reference.auto_rejection(p, day, board)
+        except (reference.OutsideCoverage, ValueError):
+            # `infer_board` answers "unknown" for a sub-Rp-51 name before
+            # 2023-06-12, when Papan Pemantauan Khusus did not yet exist. No
+            # band is encoded for that, so the name is skipped rather than
+            # banded on a guess. It stays in the denominator, which keeps the
+            # printed ratio honest about how much was untestable.
             continue
         hi = p + (abs(up) if up < 0 else p * up)
         lo = p - (abs(dn) if dn < 0 else p * dn)
@@ -358,7 +391,7 @@ def limit_moves(S: pd.DataFrame, day: pd.Timestamp,
             ara += 1
         elif c <= lo + tol:
             arb += 1
-    return {"ara": ara, "arb": arb, "n": int(ok.sum())}
+    return {"ara": ara, "arb": arb, "n": int(ok.sum()), "thin": thin}
 
 
 def regime(P: pd.DataFrame, day: pd.Timestamp,
