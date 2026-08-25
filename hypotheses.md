@@ -802,3 +802,81 @@ forecast and it is not an edge.
 
 **Trials after H15: 43.** Bonferroni bar α = 0.05/43 = **0.0012**.
 **The 24-month holdout remains untouched.**
+
+---
+
+## H16 — 2026-08-25 — THE HOLDOUT IS NOW SPENT. Backtest of the multiplier-cell rule.
+
+**§11 said touch it once. This is the once.** Asked what the published
+multiplier-cell rule would have picked on 2025-08-25 and whether those names
+doubled, the only honest way to answer was to run it on holdout data. The rule
+was published in full the previous turn and could not be retro-tuned, and the
+cells themselves are fit on pre-holdout rows ending 2024-08-23, so the
+selection is genuinely out of sample. **Any future test on this window is now
+compromised.**
+
+### The cohort asked about: 2025-08-25 → 2026-08-24
+
+| | | | |
+|---|---|---|---|
+| ENRG **+118.8%** | ARCI **+115.4%** | FORE +43.8% | MBMA +35.8% |
+| INET +27.9% | DKFT −6.6% | KRAS −20.8% | BLOG −33.6% |
+| MERI −54.8% | KRYA −74.6% | | |
+
+**2 of 10 doubled = 20%.** 5 positive, 2 halved. Median +10.6%, mean +15.1%.
+All ten still trading at the end, so no delisting censoring in this cohort.
+
+**Calibration was good.** The cell predicted P(2x) = 15.2% → 1.5 expected, 2
+realised; P(−50%) = 26.6% → 2.7 expected, 2 realised. The model said what
+happened.
+
+**THE EDGE OVER RANDOM IS NOT ESTABLISHED.** Against 20,000 random 10-name
+draws from the same 267-name liquid universe:
+
+| statistic | picks | null mean | p |
+|---|---|---|---|
+| count >100% | 2 | 0.86 | **0.211** |
+| mean | +27.0% | +8.2% | 0.184 |
+| median | +31.9% | −8.4% | **0.026** |
+
+Only the median clears. **Picking 10 names at random from the same liquid
+universe produced 2 or more doublers 21% of the time.** On this date the rule
+is indistinguishable from a coin.
+
+### Pooled across 12 monthly cohorts — and why it is still n ≈ 1
+
+| | rule | universe |
+|---|---|---|
+| doubled | **27.5%** (33/120) | 14.1% |
+| drop the best cohort | 23.6% (26/110) | 13.6% |
+| mean of cohort medians | +28.9% | +4.9% |
+| doubling edge positive in | **10 of 12 cohorts** | |
+
+The drop-largest-cohort check — A8 says it belongs in every pooled statistic
+here — leaves the gap intact, and the edge is positive in 10 of 12 cohorts.
+
+**But the cohorts overlap almost completely.** Twelve monthly start dates each
+holding one year share ~11/12 of their forward window, so the consistency
+across cohorts is largely mechanical: they hold nearly the same names over
+nearly the same period. **The holdout contains ONE independent year-window.
+Effective n is ~1, not 12 and emphatically not 120.**
+
+**And that year was generous.** The liquid universe doubled at 14.1% against a
+long-run pre-holdout base rate of 9.6%. The whole test sits in one bull regime
+for the speculative segment.
+
+### What this does and does not license
+
+**Does:** the cell base rates are calibrated out of sample. When the table says
+15% double and 27% halve, roughly that happens.
+
+**Does not:** any claim that the rule beats picking liquid names at random.
+p = 0.21 on the date asked, and n_eff ≈ 1 pooled.
+
+**One structural observation worth carrying.** At a one-year horizon the cost
+wall that killed H9/H12/H13 is nearly irrelevant — a 1–2% round trip against a
++15% median is not the binding constraint it is at 20 sessions. That is the
+"hold longer" lever, and it is the only one this repo has not run to its end.
+
+**Trials after H16: 44.** Bonferroni bar α = 0.05/44 = **0.0011**.
+**The 24-month holdout is SPENT.**
