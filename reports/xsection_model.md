@@ -167,3 +167,49 @@ this model misses it entirely — it has no way to know. What it can tell you is
 what those names' current price state implies about their risk, and right now
 it implies elevated halving risk. That is a genuine blind spot and not a
 defence of one.
+
+### 4b. A correction — my theme list omitted the actual data-centre land play
+
+The table in §4 reported that no narrative name reaches the top decile. That
+was true of the themes I listed and **the list was wrong.** In Indonesia the
+data-centre buildout is bought through **industrial estates and property
+developers**, which my sweep grouped under "Properties & Real Estate" and never
+checked as a theme. Asked about DMAS, KIJA and ISAT specifically:
+
+| ticker | company | rank | P(2x) | P(halve) | ratio | 52w hi | vol | Rp/day |
+|---|---|---|---|---|---|---|---|---|
+| **DILD** | Intiland Development | **13** | 11.8% | **2.7%** | **4.35** | 72% | 38% | 1.1bn |
+| SSIA | Surya Semesta Internusa | 72 | 8.6% | 3.6% | 2.36 | 76% | 50% | 24.6bn |
+| LPKR | Lippo Karawaci | 73 | 11.3% | 4.8% | 2.36 | 47% | 52% | 5.6bn |
+| PWON | Pakuwon Jati | 98 | 8.2% | 3.9% | 2.08 | 72% | 42% | 12.1bn |
+| ISAT | Indosat | 128 | 8.6% | 4.7% | 1.84 | 96% | 63% | 34.8bn |
+| **DMAS** | Puradelta Lestari | 159 | 9.9% | 6.2% | 1.59 | **100%** | 34% | 9.2bn |
+| **KIJA** | Kawasan Industri Jababeka | 186 | **21.0%** | **15.7%** | 1.34 | 58% | **102%** | 8.0bn |
+
+**DILD ranks 13th of 276 — inside the top 5%.** The property/estate cluster is
+well represented in the top third. §4's claim should have read "no name from
+*the themes I enumerated*", and the enumeration was the defect.
+
+**Three things the specific names show that the aggregate hid.**
+
+**DMAS: the two screens disagree, and that is informative.** It is one of the
+23 names in H26's strength+calm cell — sitting exactly at its 52-week high with
+34% vol — and the model ranks it 159th. The cell is two coarse cuts; the model
+is finer and reads P(halve) 6.2% against the top decile's 4.0%. When a
+two-filter cell and an eleven-feature model disagree, the model is the one with
+the out-of-sample number behind it, but neither is authoritative on one name.
+
+**KIJA is the highest-doubling name in this whole list, and the objective is
+what demotes it.** P(2x) **21.0%** — roughly double the base rate and higher
+than anything in the top decile — with P(halve) 15.7% and 102% annualised vol.
+It ranks 186th *only* because the ratio objective divides one by the other.
+**If the goal is the maximum chance of a double, KIJA is the name and the price
+is a one-in-six chance of halving.** That is the H25-versus-H26 frontier
+appearing in a single ticker.
+
+**ISAT is unremarkable on this metric and very liquid** — ratio 1.84 against a
+1.22 base, Rp34.8bn a day. Middle of the pack, and the easiest of the three to
+hold at size.
+
+**DILD's Rp1.1bn/day sits right on the eligibility floor**, so §6–§7 of
+`reports/fastmover.md` apply to it and not to ISAT.
