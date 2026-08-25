@@ -448,3 +448,37 @@ def test_the_snapshot_carries_the_six_month_average_the_board_rule_needs():
     S = B.snapshot(P, day)
     assert "avg_price_6m" in S
     assert np.isfinite(S["avg_price_6m"].iloc[0])
+
+
+# --------------------------------------------------------------------------
+# THE INDEX MUST HONOUR `tradeable`
+# --------------------------------------------------------------------------
+def test_an_untradeable_bar_never_enters_the_index():
+    """§5: a bar you could not have traded is not a bar you may label, and an
+    index is exactly a claim about what you could have held.
+
+    THE REAL CASE. KOPI printed a +10,915,284% one-day return on 2007-04-20 —
+    a vendor defect the quality gate had already flagged untradeable. The
+    equal-weighted index inherited it anyway and compounded to 354,721,616x
+    over 2000-2024 against 1,128.5x once the flag is honoured.
+    """
+    P = panel({"GOOD": [100.0] * 50, "DEFECT": [100.0] * 50})
+    m = (P["ticker"] == "DEFECT") & (pd.to_datetime(P["date"])
+                                     == pd.to_datetime(P["date"]).max())
+    P.loc[m, ["close", "adj_close"]] = 1e8          # the impossible print
+    P["tradeable"] = ~m                              # which the gate caught
+    idx = B.index_series(P, "equal")
+    assert idx.iloc[-1] == pytest.approx(1.0, rel=1e-6), \
+        "a flagged bar must not move the index at all"
+    dirty = B.index_series(P, "equal", tradeable_only=False)
+    assert dirty.iloc[-1] > 100, "and without the guard it obliterates it"
+
+
+def test_the_turnover_weighted_index_honours_the_flag_too():
+    P = panel({"GOOD": [100.0] * 50, "DEFECT": [100.0] * 50})
+    m = (P["ticker"] == "DEFECT") & (pd.to_datetime(P["date"])
+                                     == pd.to_datetime(P["date"]).max())
+    P.loc[m, ["close", "adj_close"]] = 1e8
+    P["tradeable"] = ~m
+    idx = B.index_series(P, "turnover")
+    assert idx.iloc[-1] == pytest.approx(1.0, rel=1e-6)

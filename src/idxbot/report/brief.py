@@ -167,8 +167,22 @@ def daily_returns(P: pd.DataFrame) -> pd.DataFrame:
     return w.sort_index().pct_change()
 
 
-def index_series(P: pd.DataFrame, weight: str = "equal") -> pd.Series:
+def index_series(P: pd.DataFrame, weight: str = "equal",
+                 tradeable_only: bool = True) -> pd.Series:
     """A cumulative index from the panel itself.
+
+    IT MUST HONOUR ``tradeable``, AND AN EARLIER VERSION DID NOT. The panel
+    flags 17.2% of its bars untradeable — locked at an auto-rejection limit, or
+    stale through a suspension — because §5 is blunt that a bar you could not
+    have traded is not a bar you may label. An index is precisely a claim about
+    what you could have held, so including them is not conservative, it is
+    fiction.
+
+    The cost of getting it wrong was not subtle. KOPI printed a
+    **+10,915,284% one-day return** on 2007-04-20, a vendor defect the quality
+    gate had already caught and flagged; the equal-weighted index inherited it
+    and compounded to **354,721,616x** over 2000-2024, against **1,128.5x**
+    once the flag is honoured. A factor of 314,000.
 
     ``equal`` is the equal-weighted cross-sectional mean return — the honest
     default, since it is what every cross-sectional statistic in this repo is
@@ -182,6 +196,8 @@ def index_series(P: pd.DataFrame, weight: str = "equal") -> pd.Series:
     big names carrying the tape while the median name does not — is visible
     rather than hidden inside one number.
     """
+    if tradeable_only and "tradeable" in P:
+        P = P[P["tradeable"].astype(bool)]
     R = daily_returns(P)
     if weight == "equal":
         r = R.mean(axis=1, skipna=True)
