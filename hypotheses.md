@@ -1566,3 +1566,66 @@ belongs in the code that prints it.
 
 **Trials after H24: 76.** Bonferroni bar α = 0.05/76 = **0.00066**.
 **The 24-month holdout remains SPENT.**
+
+---
+
+## H25 — the fast-multiplier screen, and the only result here that clears the bar
+
+**2026-08-25.** The user rejected the ten-year answer: "I want high multiplier
+fast, that's why I play in emerging market." So the question is inverted —
+maximise P(a name doubles WITHIN A YEAR). Code `scripts/fastmover.py`, tests
+`tests/test_fastmover.py` (13). Memo `reports/fastmover.md`.
+
+**THE SCREEN: most volatile 5% AND thinnest-traded 20%**, within names above
+Rp1bn/day. P(touch 2x in one year) **21.22%** against a 12.05% base, lift
+1.76x, on 443 name-years / 234 names.
+
+| | |
+|---|---|
+| clustered null (5,000 draws) | 12.37% ± 1.56% |
+| z | **+5.66** |
+| p | **0.00020** vs bar **0.00064** after 78 trials |
+| half-split | 1.51x early, 2.06x late — positive in both |
+
+**IT CLEARS THE BONFERRONI BAR. It is the only result in this project that ever
+has** — and §2 is why that is not the good news it looks like.
+
+**IT IS VARIANCE, NOT SKILL.** Rank-corr with vol60: `lowvol` **−1.00** (it IS
+vol60 negated), `amihud60` +0.34, `squeeze` +0.31 — one factor, and it is
+volatility. **H13's PREDICTED-NULL control `squeeze` ranks THIRD** at 18.53%.
+A19 records that a firing negative control means significance is not evidence;
+here it does not merely fire, it places. P(touch 2x) 21.2% against P(end below
+half) **18.7%** — **2.1 double and 1.9 halve per 10 names a year.** The
+permutation null cannot see this, because it asks "is this cell different from
+a random cell", to which the answer is trivially yes.
+
+**AND IT DOES NOT COMPOUND — the number that withdrew H17 and H18, a fifth
+time.** Arithmetic mean net of cost **+16.9%**, median **−19.1%**, **mean log
+−0.1927 → −17.5% a year compounded.** Round trip on these names is 1.38%
+median against 0.90% for the liquid decile. A ten-name basket rebalanced
+annually recovers much of it and still returns **+5.1% against the index's
++14.6%: 3.1x against 22.8x over 23 years, with a 14.8% chance of ending below
+where you started.**
+
+**THE RESOLUTION IS POSITION SIZE, NOT SELECTION.** The NUMBER of names that
+double does not depend on how much money is in them — ten screen names double
+about twice a year whatever the sleeve weighs.
+
+| sleeve | median CAGR | terminal | P(<1.0x) |
+|---|---|---|---|
+| 0% | +14.6% | 22.8x | 0.0% |
+| **20%** | **+14.0%** | 20.2x | 0.0% |
+| **30%** | **+13.7%** | 19.3x | 0.0% |
+| 100% | +5.1% | 3.1x | **14.8%** |
+
+Each 10% into the sleeve costs about **1 point of CAGR**. At 20–30% you keep
+94–96% of the index's compounding and still see two doubles a year.
+
+**THE LIVE SCREEN TIERS AND THE TIERS CARRY THEIR OWN ODDS.** The tight screen
+yields only **four** names on 2026-08-24. Returning four when ten were asked
+for, or quoting 21.2% for a loosened screen, are both quiet failures, so
+`pick_tier` widens and states which tier it used. Only the tight tier has the
+null behind it; wider tiers have measured odds and **inherited** significance.
+
+**Trials after H25: 78.** Bonferroni bar α = 0.05/78 = **0.00064**.
+**The 24-month holdout remains SPENT.**

@@ -1608,6 +1608,53 @@ inversion seen a second time. `BY_HORIZON` now prints on every run of
 quoted without its condition is a wrong result, and the fix belongs in the code
 that prints it rather than in the discipline of whoever quotes it.**
 
+## A22. The fast-multiplier screen clears the bar, and clearing it proves nothing
+
+The user rejected the ten-year answer — "I want high multiplier fast, that's
+why I play in emerging market" — which inverts the question to: maximise P(a
+name doubles within a YEAR). Memo `reports/fastmover.md`, logged H25.
+
+**IT EXISTS AND IT CLEARS.** Most volatile 5% and thinnest-traded 20% of names
+above Rp1bn/day: P(touch 2x in a year) **21.22%** against a 12.05% base, lift
+1.76x, clustered null z = **+5.66**, **p = 0.00020 against a bar of 0.00064**.
+Positive in both halves. **The only result in this project that has ever
+cleared the Bonferroni bar.**
+
+**AND IT IS THE STRONGEST DEMONSTRATION HERE THAT CLEARING THE BAR IS NOT
+ENOUGH.** Every top feature is the same axis — `lowvol` correlates **−1.00**
+with vol60 because it IS vol60 negated, `amihud60` +0.34, `squeeze` +0.31 — so
+there is one factor and it is volatility. **H13's predicted-null control
+`squeeze` ranks THIRD** at 18.53%. A9 wrote that a firing negative control
+means significance is not evidence; here it does not merely fire, it *places*.
+A volatile name is mechanically likelier to touch ANY level: **2.1 double and
+1.9 halve per ten names a year.** The permutation null is powerless against
+this because it asks "is this cell different from a random cell", and the
+answer is trivially yes.
+
+**THE MEAN/MEDIAN/MEAN-LOG WEDGE DECIDES IT, A FIFTH TIME.** Arithmetic mean
+net of cost **+16.9%**, median **−19.1%**, **mean log −0.1927 → −17.5% a year
+compounded.** A ten-name basket rebalanced annually recovers much of the
+diversification loss and still compounds at **+5.1% against the index's
++14.6% — 3.1x against 22.8x over 23 years, with a 14.8% chance of ending below
+where it started.**
+
+**AND THE RESOLUTION IS POSITION SIZE, NOT SELECTION — which is new here.**
+The NUMBER of names that double does not depend on how much money is in them.
+Ten screen names double about twice a year whatever the sleeve weighs; the
+weight decides only what that does to the account. Each 10% of the account
+moved into the sleeve costs about **one point of CAGR**, so at 20–30% you keep
+94–96% of the index's compounding and still watch two names double a year.
+**Every earlier study in this repo treated the choice as WHICH names to hold;
+this is the first where the answer is HOW MUCH.**
+
+**A packaging lesson too.** The tight screen yields only four names on
+2026-08-24. Returning four when ten were asked for, or quoting the tight
+screen's 21.2% for a loosened one, are both quiet failures — the same shape as
+quoting a ten-year doubling rate as a one-year one (A21). `pick_tier` widens,
+names the tier it used, and carries that tier's own odds; only the tight tier
+has the null behind it and the wider ones inherit significance, which is
+weaker and is said so.
+
 ### Where the programme stands now
 
 Every branch has been run to its end and the answer is the same from six
