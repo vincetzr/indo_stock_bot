@@ -1208,3 +1208,64 @@ nanoseconds on a `[ns]` one, so a hardcoded divisor returned a block length of
 11,783 for monthly cohorts. And a long block **degenerates** — widths 0.049 at
 b=1, 0.105 at b=13, 0.047 again at b=63 — so it is capped at a fifth of the
 sample.
+
+## A16. Indicators, and the objective that was deciding the answer unstated
+
+H17 built exit rules that see only the price path. H18 added the indicator
+layer — EMA, ATR/chandelier, stochastic, turnover z — and a live position
+monitor. Memo: `reports/exit_indicators.md`, logged H18.
+
+**NEWS CANNOT ENTER A BACKTEST HERE AND THAT IS STRUCTURAL.** No point-in-time
+archive exists, and `tests/test_news.py` fails the build if `spine/` or
+`features/` imports the news module. A news-conditioned exit rule in a backtest
+would be look-ahead by construction. It ships as a live-only overlay in
+`scripts/positions.py` — standing event tags printed beside the levels,
+computed into nothing, with a test that a dead news feed changes no number.
+
+**THE HIGH AND LOW WERE THERE ALL ALONG.** The spine panel carries no high or
+low, so ATR and stochastic look uncomputable and close-only proxies look
+mandatory. `data/cache/ohlcv/` has full OHLCV for **all 919 panel names**, with
+the cached close matching the panel's on **100%** of sampled overlapping bars.
+This is the A12 shape a fifth time — a true statement about one artefact read
+as a fact about the world — and the check took one minute. Rebasing high/low
+with the panel's own adjustment factor also surfaced SCCO and SINI, two of the
+three repaired names, as the only tickers where vendor and panel close disagree.
+
+**THE HEADLINE FINDING IS THAT THE OBJECTIVE DECIDES THE ANSWER.** The same
+walk-forward over the same 58 rules and 176 cohorts:
+
+| objective | median | mean | P(2x) | most-chosen |
+|---|---|---|---|---|
+| median | **+3.16%** | +7.10% | **3.5%** | stoch rollover armed +50% |
+| mean | −2.86% | **+18.42%** | 11.0% | volume climax armed +50% |
+| p2 | −3.36% | +19.97% | **11.6%** | volume climax z3 armed +50% |
+| buy&hold | −4.30% | +18.80% | 11.6% | — |
+
+**No rule beats buy-and-hold on mean return or on P(2x).** Optimising the
+median cuts the doubling rate from 11.6% to 3.5%. The entire measured
+improvement — H17's +4.13% and H18's +6.35% alike — is a median effect. For an
+entry rule selected ON P(2x), choosing its exit on median return optimises
+against its own premise, and H17 made that choice without stating it. **State
+the objective with every rule-selection result; it is not a detail.**
+
+Against H17's incumbent the indicator layer is **+1.21% [+0.07%, +2.42%],
+sign test p = 0.014**, which does NOT clear the 49-trial Bonferroni bar of
+0.001. Suggestive, not established.
+
+**H18b was pre-registered and FAILED.** An indicator stop does not cut P(−50%)
+more cheaply than a hard stop: the undominated frontier is entirely price
+rules, and every armed indicator rule reads the same 15.1% because a name that
+falls from entry never arms.
+
+**THE NULL EARNED ITS KEEP TWICE.** A random exit date behaved exactly like a
+matched-length hold (−4.6%/122d against `hold 126`'s −5.0%/125d), so the
+pipeline is not manufacturing signal — and it **beat every hard stop**
+(−10.6% to −11.7%). A coin flip does better than a 15–30% hard stop here.
+
+**Three code defects, each found by a test written after the bug.**
+*A blanket `except TypeError` around the thing being measured* recorded every
+failure as "no data", silently dropping one-argument rules and disguising real
+crashes. *`id()` is not a cache key* — CPython reuses it after collection, so a
+dead lambda's arity was served for a live rule. *A label containing another
+label as a substring* — `(unarmed)` contains "armed" — silently matched the
+wrong rows in a filter.

@@ -200,6 +200,36 @@ def settle_date(dates: Sequence[pd.Timestamp], day: pd.Timestamp,
     return d[min(i + horizon, len(d) - 1)]
 
 
+#: Indicator columns handed to an exit rule, and the key each gets in ``F``.
+FEATS = {"close": "close", "adj_high": "high",
+         "ema10": "ema10", "ema20": "ema20",
+         "ema30": "ema30", "ema50": "ema50", "atr22": "atr22",
+         "stoch_k": "stoch_k", "stoch_d": "stoch_d", "tvz20": "tvz20"}
+
+
+def feature_map(IND: pd.DataFrame, day: pd.Timestamp, tickers: Sequence[str],
+                horizon: int = X.HORIZON) -> Dict[str, dict]:
+    """``{ticker: {name: array}}`` over the same forward bars as ``path_map``.
+
+    NO WARM-UP PROBLEM, and that is the point of precomputing the indicator
+    panel over full history rather than per cohort: an EMA(50) sliced out of a
+    continuous series is already seeded at the first forward bar, whereas one
+    started at entry would be undefined for fifty sessions and the rule would
+    silently be "hold 50 then trade", which is a different rule.
+    """
+    want = list(dict.fromkeys(tickers))
+    fut = (IND[(IND["date"] > day) & IND["ticker"].isin(want)]
+           .sort_values(["ticker", "date"]))
+    out: Dict[str, dict] = {}
+    for t, g in fut.groupby("ticker", sort=False):
+        if len(g) < 2:
+            continue
+        F = {v: g[k].to_numpy(dtype=float)[1:horizon + 1]
+             for k, v in FEATS.items() if k in g}
+        out[str(t)] = F
+    return out
+
+
 def path_map(P: pd.DataFrame, day: pd.Timestamp, tickers: Sequence[str],
              horizon: int = X.HORIZON
              ) -> Dict[str, Tuple[np.ndarray, float]]:

@@ -29,3 +29,6 @@ data/spine/broker_windows.csv.gz
 # 267MB and a pure function of the OHLCV stores; rebuild with
 # `python3 scripts/price_panel_build.py`. Over GitHub's file limit anyway.
 data/spine/price_panel.parquet
+# Derived from the panel + the OHLCV cache by scripts/build_indicators.py
+# in about five minutes; 216MB of reproducible floats does not belong in git.
+data/spine/indicator_panel.parquet

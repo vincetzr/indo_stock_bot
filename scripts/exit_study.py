@@ -188,7 +188,7 @@ def main() -> int:
           f"mean when it wins {d[d > 0].mean():+.2%}   "
           f"mean when it loses {d[d < 0].mean():+.2%}")
     print(f"   P(-50%)  rule {W['pdn'].mean():.1%}  vs buy-and-hold "
-          f"{X.score_cohorts(cohorts, lambda p: X.hold(p, X.HORIZON))['pdn'].mean():.1%}")
+          f"{X.score_cohorts(cohorts, lambda p, F=None: X.hold(p, X.HORIZON))['pdn'].mean():.1%}")
     print(f"   mean holding period {W['held'].mean():.0f} sessions")
     print("\n   rules the walk-forward actually chose:")
     for r, n in W["rule"].value_counts().head(6).items():

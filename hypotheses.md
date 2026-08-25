@@ -946,3 +946,76 @@ tie in **64%** of cohorts; within-cohort sd **4.31%**; middle-90% span
 −4.42% against tie='first''s −2.54% over 211 cohorts, difference −1.47%
 [−2.48%, −0.56%] — accepted, because a reproducible −4.4% is worth more than
 an irreproducible −2.5%.
+
+---
+
+## H18 — do indicator-conditioned exits beat fixed price-path ones? (2026-08-25)
+
+**Pre-registered before any scoring**, in `scripts/exit_indicators.py`'s
+docstring and `exits.indicator_catalogue()`. Memo: `reports/exit_indicators.md`.
+26 indicator rules added to H17's 32 price rules; same purged walk-forward,
+same cohort-level moving-block bootstrap, 176 cohorts 2008-09 → 2023-08.
+
+**News was excluded and cannot be included.** No point-in-time archive exists;
+`tests/test_news.py` fails the build if `spine/` or `features/` imports the news
+module. A news-conditioned exit in a backtest is look-ahead by construction.
+It ships as a live-only overlay in `scripts/positions.py`, computed into nothing.
+
+### H18a — a volatility-normalised trail beats a fixed percentage one
+
+**SUPPORTED.** Best chandelier **+2.9%** cohort median against the best fixed
+trail's **+0.9%**; the walk-forward chose a chandelier in 56 of 176 cohorts.
+Mechanism as registered: the entry selects for high realised vol, so a fixed
+15% band is a different rule for every name it picks.
+
+### H18b — an indicator stop cuts P(−50%) more cheaply than a hard stop
+
+**FAILED.** The undominated (P(−50%), P(2x)) frontier is *entirely* price
+rules. Every armed indicator rule reads P(−50%) = 15.1%, identical to the armed
+trails — a name that falls from entry never arms. Unarmed indicator rules reach
+P(−50%) ≈ 0.1% only by exiting in 10–17 sessions with P(2x) at 0.7–1.1%.
+Logged as failed, not reframed.
+
+### NULL — a random exit should behave like a matched-length hold
+
+**It did**, and it earned its keep twice:
+
+| | median | P(2x) | days |
+|---|---|---|---|
+| NULL random exit | −4.6% | 6.0% | 122 |
+| `hold 126` | −5.0% | 6.8% | 125 |
+
+**And it beat every hard stop** (−4.6% vs −10.6% to −11.7%). A coin-flip exit
+date does better than a 15–30% hard stop on this entry.
+
+### THE RESULT — the objective decides the answer
+
+Same walk-forward, same 58 rules, three selection targets:
+
+| objective | median | mean | **P(2x)** | P(−50%) | days | most-chosen |
+|---|---|---|---|---|---|---|
+| median | **+3.16%** | +7.10% | **3.5%** | 14.8% | 195 | stoch rollover armed +50% |
+| mean | −2.86% | **+18.42%** | 11.0% | 15.8% | 239 | volume climax armed +50% |
+| p2 | −3.36% | +19.97% | **11.6%** | 16.1% | 247 | volume climax z3 armed +50% |
+| buy&hold | −4.30% | +18.80% | 11.6% | 16.3% | 250 |
+
+**No rule in the catalogue beats buy-and-hold on mean return or on P(2x).**
+Optimising the median cuts the doubling rate from 11.6% to **3.5%**. The whole
+measured improvement is a median effect. For an entry selected ON P(2x),
+selecting its exit on median return optimises against its own premise — and
+H17's headline made exactly that choice without stating it.
+
+**Headline, objective stated:** on `median`, +3.16% vs buy-and-hold −3.19%,
+difference **+6.35% [+3.57%, +9.08%]**, 85/176 cohorts (86% of the 99 that
+differ), sign test p = 1.4e−13.
+
+**Versus H17's incumbent** (`trail 15% armed +50%`, same cohorts): **+1.21%
+[+0.07%, +2.42%]**, 37/55 differing, sign test **p = 0.014** — which does NOT
+clear the Bonferroni bar. Suggestive, not established.
+
+**On the 2025 cohort** (spent holdout, certifies nothing): the trail returned
+mean +16.0% with **2 doublers**; the median-optimal indicator rule returned
++8.3% with **0 doublers**. Same trade-off, one date.
+
+**Trials after H18: 49.** Bonferroni bar α = 0.05/49 = **0.001**.
+**The 24-month holdout remains SPENT.**
