@@ -1675,3 +1675,63 @@ diffusion into drift; the screen buys about six years of that at one year.
 2.1. Holdout spent; best of ~30 cells.
 
 **Trials after H26: 82.** Bonferroni bar α = 0.05/82 = **0.00061**.
+
+---
+
+## H27 — the cross-sectional model §8 asked for, and the null that beat it twice
+
+**2026-08-25.** Pushed on "there must be patterns, it cannot be random". The
+fair part of that: every sweep here ranked DISCRETE CELLS with hand-tuned cuts,
+which is exactly what §8 forbids — "numeric features feeding a cross-sectional
+model, not discrete buy/sell rules with hand-tuned parameters". **The model was
+never built.** Code `scripts/xsection_model.py`, tests
+`tests/test_xsection_model.py` (8). Memo `reports/xsection_model.md`.
+
+Purged expanding walk-forward: a cohort dated t settles at t+252, so each test
+year trains only on cohorts whose window CLOSED before it began. 15 folds,
+27,561 test-fold observations.
+
+| | P(2x) | P(−50%) | skew | mean log |
+|---|---|---|---|---|
+| **model top decile** | 9.2% | **4.0%** | **2.31** | +0.0132 |
+| base | 10.6% | 8.7% | 1.22 | |
+| H26 hand-cut cell | 10.5% | 4.1% | 2.60 | +0.0494 |
+| + sector | 9.0% | 3.6% | 2.46 | +0.0034 |
+
+**Null 1.15 ± 0.06 → z = +20.51.**
+
+**R1 — the model does NOT beat the cell, and that IS the finding.** 2.31 vs
+2.60, but the model's is OUT OF SAMPLE and the cell's is in-sample. Two
+entirely different methods land within 0.3 of each other. **That convergence is
+the strongest evidence in this project that the structure is real rather than
+mined.**
+
+**R2 SUPPORTED.** vol60 0.073, log_turnover 0.021, amihud60 0.012. `hi52`
+scores low on the UP leg — it earns its keep by suppressing the DOWN leg, which
+is why a ratio objective found it and a rate objective never did.
+
+**Sector: +0.15 skew, −0.0098 mean log** at 99.6% coverage. Marginal. Its
+`shares` column is deliberately unused — frozen at 2024-07-10, so applying it
+to a 2010 bar is look-ahead and rights issues are what make that wrong.
+
+**THE NULL BEAT THE MODEL TWICE AND BOTH TIMES IT WAS THE NULL.** First
+version returned 3.06 against the model's 2.31.
+*Bug one:* `up` and `down` permuted independently, breaking their real link —
+a name that can double is the same name that can halve — inventing rows that
+doubled with no halving risk.
+*Bug two, the real cause:* permuting INSIDE (ticker, year) blocks is nearly a
+no-op, because the ~12 monthly cohorts of one ticker-year hold near-identical
+labels from eleven-month-overlapping windows. The null kept the structure it
+existed to destroy.
+*The fix:* reassign whole blocks' LABELS to other blocks' FEATURES. Null fell
+3.06 → 1.15. **A null that beats the thing it tests is broken, not evidence of
+a weak model.** Seventh time the null decided a result here, and the first time
+it erred toward UNDERSTATING a real effect.
+
+**What this settles.** There is a pattern, it is not random, and it is worth
+about 2.3:1. And a flexible model finds no more than two hand-picked filters —
+with eleven collinear price features over one macro history the interaction
+space is empty. The next real instrument is non-price fundamentals, and
+`data/cache/fundamentals` holds 59 names of 725.
+
+**Trials after H27: 85.** Bonferroni bar α = 0.05/85 = **0.00059**.

@@ -1742,6 +1742,55 @@ names in ten a year**, not 2.1. The frontier is a straight trade and buying the
 higher doubling rate costs the asymmetry, the compounding, and on H25's version
 everything.
 
+## A25. The model §8 asked for, never built until now — and it confirms the cell
+
+Pushed with "there must be patterns, it cannot be random". The fair part: every
+sweep in this repo ranked DISCRETE CELLS with hand-tuned percentile cuts, which
+is precisely what §8 forbids — "numeric features feeding a cross-sectional
+model, not discrete buy/sell rules with hand-tuned parameters". **Twenty-seven
+hypotheses in, the model had never been built.** Memo
+`reports/xsection_model.md`, logged H27.
+
+**IT IS REAL AND IT IS NOT RANDOM.** Purged expanding walk-forward — each test
+year trains only on cohorts whose 252-session window CLOSED before it began —
+15 folds, 27,561 test-fold observations. Model top decile: skew **2.31**
+against a null of **1.15 ± 0.06**, **z = +20.51**, P(−50%) **4.0%** against a
+base of 8.7%.
+
+**AND IT DOES NOT BEAT THE HAND-CUT CELL, WHICH IS THE FINDING.** 2.31 against
+H26's 2.60 — but the model's number is OUT OF SAMPLE and the cell's is in
+sample. Two entirely different methods, eleven features through gradient
+boosting and two percentile cuts chosen by hand, land within 0.3 of each other.
+**That convergence is the strongest evidence in this project that the structure
+is real rather than mined.** It also bounds the data: with eleven collinear
+price features over one macro history, the interaction space is empty.
+
+**THE NULL BEAT THE MODEL TWICE, AND BOTH TIMES IT WAS THE NULL.** First
+versions returned 3.06 against the model's 2.31. *Bug one:* `up` and `down`
+permuted independently, which breaks their real link — a name that can double
+is the same name that can halve, both driven by volatility — inventing rows
+that doubled with no halving risk. *Bug two, the actual cause:* permuting
+INSIDE (ticker, year) blocks is nearly a NO-OP, because the ~12 monthly cohorts
+of one ticker-year carry near-identical labels from eleven-month-overlapping
+windows, so the null preserved the mapping it existed to destroy. *The fix:*
+reassign whole blocks' LABELS to other blocks' FEATURES. Null fell 3.06 → 1.15.
+**A null that beats the thing it tests is broken, not evidence of a weak
+model** — the seventh time the null decided a result here, and the first time
+it erred toward UNDERSTATING a real effect. A17's lesson was that too fine a
+shuffle leaves the null too tight; this is the same lesson with the sign
+reversed.
+
+**SECTOR WAS FINALLY USED AND IS MARGINAL.** A14 found the IDX-IC map and no
+study had touched it. At 99.6% coverage it moves the skew **+0.15** and costs
+0.0098 of mean log. Its `shares` column is deliberately NOT used: the file is
+frozen at 2024-07-10, so applying a 2024 share count to a 2010 bar is
+look-ahead, and Indonesian rights issues are exactly what makes that wrong —
+so market cap stays out rather than being smuggled in as a size factor.
+
+**The honest next instrument is non-price fundamentals** — earnings, book
+value, debt — which this repo does not have at panel scale:
+`data/cache/fundamentals` holds 59 names of 725.
+
 ### Where the programme stands now
 
 Every branch has been run to its end and the answer is the same from six
