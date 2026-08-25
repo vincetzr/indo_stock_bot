@@ -1694,6 +1694,54 @@ assessment is a regulated judgement about a specific client that this repo
 cannot supply. **Nothing here should be presented to a client as a validated
 strategy.**
 
+## A24. Ranking on the RATIO instead of the upside, and it retracts A22
+
+The user asked for "profit far more likely than loss, and still a multi-bagger".
+That is a request for a RATIO, and **nothing in this project had ever ranked
+cells by one** — every sweep here optimised a rate. Memo `reports/asymmetry.md`,
+logged H26. Objective fixed before scoring: `skew = P(touch 2x) / P(end<=0.5)`.
+
+**THE WINNER IS STRENGTH PLUS CALM, WHICH IS WHERE NOBODY WAS LOOKING.** Within
+~2% of the 52-week high AND below-median 60-day vol: skew **2.60** against a
+null of 1.20 ± 0.15, **z = +9.44, p = 0.00033 against a bar of 0.00061 —
+CLEARS**, half-split 2.65 / 2.53. P(a name halves) is **4.1%**. A ten-name
+basket over 24 years returns a median **58.3x (+18.5% CAGR)** against the
+index's 25.1x (+14.4%), **beating it in 90.2% of draws, with even the
+10th-percentile draw at +14.4%.** Momentum plus low-volatility — a prior
+mechanism from the global literature, not a mined cell.
+
+**AND IT RETRACTS A22.** H25's volatility screen, scored on asymmetry, reads
+skew **1.13 against a null of 1.18: z = −0.19, p = 0.54.** It is
+**indistinguishable from a random cell** on the thing that matters, and its
+basket returns 3.4x against the index's 22.8x, beating it 5.0% of the time.
+A22 said clearing the bar proved nothing; this is what "nothing" looked like.
+**Optimising the upside alone finds variance. Optimising the ratio finds
+something that survives.** The generalisation: *a rate is not an objective —
+check what the denominator is doing before you rank on the numerator.*
+
+**Q2 PRE-REGISTERED AND FAILED, MONOTONICALLY.** "Already-fallen names are
+asymmetric" is backwards: nearest the 52-week high skew **2.15**, middle 1.53,
+furthest below **0.80** — fallen names halve MORE often than they double. A17's
+recovery curve said the same thing from the other direction.
+
+**Q1 PRE-REGISTERED AND SUPPORTED.** Base skew rises monotonically with
+horizon — 1.33, 1.48, 1.57, 1.80, 2.26 at 1/2/3/5/10 years. Time converts
+diffusion into drift, and the screen buys about six years of that at a one-year
+horizon.
+
+**A FIRST DRAFT CALLED THE FRONTIER "PERFECTLY MONOTONE" AND A TEST CAUGHT IT.**
+The unscreened baseline is a reference point, not a point on the curve, and
+H25's screen carries no strength filter — neither belongs in a monotonicity
+claim. What those rows obscured is the more useful comparison: H25 and
+`strength + some vol` double at the **same** rate (21.2%, 21.4%), and adding the
+strength filter moves the ratio 1.13 → 1.59, halvings 18.7% → 13.5%, and
+compounding −16.1% → −8.1%. **At an equal doubling rate, strength is free.**
+
+**What is still NOT licensed: "multi-bagger fast".** The winner doubles **1.1
+names in ten a year**, not 2.1. The frontier is a straight trade and buying the
+higher doubling rate costs the asymmetry, the compounding, and on H25's version
+everything.
+
 ### Where the programme stands now
 
 Every branch has been run to its end and the answer is the same from six

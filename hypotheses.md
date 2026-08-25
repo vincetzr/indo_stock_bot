@@ -1629,3 +1629,49 @@ null behind it; wider tiers have measured odds and **inherited** significance.
 
 **Trials after H25: 78.** Bonferroni bar α = 0.05/78 = **0.00064**.
 **The 24-month holdout remains SPENT.**
+
+---
+
+## H26 — search on ASYMMETRY, and it retracts H25
+
+**2026-08-25.** The user asked for "profit far more likely than loss, and still
+a multi-bagger" — a request for a RATIO, which nothing here had ever ranked
+cells by. Objective fixed before scoring: `skew = P(touch 2x) / P(end<=0.5)`,
+300-obs floor, both legs estimable. Code `scripts/asymmetry.py`, memo
+`reports/asymmetry.md`.
+
+**THE FRONTIER IS MONOTONE — YOU CANNOT MAXIMISE BOTH.**
+
+| cell | P(2x) | P(−50%) | skew | dbl/10 | CAGR/name |
+|---|---|---|---|---|---|
+| everything | 12.1% | 9.0% | 1.33 | 1.2 | −6.3% |
+| **strength + calm** | 10.5% | **4.1%** | **2.60** | 1.1 | **+5.2%** |
+| strength only | 13.6% | 6.3% | 2.15 | 1.4 | +1.1% |
+| strength + some vol | 21.4% | 13.5% | 1.59 | 2.1 | −8.1% |
+| H25 vol screen | 21.2% | 18.7% | 1.13 | 2.1 | −16.1% |
+
+**THE WINNER: within ~2% of the 52-week high AND below-median vol.** n=2,022,
+skew **2.60** vs null 1.20±0.15, **z=+9.44, p=0.00033 vs bar 0.00061 — CLEARS.**
+Half-split 2.65 / 2.53. **10-name basket over 24 years: median 58.3x = +18.5%
+CAGR against the index's 25.1x = +14.4%, beating it in 90.2% of draws, 10th
+percentile +14.4%.** Momentum plus low-vol — a prior mechanism, not a mined cell.
+
+**IT RETRACTS H25.** The volatility screen reads skew **1.13 against a null of
+1.18: z = −0.19, p = 0.54** — indistinguishable from a random cell on the thing
+that matters — and its basket returns 3.4x against the index's 22.8x, beating
+it 5.0% of the time. It cleared the bar on P(2x) and that told us nothing,
+exactly as its own §2 warned. **Optimising the upside alone finds variance;
+optimising the RATIO finds something that survives.**
+
+**Q2 PRE-REGISTERED AND FAILED, monotonically.** "Already fallen names are
+asymmetric" is backwards: nearest the 52w high skew **2.15**, middle 1.53,
+furthest below **0.80** — fallen names halve MORE often than they double.
+
+**Q1 PRE-REGISTERED AND SUPPORTED.** Base skew rises monotonically with
+horizon: 1.33, 1.48, 1.57, 1.80, 2.26 at 1/2/3/5/10 years. Time converts
+diffusion into drift; the screen buys about six years of that at one year.
+
+**NOT licensed: "multi-bagger fast".** 1.1 names in ten double per year, not
+2.1. Holdout spent; best of ~30 cells.
+
+**Trials after H26: 82.** Bonferroni bar α = 0.05/82 = **0.00061**.
