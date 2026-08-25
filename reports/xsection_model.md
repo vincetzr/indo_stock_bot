@@ -91,3 +91,32 @@ small, and it is already fully captured by "strong and calm".
 map moved it +0.15, and genuine fundamentals (earnings, book value, debt) are
 not in this repo at any horizon. That is the honest next instrument, and
 `data/cache/fundamentals` holds 59 names, not 725.
+
+---
+
+## 3. The live output, and what each number is
+
+`scripts/xsection_model.py` ends by fitting on every **settled** cohort — the
+same purge, so nothing dated inside the last ~370 days trains the model — and
+scoring today's cross-section. It prints, per name: close, the 2× level,
+fitted P(2x), fitted P(halve), their ratio, and the round-trip cost.
+
+**Two things about those numbers that must travel with them.**
+
+**The fitted probabilities are optimistic.** Today's top decile reads a basket
+P(2x) of 14.2% and P(halve) of 3.4%, ratio 4.17. The **realised**
+out-of-sample decile over 15 walk-forward folds ran **9.2% / 4.0%, ratio
+2.31**. A model's own predicted probabilities on the names it likes best are
+always the flattering end of the estimate; the walk-forward pair is the one to
+plan on. Both are printed side by side so the gap is visible rather than
+implied.
+
+**The 2× level is not a forecast.** Nothing in this repo predicts magnitude —
+not one study, at any horizon. 2× is simply the level the probability was
+measured against, and therefore where a take-profit would sit. Quoting it as a
+target price would be inventing a number the evidence does not contain.
+
+**And H24's arithmetic still applies:** whether the name doubles is settled at
+entry; the exit only decides how much of it reaches the account. Selling
+everything at 2× captures the full hit rate and costs most of the mean return
+(H24 §5); holding captures less of the hit rate and keeps the tail.

@@ -119,3 +119,57 @@ def test_evaluate_refuses_a_cell_too_small_to_read():
     d = _d(n_names=5, n_years=4)
     R = fit_predict(d, COLS, seed=0, **SMALL)
     assert evaluate(R, top=0.01) == {}
+
+
+# ============================================================== live scoring
+def _panel(n=60, day="2026-08-24", years=6):
+    days = pd.date_range(pd.Timestamp(day) - pd.Timedelta(days=365 * years),
+                         pd.Timestamp(day), freq="B")
+    rng = np.random.default_rng(0)
+    rows = []
+    for dt in days:
+        rows.append(pd.DataFrame({
+            "date": dt, "ticker": [f"T{i:02d}" for i in range(n)],
+            "close": np.linspace(100.0, 5000.0, n), "tradeable": True,
+            "log_turnover": np.full(n, 24.0),
+            "sig_r": rng.uniform(size=n), "noise_r": rng.uniform(size=n)}))
+    return pd.concat(rows, ignore_index=True)
+
+
+def test_live_scoring_trains_only_on_settled_cohorts():
+    """THE ONE ERROR THAT WOULD MAKE EVERY LIVE NUMBER FICTION. A cohort dated
+    t is not known until t+252, so a live fit must stop ~370 days back."""
+    import xsection_model as X
+    d = _d(n_names=40, n_years=12)
+    P = _panel()
+    day = P["date"].max()
+    captured = {}
+    real_fit = X.HistGradientBoostingClassifier
+
+    class Spy(real_fit):
+        def fit(self, X_, y, **kw):
+            captured["n"] = len(X_)
+            return super().fit(X_, y, **kw)
+
+    X.HistGradientBoostingClassifier = Spy
+    try:
+        settled = d[d["date"] < day - pd.Timedelta(days=370)]
+        X.live_scores(d, P, COLS, seed=0)
+    finally:
+        X.HistGradientBoostingClassifier = real_fit
+    assert captured.get("n", 0) <= len(settled), (
+        "the live fit saw rows dated inside the purge window")
+
+
+def test_live_scoring_returns_a_score_per_eligible_name():
+    import xsection_model as X
+    L = X.live_scores(_d(n_names=40, n_years=12), _panel(), COLS, seed=0)
+    assert not L.empty
+    assert {"p_up", "p_down", "score", "day"} <= set(L.columns)
+    assert (L["score"] >= 0).all()
+    assert L["score"].is_monotonic_decreasing
+
+
+def test_live_scoring_declines_on_a_thin_cross_section():
+    import xsection_model as X
+    assert X.live_scores(_d(), _panel(n=10), COLS, seed=0).empty

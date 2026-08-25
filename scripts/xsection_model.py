@@ -185,6 +185,43 @@ def evaluate(R: pd.DataFrame, top: float = TOP) -> Dict:
                 sel[f"end{K}"], 0.01)).mean())}
 
 
+def live_scores(d: pd.DataFrame, P: pd.DataFrame, cols: List[str],
+                seed: int = 0) -> pd.DataFrame:
+    """Fit on every SETTLED cohort and score today's cross-section.
+
+    "Settled" is the same purge the walk-forward uses: a cohort dated t is not
+    known until t+252, so training stops ~370 calendar days before the scoring
+    date. Skipping that would train the live model on outcomes that have not
+    happened yet, which is the one error that would make every number here
+    fiction.
+    """
+    cnt = P.groupby("date")["ticker"].count()
+    day = cnt[cnt >= 0.8 * cnt.tail(250).max()].index.max()
+    train = d[d["date"] < day - pd.Timedelta(days=370)]
+    cur = P[P["date"] == day].copy()
+    cur = cur[cur["tradeable"].astype(bool)]
+    from idxbot.spine import multiplier as _MU
+    cur = cur[np.exp(cur["log_turnover"]) >= _MU.MIN_VALUE]
+    cur = cur.reset_index(drop=True)
+    if len(cur) < 40 or len(train) < MIN_TRAIN:
+        return pd.DataFrame()
+    for f in FEATURES:
+        if f in cur.columns:
+            cur[f + "_r"] = cur[f].rank(pct=True)
+    if os.path.exists(SECTORS):
+        S = pd.read_parquet(SECTORS)[["ticker", "sector"]]
+        cur = cur.merge(S, on="ticker", how="left").reset_index(drop=True)
+    for tgt in ("up", "down"):
+        m = HistGradientBoostingClassifier(
+            max_depth=3, max_iter=200, learning_rate=0.05,
+            min_samples_leaf=100, l2_regularization=1.0, random_state=seed)
+        m.fit(train[cols], train[tgt])
+        cur["p_" + tgt] = m.predict_proba(cur[cols])[:, 1]
+    cur["score"] = cur["p_up"] / np.maximum(cur["p_down"], 1e-4)
+    cur["day"] = day
+    return cur.sort_values("score", ascending=False)
+
+
 def main() -> int:
     W = 92
     d = frame()
@@ -283,6 +320,46 @@ def main() -> int:
         print("   -> the model does NOT beat a two-filter cell. With eleven")
         print("      collinear features and one macro history, there is no")
         print("      interaction left for a model to find.")
+
+    # ------------------------------------------------------------- live --
+    from idxbot.report import brief as _B
+    #  dedupe: `log_turnover` is both a base column and a FEATURE, and a
+    #  repeated name makes pandas refuse to reindex on the merge
+    _want = ["date", "ticker", "close", "tradeable", "log_turnover"] + FEATURES
+    P = pd.read_parquet(os.path.join("data", "spine", "price_panel.parquet"),
+                        columns=list(dict.fromkeys(_want)))
+    P["date"] = pd.to_datetime(P["date"])
+    L = live_scores(d, P, cols)
+    if L.empty:
+        print("\n no representative cross-section to score")
+        return 0
+    day = L["day"].iloc[0]
+    n_top = max(int(round(len(L) * TOP)), 10)
+    print("\n" + "=" * W)
+    print(f" TODAY'S SCORES — {day.date()}, {len(L)} eligible names")
+    print("=" * W)
+    print(" Model trained on settled cohorts only (nothing after "
+          f"{(day - pd.Timedelta(days=370)).date()}).\n")
+    print(f"   {'#':<3}{'ticker':<8}{'close':>9}{'2x level':>10}"
+          f"{'P(2x)':>8}{'P(halve)':>10}{'ratio':>7}{'cost':>7}")
+    for i, (_, r) in enumerate(L.head(n_top).iterrows(), 1):
+        cb = _B.cost_bar(float(r["close"]), day)
+        print(f"   {i:<3}{r['ticker']:<8}{r['close']:>9,.0f}"
+              f"{2 * r['close']:>10,.0f}{r['p_up']:>8.1%}{r['p_down']:>10.1%}"
+              f"{r['score']:>7.2f}{cb['total']:>7.2%}")
+    sel = L.head(n_top)
+    print(f"\n   basket P(2x) {sel['p_up'].mean():.1%}, "
+          f"P(halve) {sel['p_down'].mean():.1%}, "
+          f"ratio {sel['p_up'].mean() / sel['p_down'].mean():.2f}")
+    print(f"   expected doubles per {n_top} names per year: "
+          f"{n_top * sel['p_up'].mean():.1f}")
+    print("\n   THESE ARE FITTED PROBABILITIES, NOT REALISED RATES. The")
+    print("   realised out-of-sample decile ran "
+          f"{e['up']:.1%} / {e['down']:.1%} (ratio {e['skew']:.2f});")
+    print("   trust that pair over the fitted numbers above.")
+    print("   THE 2x LEVEL IS NOT A FORECAST. Nothing here predicts")
+    print("   magnitude; 2x is simply the level the probability is measured")
+    print("   against, and it is where a take-profit would sit.")
     return 0
 
 
