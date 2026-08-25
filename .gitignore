@@ -40,3 +40,6 @@ data/spine/portfolio_names.parquet
 # And the liquid-tercile re-rank table, rebuilt by scripts/liquid_rerank.py
 # (drop --report) in about ten minutes from the panel.
 data/spine/liquid_rerank.parquet
+# And the H23 horizon table, rebuilt by scripts/horizon_sweep.py (drop
+# --report) in about five minutes from the panel.
+data/spine/horizon_sweep.parquet

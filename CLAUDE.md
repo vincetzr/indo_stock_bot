@@ -1492,12 +1492,83 @@ fixing the claim.** A reader opening the module met the retracted version first.
 Both are now corrected and the sentence is kept in place, marked, rather than
 deleted.
 
+## A20. The horizon was never varied, and varying it inverts the answer
+
+A19 closed the programme with "buying the index is the defensible position".
+The user then set the goal "make 8 of 10 multi-baggers reachable", which forced
+the one question §7's decay curve and every later study had left alone:
+**every P(2x) in this repo is measured at 252 sessions, because H16 chose that
+horizon.** A9 named "a horizon long enough that turnover stops mattering" as
+untested and it stayed untested for five appendices. Memo `reports/horizon.md`,
+logged H23.
+
+**THE ANSWER TO THE GOAL IS NO, AND THE CEILING IS 7 OF 10.** Unconditional
+P(touch 2x) runs 9.5% (1y), 27.0% (3y), 39.0% (5y), **55.5% (10y)**. So 8 of 10
+needs an 8.4x lift at one year and **1.44x** at ten. Nothing delivers it: the
+best long-horizon cell is 1.29x. The reachable ceiling is **72.8%** — about
+seven of ten — by holding the most liquid names for a decade.
+
+**TWO BUGS MADE THE FIRST TABLE READ 73.8% AT 7.5 YEARS.** `MU.PX` is a list of
+CUT EDGES for the price bucket, not a `[min, max]` pair, so
+`close >= PX[0] & close <= PX[1]` silently restricted the universe to sub-Rp50
+names — the penny board, 336 tickers out of 725. And eligibility was applied to
+**every bar**, cutting the forward path wherever a name left the universe;
+eligibility is a condition for BUYING, and once held the path is whatever the
+name does. Requiring a full window on top of that discarded **91% of 7.5-year
+cohorts** and measured the doubling rate of the survivors. Three separate
+errors, all pushing the same way, all printing a believable table.
+
+**AND THE DIRECTION INVERTS EVERY ONE-YEAR RESULT IN THIS REPO.** A19 measured
+the liquid tercile as the WORST cell, trailing the index by 9.5% a year. At a
+ten-year horizon the most liquid names are the best on every axis at once:
+touch rate **69.1%**, P(−50%) **13.7%** against a 28.6% base, median
+**+174.7%**. That is not a contradiction, it is the horizon: a one-year hold
+pays ~1.3% round trip every year and a ten-year hold pays it once, 0.13% a year.
+
+**FOR THE FIRST TIME IN THE PROJECT THE INDEX COMPARISON IS WON.** 6,332
+matched ten-year windows, index on a total-return basis at the measured 1.77%
+top-decile yield: liquid decile median **+188.8%** against the index's
+**+108.5%**, paired median **+51.8%**, 57.7% of windows, **+32.9% early and
++73.9% late — positive in both halves**, and the clustered permutation null
+(whole (ticker, year) blocks, per A17) gives z = **+2.70** with 0 of 200 draws
+exceeding.
+
+**IT STILL DOES NOT CLEAR THIS REPO'S OWN BAR, and that is the honest place to
+leave it.** z = +2.70 is p ≈ 0.0035 against a Bonferroni bar of 0.0007 after 70
+trials, and 200 draws cannot resolve below 0.005. Effective n is **56** for the
+whole sample and ~6 for the decile — a ten-year window over a twenty-four-year
+panel is about two independent observations per name, and no null manufactures
+independence the panel does not contain. Only **30 distinct names** were ever in
+the top decile, so the cross-section is a list rather than a population. The
+base rate does more work than the selection (70.6% early, 40.3% late). And the
+holdout is spent, so none of it is out of sample.
+
+One reassurance worth recording: the decile contains **BUMI**, which fell ~99%
+from its peak. This is not a survivor list.
+
+**The lesson, and it is a new one for this repo.** Every negative result here —
+flow, broker identity, investor class, price/TA, the multiplier entry, 58 exit
+rules, 9 timing rules — was measured at one horizon that nobody chose
+deliberately. A parameter fixed once by convenience and then inherited by
+twelve studies is not a constant; it is an untested assumption with a
+project-wide blast radius. **Vary the thing every experiment holds fixed.**
+
 ### Where the programme stands now
 
-Every branch has been run to its end and the answer is the same from five
-directions: flow (H9), broker identity (H10/H11), investor class (H12),
-price/TA (H13), and now the multiplier entry plus every exit rule tested
-(H16–H21). **The Indonesian retail cost structure is wide enough to swallow
-every effect this data can measure, and the selection rules that survive it do
-not beat the index.** Buying the index is the defensible position; the research
-programme's contribution is knowing that with numbers rather than assuming it.
+Every branch has been run to its end and the answer is the same from six
+directions **at a one-year horizon**: flow (H9), broker identity (H10/H11),
+investor class (H12), price/TA (H13), the multiplier entry plus every exit rule
+tested (H16–H21), and index timing (H22). **At that horizon the Indonesian
+retail cost structure is wide enough to swallow every effect this data can
+measure, and no selection rule beats the index.**
+
+**H23 changes the shape of that conclusion without softening any of it.** Vary
+the horizon — the one parameter twelve studies inherited without choosing — and
+a large-cap tilt held for a decade beats the index by a paired median of +51.8%,
+positive in both halves. The cost structure is still the binding constraint;
+it simply stops binding when you stop paying it annually. What does NOT change:
+8 of 10 doublers is unreachable at any horizon (ceiling ~7 of 10), the result
+does not clear this repo's Bonferroni bar, effective n is ~56, and the holdout
+is spent. Buying the index remains defensible; buying the ten most liquid names
+and not touching them for ten years is now the one measured alternative that
+has ever beaten it here.

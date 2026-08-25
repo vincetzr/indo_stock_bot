@@ -1409,3 +1409,73 @@ cross takes max drawdown from −60.7% to −23.9% for about 1.7% a year.
 
 **Trials after H22: 67.** Bonferroni bar α = 0.05/67 = **0.00075**.
 **The 24-month holdout remains SPENT.**
+
+---
+
+## H23 — the horizon, and the first construction here that beats the index
+
+**2026-08-25.** Asked because the user set "make 8 of 10 reachable" as the
+goal. Every P(2x) in this repo is measured at 252 sessions because H16 chose
+that horizon; A9 named a long horizon as untested and it stayed untested.
+Code `scripts/horizon_sweep.py`, tests `tests/test_horizon_sweep.py` (11).
+Memo `reports/horizon.md`.
+
+**THE CEILING: 80% IS NOT REACHED AT ANY HORIZON.** Unconditional P(touch 2x),
+deaths at last price: 9.5% (1y), 18.9% (2y), 27.0% (3y), 39.0% (5y), 46.7%
+(7.5y), **55.5% (10y)**. So 8 of 10 needs an 8.4x lift at one year and a
+**1.44x** lift at ten — the smallest gap available.
+
+**TWO BUGS MADE THE FIRST TABLE READ 73.8%.** `MU.PX` is a list of CUT EDGES,
+not a [min,max] pair, so `close >= PX[0] & close <= PX[1]` restricted the
+universe to sub-Rp50 names — the penny board, 336 tickers. And eligibility was
+applied to EVERY bar, cutting the forward path when a name left the universe;
+eligibility is a condition for BUYING. Requiring a full window on top of that
+discarded **91% of 7.5-year cohorts** and measured the survivors.
+
+**NOTHING DELIVERS 1.44x.** Best at 10y is `amihud60` bottom decile at 1.29x,
+then `log_turnover` top at 1.24x — the same axis twice. At 3y the best is 1.31x
+against a 2.97x requirement.
+
+**BUT THE DIRECTION INVERTS EVERY ONE-YEAR RESULT.** At one year liquid names
+were the worst cell in every table (A19: liquid tercile −9.5% vs index). At ten
+years the MOST liquid names are best on every axis at once: touch 69.1%,
+P(−50%) **13.7%** against a 28.6% base, median **+174.7%**.
+
+**THE CANDIDATE SURVIVES ITS NULL AND BOTH HALVES.** Clustered permutation over
+(ticker, year) blocks: observed 69.1% against null 56.6% ± 4.6%, **z = +2.70**,
+0 of 200 draws exceeded. Half-split lift 1.08 early, 1.52 late, positive in
+both. **It does NOT clear the project's Bonferroni bar** — z = +2.70 is
+p ≈ 0.0035 against a 0.0007 bar after 70 trials, and 200 draws cannot resolve
+below 0.005. Suggestive, not established.
+
+**AND FOR THE FIRST TIME THE INDEX COMPARISON IS WON.** 6,332 matched 10-year
+windows, index on a total-return basis at the measured 1.77% top-decile yield:
+
+| | median | mean | P(2x end) | P(2x touch) |
+|---|---|---|---|---|
+| liquid decile | **+188.8%** | +464.1% | 62.9% | **72.8%** |
+| all liquid names | +12.8% | +200.8% | 33.7% | 57.9% |
+| IHSG total return | +108.5% | +225.0% | 61.0% | 75.8% |
+
+Paired per window: median **+51.8%**, 57.7% of windows won, **+32.9% early and
++73.9% late — positive in both halves.** Every previous construction here lost
+to the index. The mechanism is not subtle: a one-year hold pays ~1.3% round
+trip every year, a ten-year hold pays it once — 0.13% a year. **A9 flagged
+exactly this and never tested it.**
+
+### Verdict
+
+**8 of 10: NOT REACHABLE.** Ceiling 72.8%, about 7 of 10, and only at ten years.
+
+**7 of 10: reachable**, by buying the ~10 most liquid IDX names equal-weighted
+and holding a decade.
+
+**Limits, and they are severe.** Effective n is **56** for the sample and ~6 for
+the decile — two independent decades. Only **30 distinct names** were ever in
+the top decile (it does include BUMI, down ~99%, so it is not a survivor list).
+The base rate does more work than the selection: 70.6% early against 40.3% late.
+The holdout is spent. And ten years IS the mechanism — exiting at year three
+returns you to the regime where costs eat everything.
+
+**Trials after H23: 70.** Bonferroni bar α = 0.05/70 = **0.00071**.
+**The 24-month holdout remains SPENT.**
