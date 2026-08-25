@@ -1433,9 +1433,30 @@ a twelve-name basket three ways leaves the liquid cell scoring 54 of 212 cohorts
 at a median of four names. A first draft printed **−13.9%** for it — the
 smallest cell producing the largest effect, the degenerate-cell trap this repo
 has already recorded twice. The readable half (random draws, full baskets in
-every tercile) is what is quoted; the unreadable half says "insufficient data"
-and names what answering it would cost (~20 minutes of rebuild, since `build()`
-does not persist cell scores).
+every tercile) is what is quoted; the unreadable half said "insufficient data"
+and priced answering it at ~20 minutes of rebuild.
+
+**THEN THE 20 MINUTES WERE PAID, because naming a cost and not paying it is the
+premature closure `docs/STANDING_ORDERS.md` exists to stop.**
+`scripts/liquid_rerank.py` restricts the universe to the liquid tercile BEFORE
+ranking, so the rule takes a full basket there — median 11, min 10, all 179
+cohorts scored. Prediction of failure registered in the docstring first. Result:
+picks **−5.0%** CAGR, random draw from the same universe −2.4%, index **+9.0%**,
+paired shortfall **−15.08%**, **0 of 12 slots**. Applied upmarket the rule goes
+from beating its own pool by 4.8 points to trailing it by 2.6. The size
+explanation is dead.
+
+**AND IT GIVES THE SHARPEST DESCRIPTION OF THIS ENTRY RULE IN THE PROJECT.**
+Per name over the year: picks mean −2.03% and **median −10.48%** against the
+rest of the liquid universe at −0.12% and −3.27% — while **P(2x) is 4.89%
+against 1.51%.** The rule does exactly what it was built to do, more than
+tripling the doubler rate, and loses money doing it. **It is a lottery-ticket
+selector: it buys convexity, and on this cost structure the convexity costs more
+than it is worth.** Every other result lines up behind that one sentence — H16's
+2 doublers with a mean PEAK of +102.2% against a realised +15.1%, A15's exit
+frontier that cannot cut the left tail without cutting the premise, and this
+shortfall. It also selects wider-spread names *within* the liquid tercile,
+paying 1.35% a round trip against 1.02%.
 
 **It does not rest on significance either.** Slot dispersion [+6.7%, +13.8%]
 contains the index, so read as a tie the picks still cost 18 round trips,

@@ -249,9 +249,52 @@ mega-cap return while keeping the equal-weighting penalty. For the record the
 rule leans thin (51% of picks against 15% liquid), which given this table is
 the better end to lean toward and is not the source of the shortfall.
 
-Answering the picked version properly means re-ranking *inside* the liquid
-tercile and taking a full basket there. That needs the cell scores `build()`
-does not persist: about twenty minutes of rebuild, not a limit of the data.
+### Answering the picked version properly — and it is worse than expected
+
+The paragraph above priced the proper answer at "about twenty minutes of
+rebuild, not a limit of the data". Naming a cost and not paying it is the
+premature closure `docs/STANDING_ORDERS.md` exists to stop, so it was paid.
+`scripts/liquid_rerank.py` restricts the universe to the liquid tercile
+**before** ranking, so the rule selects a full basket from that segment on every
+cohort. **The prediction — that it would still fail — was registered in the
+script's docstring before anything was scored.**
+
+179 cohorts 2005-04 → 2023-08, 8,696 priced name-cohorts, 265 names, 2,084
+picks, **median basket 11 (min 10), all 179 cohorts scored.** The thin-basket
+problem is gone.
+
+| | |
+|---|---|
+| re-ranked picks CAGR | **−5.0%** |
+| random draw, same liquid universe | −2.4% |
+| edge over its own segment | **−2.6%** |
+| index total return, same window | **+9.0%** |
+| picks − index, paired per slot | **−15.08%** [−16.70%, −13.46%] |
+| slots beating the index | **0 of 12** |
+
+**The size explanation is dead.** Applied upmarket the rule does not merely fail
+to catch the index — it goes from beating its own pool by 4.8 points to
+*trailing* it by 2.6.
+
+**And the per-name breakdown is the sharpest description of this rule anywhere
+in the project:**
+
+| | picks | rest of the liquid universe |
+|---|---|---|
+| 1-year return, mean | −2.03% | −0.12% |
+| 1-year return, **median** | **−10.48%** | −3.27% |
+| **P(2x)** | **4.89%** | 1.51% |
+| round-trip cost | 1.349% | 1.019% |
+
+**The rule does exactly what it was built to do and loses money doing it.** It
+more than triples the doubler rate — 4.89% against 1.51% — and the median pick
+still falls 10.5% over the year, so the basket mean is negative. It is a
+lottery-ticket selector: it buys convexity, and the price of the convexity
+exceeds it. That is precisely the shape H16 saw from the other side (2 of 10
+doublers, mean *peak* +102.2%, realised +15.1%) and it is why no exit rule
+rescued it — §3's frontier could not cut the left tail without cutting the
+premise. It also selects systematically wider-spread names *within* the liquid
+tercile, paying 1.35% a round trip against 1.02%.
 
 ## 6. Two more critiques of §3–§4, and they split
 
@@ -302,6 +345,16 @@ buy-and-hold's **+10.5%**. I reported both as improvements and they are not.
 **Retracted:** "the remaining defensible position is buy-and-hold on the picks."
 On a total-return basis the picks trail the index by **2.2% a year**, in both
 halves. The defensible position is the index.
+
+**What the entry rule actually is, stated plainly.** It is a lottery-ticket
+selector. Re-ranked inside the liquid tercile it triples the doubler rate —
+**P(2x) 4.89% against 1.51%** — and the median pick still falls **10.5%** over
+the year, so the basket mean is negative and it trails the index in **0 of 12
+slots**. Every result in this project is consistent with that one sentence:
+H16's 2 doublers with a mean peak of +102% and a realised +15%, §3's exit
+frontier that cannot cut the left tail without cutting the premise, and the
+2.5% shortfall here. The rule buys convexity, and on this cost structure the
+convexity costs more than it is worth.
 
 ---
 

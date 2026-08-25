@@ -1274,9 +1274,45 @@ it inherits none of that return and keeps the equal-weighting penalty. The rule
 leans thin (51% vs 15%), which given this table is the better end and is not
 the source of the gap.
 
-Answering the picked version properly needs re-ranking inside the liquid
-tercile, which needs cell scores `build()` does not persist: ~20 minutes of
-rebuild, not a limit of the data.
+### C3d(b) — the rebuild was priced at 20 minutes, so it was paid
+
+`scripts/liquid_rerank.py`, tests `tests/test_liquid_rerank.py` (6). Universe
+restricted to the liquid tercile BEFORE ranking, so the rule takes a full
+basket from that segment on every cohort. **The prediction that it would still
+fail was registered in the script docstring before scoring.** 179 cohorts
+2005-04 → 2023-08, 8,696 name-cohorts, 265 names, 2,084 picks, **median basket
+11 (min 10), all 179 scored** — the thin-basket problem is gone.
+
+| | |
+|---|---|
+| re-ranked picks CAGR | **−5.0%** |
+| random draw, same liquid universe | −2.4% |
+| edge over its own segment | **−2.6%** |
+| index TR, same window | **+9.0%** |
+| picks − index, paired per slot | **−15.08%** [−16.70%, −13.46%] |
+| slots beating the index | **0 of 12** |
+
+**The size explanation is dead.** Applied upmarket the rule goes from beating
+its own pool by 4.8 points to TRAILING it by 2.6.
+
+**AND THE PER-NAME BREAKDOWN IS THE SHARPEST DESCRIPTION OF THIS RULE IN THE
+PROJECT:**
+
+| | picks | rest of liquid universe |
+|---|---|---|
+| 1-yr return mean | −2.03% | −0.12% |
+| 1-yr return **median** | **−10.48%** | −3.27% |
+| **P(2x)** | **4.89%** | 1.51% |
+| round-trip cost | 1.349% | 1.019% |
+
+**It does exactly what it was built to do and loses money doing it** — more
+than triples the doubler rate while the median pick falls 10.5%. It is a
+LOTTERY-TICKET SELECTOR: it buys convexity and the convexity costs more than it
+is worth. That is H16 seen from the other side (2/10 doublers, mean peak
++102.2%, realised +15.1%) and it is why no exit rule rescued it — the frontier
+cannot cut the left tail without cutting the premise. It also picks
+wider-spread names *within* the liquid tercile, 1.35% a round trip against
+1.02%.
 
 ### C1 — "a coin flip since 2017" was a POWER statement written as an EFFECT one
 

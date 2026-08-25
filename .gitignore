@@ -37,3 +37,6 @@ data/spine/recovery_state_*.parquet
 # Likewise the H20 per-name return table, rebuilt by scripts/portfolio_sim.py
 # (drop --report) in about twenty minutes from the panel and the indicators.
 data/spine/portfolio_names.parquet
+# And the liquid-tercile re-rank table, rebuilt by scripts/liquid_rerank.py
+# (drop --report) in about ten minutes from the panel.
+data/spine/liquid_rerank.parquet
