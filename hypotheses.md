@@ -880,3 +880,69 @@ wall that killed H9/H12/H13 is nearly irrelevant — a 1–2% round trip against
 
 **Trials after H16: 44.** Bonferroni bar α = 0.05/44 = **0.0011**.
 **The 24-month holdout is SPENT.**
+
+---
+
+## H17 — does an exit rule improve the multiplier-cell entry? (2026-08-25)
+
+**Registered before running the walk-forward:** the catalogue of 32 exit rules
+was fixed in `exits.catalogue()` before any cohort was scored; the selection is
+purged walk-forward, so the reported number is never scored on the sample that
+chose it. Memo: `reports/exit_rules.md`.
+
+**Prediction.** H16's attribution — mean peak +102.2%, realised +15.1% — says
+the give-back is the loss. A trailing stop should recover part of it. It should
+NOT reduce P(−50%), because a name that falls from entry never arms a trail.
+
+**Result, 176 purged cohorts, 2008-09 → 2023-08, tie='all' baskets:**
+
+| | cohort median | 95% CI (moving-block) |
+|---|---|---|
+| walk-forward selected rule | **+0.94%** | [−8.11%, +10.49%] |
+| buy and hold 252 | −3.19% | [−13.94%, +6.38%] |
+| **difference** | **+4.13%** | **[+1.87%, +6.33%]** |
+
+Differed from buy-and-hold in 94 of 176 cohorts and **won 74 of those, 79%,
+sign test p = 1.8 × 10⁻⁸**. Mean +14.24% when it wins, −16.34% when it loses,
+so the median difference is exactly 0.00% — the win RATE is the effect, not a
+tail. 153 of 176 cohorts chose `trail 15% armed +50%`; mean hold 210 sessions.
+
+**The prediction about the downside held exactly.** P(−50%) 15.0% against
+16.3%. Every armed-trail variant reads an identical 15.1% because the loss
+happens before the arm. The frontier table in the memo shows a hard stop takes
+P(−50%) to ~0% at a cost of 6–8 points of median — for a rule selected ON
+P(2x), cutting the left tail cuts the premise.
+
+**Trials after H17: 46** (the 32-rule catalogue is a pre-registered search
+space resolved by walk-forward, not 32 separate trials; a reader who prefers to
+count it as 32 gets a Bonferroni bar of 0.05/78 = 0.00064, which the sign test
+still clears by four orders of magnitude). **The holdout remains SPENT.**
+
+---
+
+## H17b — is the multiplier-cell ENTRY reproducible at all? (2026-08-25)
+
+**Not a prediction; a defect found and then measured.** Two independent
+implementations of the same published entry rule returned different baskets on
+2025-08-25 (IMPC vs MERI) and therefore different returns (+26.3% vs +15.1%)
+for the identical buy-and-hold exit.
+
+**Cause.** ≤125 cells against ~800 live names, so cell scores are massively
+tied. On 2025-08-25 **17 names shared the 10th-place score** and the top 30
+held **4 distinct scores**. "Top ten" was decided by frame order.
+
+**Measured, 500 random tie-breaks on the 2025 cohort:**
+p5 −16.1%, median **+6.9%**, p95 +26.9%, sd **13.0%**, range −29.2% to +36.6%.
+H16's draw sits at the ~75th percentile, exit_study's near the 95th.
+
+**Measured, 211 pre-holdout cohorts × 40 tie-breaks:** the cut falls inside a
+tie in **64%** of cohorts; within-cohort sd **4.31%**; middle-90% span
+**10.92%**.
+
+**So H16's headline is revised down.** The centre of that cohort is +6.9%, not
++15.1%. The 2/10 doublers stands as an observation about one arbitrary draw.
+
+**Fix:** `multiplier.select(tie="all")` holds the whole tied group. Measured
+−4.42% against tie='first''s −2.54% over 211 cohorts, difference −1.47%
+[−2.48%, −0.56%] — accepted, because a reproducible −4.4% is worth more than
+an irreproducible −2.5%.

@@ -1143,3 +1143,68 @@ has checked its licensing, and this one is an undocumented internal endpoint
 whose `/indonesia/scan` path its own robots.txt disallows. It is also *wrong*
 on taxonomy — ASII, a top-ten name, comes back as "Technology Services". That
 is the user's call to make, not this repo's.
+
+## A15. The entry rule was not a rule, and the exit layer that was missing works
+
+A11 logged the multiplier cell as O1, a lead not a finding. H16 spent the
+holdout on it and measured 2/10 doublers with a mean PEAK of +102.2% against a
+realised +15.1%. The obvious next move was an exit layer. Building it turned up
+something bigger first. Memo: `reports/exit_rules.md`, logged H17 and H17b.
+
+**THE ENTRY RULE WAS UNDER-DETERMINED AND NOBODY NOTICED FOR TWO HYPOTHESES.**
+Re-implementing it to generate historical cohorts produced a DIFFERENT basket
+from H16's on the same date — IMPC where H16 drew MERI — and therefore +26.3%
+against +15.1% for the identical exit. Neither had a bug. The rule scores names
+by the historical P(2x) of the cell they occupy, and there are ≤125 cells
+against ~800 live names, so on 2025-08-25 **seventeen names shared the
+tenth-place score and the top thirty held four distinct scores.** "Take the top
+ten" was decided by `sort_values` stability.
+
+Measured rather than argued: 500 random tie-breaks on that cohort span
+**−29.2% to +36.6%, sd 13.0%**, median **+6.9%**. H16's draw sits near the 75th
+percentile of baskets it had no reason to prefer. Across 211 pre-holdout
+cohorts the cut falls inside a tie **64%** of the time, with a within-cohort sd
+of **4.31%**. **That variance is in no interval this repo has ever printed.**
+H16's headline is revised: the centre of that cohort is +6.9%, not +15.1%.
+
+The fix is not a better tie-break but the absence of one — `select(tie="all")`
+holds the entire tied group. It measures slightly WORSE (−4.42% against
+−2.54%) and is still correct, because the −2.54% was never a property of the
+rule. **A discrete-cell score over a large cross-section is tied by
+construction; check the tie structure before quoting any top-N from one.**
+The daily brief is unaffected — it ranks on continuous features and on today's
+absolute move, neither of which ties.
+
+**The exit layer itself works, modestly and measurably.** 32 rules fixed before
+scoring, purged walk-forward over 176 cohorts 2008–2023, cohort-level moving-
+block bootstrap: selected rule **+0.94%** against buy-and-hold **−3.19%**,
+difference **+4.13% [+1.87%, +6.33%]**. It differed from buy-and-hold in 94
+cohorts and **won 74 of them — 79%, p = 1.8e−8**. 153 of 176 cohorts chose
+`trail 15% armed +50%`. Mean hold 210 sessions against 250.
+
+**AND IT DOES NOT FIX THE DOWNSIDE, exactly as pre-registered.** P(−50%) is
+15.0% against 16.3%; every armed-trail variant reads an identical 15.1%,
+because a name that falls from entry never arms. The frontier is explicit: a
+hard stop takes P(−50%) to ~0% and costs 6–8 points of median return. **For a
+rule selected ON P(2x), cutting the left tail cuts the premise.** No rule in
+the catalogue is better on both axes.
+
+**Three method defects, all committed while writing the fix for the last one.**
+
+*The walk-forward leaked.* Monthly cohorts holding a year means last month's
+outcome is eleven months from being known, and the first version trained on it.
+`purge=True` restricts training to settled cohorts.
+
+*The cohort bootstrap treated overlapping cohorts as independent* — the SAME
+error H16 named about its own twelve cohorts ("effective n is ~1, not 12"),
+reintroduced one layer up inside the function written to avoid it. An iid
+resample over 176 monthly year-holds returns an interval ~3.4x too narrow.
+Every interval in the memo roughly doubled when it became a moving-block
+resample. **The unit of resampling and the unit of independence are different
+questions, and getting the first right does not settle the second.**
+
+*`DatetimeIndex.asi8` is microseconds on a `datetime64[us]` index* and
+nanoseconds on a `[ns]` one, so a hardcoded divisor returned a block length of
+11,783 for monthly cohorts. And a long block **degenerates** — widths 0.049 at
+b=1, 0.105 at b=13, 0.047 again at b=63 — so it is capped at a fifth of the
+sample.
