@@ -1545,5 +1545,24 @@ concentrated in banks. **Ten names at eight-of-ten is not available from this
 evidence**, and the two cells trade breadth against hit rate with no point on
 the curve delivering both.
 
+### And the horizon was dropped from a summary
+
+The 69.1% was quoted without "over ten years" beside it and read as a one-year
+figure. **The correction is not a rescaling — the tilt inverts.**
+
+| hold | all liquid | decile | core | per 10 names |
+|---|---|---|---|---|
+| 1y | 9.5% | **4.2%** | **1.0%** | **0.4 of 10** |
+| 3y | 27.0% | 24.6% | 19.5% | 2.5 of 10 |
+| 5y | 39.0% | **49.3%** | 49.4% | 4.9 of 10 |
+| 10y | 55.5% | **70.0%** | **82.8%** | **7.0 of 10** |
+
+At one year the decile touches 2x LESS often than the liquid names it excludes
+(4.2% vs 10.2%) — the wrong side of the trade, not a weaker version of the
+right one, and A19's inversion seen a second time. `BY_HORIZON` in
+`scripts/decade.py` prints it on every run with four tests pinning it: a
+conditional result quoted without its condition is a wrong result, and the fix
+belongs in the code that prints it.
+
 **Trials after H24: 76.** Bonferroni bar α = 0.05/76 = **0.00066**.
 **The 24-month holdout remains SPENT.**

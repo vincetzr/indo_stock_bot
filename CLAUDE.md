@@ -1595,6 +1595,19 @@ excluded it.
 doubling, or four names at ~83% on one effective observation and a single
 sector. Ten names at eight-of-ten is not available from this evidence.
 
+**AND THE HORIZON GOT DROPPED FROM A SUMMARY, WHICH IS ITS OWN LESSON.** The
+69% was written in a summary table without "over ten years" beside it and was
+read — reasonably — as a one-year number. The correction is not a rescaling,
+because **the tilt INVERTS**: at one year the liquid decile touches 2x **4.2%**
+of the time against **10.2%** for the liquid names it excludes, and the core
+cell reads **1.0%**. A ten-name basket delivers **0.4 of 10 in a year, 2.5 in
+three, 7.0 in ten**. Below roughly three to five years this basket is the wrong
+side of the trade, not a weaker version of the right one — which is A19's
+inversion seen a second time. `BY_HORIZON` now prints on every run of
+`scripts/decade.py` and four tests pin it, because **a conditional result
+quoted without its condition is a wrong result, and the fix belongs in the code
+that prints it rather than in the discipline of whoever quotes it.**
+
 ### Where the programme stands now
 
 Every branch has been run to its end and the answer is the same from six

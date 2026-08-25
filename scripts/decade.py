@@ -77,6 +77,25 @@ CORE = {"touch2x": 0.828, "median": 1.972, "p_half": 0.072, "n_names": 8,
 #: object the historical cell measured, whatever its tenure score says.
 MIN_LISTED_YEARS = 10.0
 
+#: P(touch 2x) BY HOLDING PERIOD, measured on the same panel. This table
+#: exists because the headline 69% was quoted without "over ten years" beside
+#: it and was immediately — and reasonably — read as a one-year number. It is
+#: printed on every run so the figure cannot travel without its horizon.
+#:
+#: THE TILT INVERTS. Below about three to five years the most liquid names
+#: touch 2x LESS often than the liquid names they exclude (4.2% against 10.2%
+#: at one year). Buying this basket for a one-year hold is not a weaker
+#: version of the ten-year case, it is the wrong side of the trade.
+#: (years, all liquid, liquid decile, core 3-of-3)
+BY_HORIZON = [
+    (1.0, 0.095, 0.042, 0.010),
+    (2.0, 0.189, 0.114, 0.054),
+    (3.0, 0.270, 0.246, 0.195),
+    (5.0, 0.390, 0.493, 0.494),
+    (7.5, 0.467, 0.627, 0.695),
+    (10.0, 0.555, 0.700, 0.828),
+]
+
 
 def universe(P: pd.DataFrame, day: pd.Timestamp) -> pd.DataFrame:
     """The three filter steps, in the order the historical test applied them."""
@@ -200,6 +219,25 @@ def main() -> int:
     print(f"\n   So: about SEVEN of ten names double over the decade. That is")
     print(f"   the answer to 'can I pick 7 of 10 multi-baggers' — yes, at")
     print(f"   this horizon, and it is settled at ENTRY.")
+
+    print("\n" + "=" * W)
+    print(" AND THE HORIZON IS NOT A DETAIL — THE TILT INVERTS BELOW IT")
+    print("=" * W)
+    print(f"\n   {'hold':<9}{'all liquid':>12}{'this basket':>13}"
+          f"{'core only':>11}{'per 10 names':>15}")
+    for yr, base, dec, core in BY_HORIZON:
+        note = "  <- the measured case" if yr == 10.0 else ""
+        print(f"   {yr:>4.1f}y    {base:>10.1%}{dec:>13.1%}{core:>11.1%}"
+              f"{dec * 10:>12.1f} of 10{note}")
+    print("\n   BELOW ABOUT THREE TO FIVE YEARS THIS BASKET IS THE WRONG SIDE")
+    print("   OF THE TRADE. At one year the most liquid names touch 2x 4.2%")
+    print("   of the time against 10.2% for the liquid names they exclude —")
+    print("   it is not a weaker version of the ten-year case, it is the")
+    print("   opposite one. A19 measured the same inversion from the other")
+    print("   direction: at one-year holds the liquid tercile trailed the")
+    print("   index by 9.5% a year.")
+    print("\n   Expect 0.4 of 10 to double in a year, 2.5 in three, 7.0 in")
+    print("   ten. There is no version of this that is a one-year trade.")
 
     print("\n" + "=" * W)
     print(" WHAT IT IS NOT")

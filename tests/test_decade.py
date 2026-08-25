@@ -18,8 +18,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir, "src"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir,
                                 "scripts"))
 
-from decade import (CORE, EVIDENCE, MIN_LISTED_YEARS,          # noqa: E402
-                    listed_years, resolve_day, tenure, universe)
+from decade import (BY_HORIZON, CORE, EVIDENCE,               # noqa: E402
+                    MIN_LISTED_YEARS, listed_years, resolve_day, tenure,
+                    universe)
 
 
 def _P(n=200, day="2026-08-24", years=6, turnover=None):
@@ -144,3 +145,35 @@ def test_a_name_listed_for_less_than_the_hold_cannot_be_core():
     assert MIN_LISTED_YEARS >= 10.0, (
         "the hold is ten years; a name whose entire history is shorter than "
         "that is not the object the historical cell measured")
+
+
+# ================================================ the horizon cannot be dropped
+def test_the_tilt_inverts_below_the_crossover():
+    """THE MISREADING THIS TABLE EXISTS TO PREVENT. The headline 69% was
+    quoted without "over ten years" beside it and was read as a one-year
+    number. At one year the decile touches 2x LESS often than the liquid names
+    it excludes — it is the wrong side of the trade, not a weaker version of
+    the right one."""
+    one = [r for r in BY_HORIZON if r[0] == 1.0][0]
+    ten = [r for r in BY_HORIZON if r[0] == 10.0][0]
+    assert one[2] < one[1], "at one year the decile must be BELOW the base"
+    assert ten[2] > ten[1], "at ten years it must be above"
+
+
+def test_the_touch_rate_rises_monotonically_with_the_horizon():
+    for col in (1, 2, 3):
+        vals = [r[col] for r in BY_HORIZON]
+        assert vals == sorted(vals), f"column {col} is not monotone"
+
+
+def test_the_ten_year_row_matches_the_headline_evidence():
+    ten = [r for r in BY_HORIZON if r[0] == 10.0][0]
+    assert ten[1] == pytest.approx(EVIDENCE["base_touch"], abs=0.01)
+    assert ten[3] == pytest.approx(CORE["touch2x"], abs=0.01)
+
+
+def test_a_ten_name_basket_doubles_almost_nothing_in_a_year():
+    one = [r for r in BY_HORIZON if r[0] == 1.0][0]
+    assert one[2] * 10 < 1.0, (
+        "fewer than one name in ten doubles inside a year; any summary that "
+        "implies otherwise is wrong")
