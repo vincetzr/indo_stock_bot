@@ -1019,3 +1019,72 @@ mean +16.0% with **2 doublers**; the median-optimal indicator rule returned
 
 **Trials after H18: 49.** Bonferroni bar α = 0.05/49 = **0.001**.
 **The 24-month holdout remains SPENT.**
+
+---
+
+## H19 — where does the recovery edge actually die, and do indicators know? (2026-08-25)
+
+**Pre-registered in `scripts/recovery.py`'s docstring before any of it ran.**
+243,977 armed liquid pre-holdout bars, 560 names, 279 months, 2001-04 → 2024-08,
+forward horizon 60 sessions. Memo: `reports/recovery_curve.md`.
+
+**Motivation:** H17 and H18 both chose a trail distance by GRID SEARCH and never
+measured the conditional the distance is supposed to encode.
+
+### H19a — P(new high) falls monotonically with give-back depth
+
+**HOLDS.** 81.3% → 56.1% → 38.8% → 27.1% → 17.3% → **11.3% at −30%** → 5.9% at
+−40% → 0.8% below −60%. Crosses one-half between −5% and −10%.
+
+### H19b — there is a depth where the mean forward return turns negative, deeper than 15%
+
+**FAILED, and instructively.** The mean NEVER turns significantly negative at
+any depth: it stays between −2.2% and +7.1% and its interval covers zero from
+−25% down. A thin tail of enormous recoveries keeps expected value roughly flat
+all the way to −60%.
+
+What turns negative is the **MEDIAN**, at **−10% to −15%** (−0.5%). So the
+typical outcome sours at 10–15% while the average outcome never does — the H18
+mean/median wedge arriving from a completely different direction.
+
+**This independently validates the 15% nobody had verified.** The grid picked
+15% by optimising cohort median; the conditional curve puts the median crossing
+at −10 to −15%. Two unrelated routes, same number. In ATRs: −10% = 2.1 ATR,
+−15% = 3.2 ATR, which is where `chandelier 2x ATR` sits.
+
+Mean further drawdown over the next 60 sessions widens monotonically with depth
+(−12.5% at −10%, −16.1% at −30%, −22.4% below −60%), so holding deeper costs
+extra pain even where it does not cost expected value.
+
+### H19c — at matched depth, indicators separate recoverers from non-recoverers
+
+**SPLIT, and the split is the finding.**
+
+| outcome | cells clearing Bonferroni (0.0009) | sign split | median effect |
+|---|---|---|---|
+| **P(new high)** | **14 / 53** | **13 pos / 1 neg** | **12.6 points** |
+| forward return | 4 / 53 | 2 pos / 2 neg | 4.2% |
+
+**Indicators predict WHETHER it gets back to the high, strongly and
+consistently. They do not predict the RETURN in any stable direction.**
+
+By indicator, sign consistency on P(new high): **above EMA50 9+/0−** (mean
++7.9pts), above EMA20 9+/1− (+3.7), give-back < 2 ATR 2+/0− (+15.4), turnover
+z>0 7+/4− (+3.8), stoch %K>50 8+/2− (+1.4), **stoch %K>%D 5+/6− (+0.2 — noise)**.
+
+Concentrated where it matters: average shift +17.7 pts at −10 to −5%, +11.9 at
+−15 to −10%, decaying to +2–4 pts past −20%.
+
+**Consequence:** `ema50 break armed +50%` is the rule the curve endorses — H18's
+table gives it +0.8% median, **+15.0% mean, P(2x) 7.9%** against the trail's
++0.9% / +11.4% / 7.3%, same P(−50%). Best-motivated, NOT out-of-sample: it is
+read off a full-sample table already seen, and the holdout is spent.
+
+**Two method defects, both mine, both fixed.** The null permuted ROWS when the
+information varies at (ticker, month) — 20 near-identical bars priced as 20
+observations, inflating every z (one read −8.7). And a cell with a flag true for
+0.2% of rows produced the first table's largest effect (−46.1%); both sides now
+need 300 observations and a 5% share.
+
+**Trials after H19: 52.** Bonferroni bar α = 0.05/52 = **0.00096**.
+**The 24-month holdout remains SPENT.**

@@ -1269,3 +1269,53 @@ crashes. *`id()` is not a cache key* — CPython reuses it after collection, so 
 dead lambda's arity was served for a live rule. *A label containing another
 label as a substring* — `(unarmed)` contains "armed" — silently matched the
 wrong rows in a filter.
+
+## A17. The recovery curve — the conditional two studies had assumed
+
+H17 and H18 both picked a trailing-stop distance by GRID SEARCH and never
+measured the conditional that distance is meant to encode: given you are
+already X% below the peak, what are the odds it comes back? H19 measures it on
+243,977 armed liquid pre-holdout bars. Memo: `reports/recovery_curve.md`.
+
+**P(new high within 60 sessions), by give-back:** 81.3% at −5%, 56.1% at −10%,
+38.8% at −15%, 27.1% at −20%, 17.3% at −25%, **11.3% at −30%**, 5.9% at −40%,
+0.8% below −60%. It crosses one-half between −5% and −10%.
+
+**H19b WAS PRE-REGISTERED AND FAILED, INSTRUCTIVELY.** The prediction was a
+depth where the MEAN forward return turns significantly negative. There is no
+such depth — the mean never leaves [−2.2%, +7.1%] and its interval covers zero
+from −25% down, because a thin tail of enormous recoveries keeps expected value
+flat all the way to −60%. What turns negative is the **MEDIAN**, at **−10 to
+−15%**. The mean/median wedge that decided H18 arrives here from a completely
+different direction, and it is now the third time this repo has found the two
+disagreeing on the same question.
+
+**AND IT VALIDATES A NUMBER THAT HAD ONLY EVER BEEN SELECTED.** The grid chose
+`trail 15%` by optimising cohort median; the conditional curve puts the median
+crossing at −10 to −15%. Two unrelated routes, same answer. In ATRs that is
+2.1–3.2, which is where `chandelier 2x ATR` sits — so H18a's support was the
+same fact seen from the side.
+
+**INDICATORS PREDICT RECOVERY, NOT RETURN.** 53 (indicator × depth) cells:
+**14 clear Bonferroni on P(new high), 13 of them positive, median shift 12.6
+points** — but only 4 clear on forward return and those split 2 positive / 2
+negative. Being above the EMA50 in a shallow drawdown is worth up to **+22.4
+points** of recovery probability and nothing reliable in return. Of the
+indicators tested, **above EMA50 is 9+/0− across depths, and the stochastic
+cross is 5+/6− — noise.** The help concentrates at −5 to −15% and decays to
+nothing past −20%.
+
+So `ema50 break armed +50%` is what the curve endorses: H18's table gives it
++0.8% median, **+15.0% mean, P(2x) 7.9%** against `trail 15%`'s +0.9% / +11.4%
+/ 7.3% at identical P(−50%). Best-motivated, not out-of-sample — read off a
+table already seen, holdout spent.
+
+**THE NULL HAD TO PERMUTE NAMES, NOT ROWS.** A name contributes ~20
+near-identical bars a month, so a row shuffle destroys the label while leaving
+the null far too tight; every z came back inflated and one read **−8.7** before
+becoming the headline. Permuting whole (ticker, month) blocks is the fix, and a
+test now makes the difference visible on synthetic data instead of asserting
+it. **Clustered data needs a clustered null — getting the unit of resampling
+right in one place does not carry to the next.** Separately, a cell with a flag
+true for 0.2% of rows produced the first table's largest effect (−46.1%): both
+sides now need 300 observations and a 5% share.
