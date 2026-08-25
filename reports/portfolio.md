@@ -91,7 +91,12 @@ signature of regime-dependent noise.
 **So: no exit rule is established. None.** Including the one H19's recovery
 curve endorsed on mechanism, which fails the early half.
 
-## 4. The entry — one pre-specified comparison, and it dies in the recent half
+## 4. The entry — one pre-specified comparison, weakening in the recent half
+
+*This section originally read "and it dies in the recent half". §6 shows that
+was too strong twice over: the late half cannot rule out an edge up to +4.1% a
+year, and 14 of 15 rolling windows are positive. It is a decay, not a death —
+and §5 makes the distinction moot, since neither size beats the index.*
 
 The entry is *not* one of six; it is a single comparison, so a half-split can
 actually certify it. Paired per slot, buy-and-hold on the picks against
@@ -103,8 +108,10 @@ buy-and-hold on random draws from the same eligible pool, 12 slots × 20 draws:
 | **late 2017-08 → 2023-08** | **+0.36%** | 9.43% | 122/240 | **51%** |
 | full | +3.99% | 4.83% | 197/240 | 82% |
 
-**In the last six years the entry is a coin flip — 51%.** The full-sample
-+3.99% is an average of a regime where it worked and a regime where it did not.
+The full-sample +3.99% is an average of a regime where it worked strongly and
+one where it barely did. **This table also pools 240 pairs that are 12 slots ×
+20 redraws of one history; §6 redoes it with the slot as the unit, which is the
+honest denominator and roughly doubles the interval.**
 
 ---
 
