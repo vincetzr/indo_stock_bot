@@ -92,7 +92,7 @@ too tight (A17 records that inflating a z to −8.7 before it became a headline)
 | base touch rate | 55.5% |
 | liquid decile | **69.1%** (n = 789), lift 1.24× |
 | permutation null | 56.6%, sd 4.6%, p95 65.0% |
-| **z** | **+2.70**, empirical p = 0.000 on 200 draws |
+| **z** | **+2.70**, empirical p = 0.000 on 200 draws — **see §5, it resolves to 0.00140 at 5,000 draws** |
 
 | half | base | liquid decile | lift |
 |---|---|---|---|
@@ -102,9 +102,10 @@ too tight (A17 records that inflating a z to −8.7 before it became a headline)
 **Positive in both halves.** Note the base rate itself is 70.6% early against
 40.3% late — the regime does more work than the selection.
 
-**It does not clear this project's Bonferroni bar.** z = +2.70 is p ≈ 0.0035
-one-sided; the bar after 70 trials is 0.0007, and 200 draws cannot resolve below
-0.005 anyway. Suggestive, not established.
+**It does not clear this project's Bonferroni bar.** 200 draws cannot resolve
+below 0.005, which is a limitation with a price rather than a fact — §5 pays it
+and the answer is unchanged: **p = 0.00140 at 5,000 draws against a bar of
+0.00071.** Suggestive, not established.
 
 ## 4. And the comparison that has killed everything else
 
@@ -134,9 +135,11 @@ this and it was never tested.**
 
 ## What this licenses, and what it does not
 
-**8 of 10 is not reachable.** The ceiling is 72.8% — about **7 of 10** — and it
-takes a ten-year hold of the most liquid names to get there. There is no
-horizon, and no signal in this project, that reaches 80%.
+**8 of 10 is not reachable from any signal tested here at the decile level.**
+The ceiling is 72.8% — about **7 of 10** — and it takes a ten-year hold of the
+most liquid names to get there. (**§6 finds a narrower cell that does reach
+82.8%**, on eight names and an effective n of 1.8. It is reported there with
+the four reasons it is not the answer.)
 
 **7 of 10 IS reachable, and the recipe is boring:** buy the ~10 most liquid IDX
 names, equal weight, hold ten years. Historically ~7.3 of 10 touched 2x, the
@@ -159,3 +162,102 @@ median name returned +188.8%, and P(−50%) was 13.7% against a 28.6% base.
 - **The holdout is spent** (H16), so none of this is out of sample.
 - **Ten years is the whole mechanism.** Sell at year three and every result in
   §1 says you are back in the regime where costs eat the effect.
+
+---
+
+# H24 — pushing on 7-of-10, and the cell where 8-of-10 appears
+
+*Same panel. Code: `scripts/decade_push.py`, `scripts/decade.py`. Tests:
+`tests/test_decade.py` (15). Raw: `reports/decade_push.txt`,
+`reports/decade_basket.txt`.*
+
+## 5. Two costs H23 named and did not pay
+
+**"200 draws cannot resolve below 0.005"** was written as a limitation and left
+there, when the Bonferroni bar is 0.00071 and more draws is the entire price of
+an answer. Paid:
+
+| draws | z | p | verdict |
+|---|---|---|---|
+| 200 | +3.00 | 0.00995 | does not clear |
+| 1,000 | +2.84 | 0.00200 | does not clear |
+| **5,000** | **+2.87** | **0.00140** | **does not clear** |
+
+The empirical p uses the +1 correction, because a permutation p can never
+honestly be zero. **The answer is no, and it took two minutes to get.**
+
+**The touch/end gap was measured and never acted on.** 69.1% of decile names
+touch 2x and 59.6% end there. P1 predicted a 2x take-profit would raise the
+realised count and lower wealth:
+
+| | name doubled | I captured it | median | mean |
+|---|---|---|---|---|
+| hold, sell nothing | 69.1% | 59.6% | +174.7% | **+432.5%** |
+| sell 100% at 2x | 69.1% | **69.1%** | +100.0% | +58.1% |
+
+**P1 confirmed, and the cost is brutal:** capturing the last 9.5 points of hit
+rate costs 374 points of mean return.
+
+**P4 was pre-registered and FAILED.** I predicted scaling out would dominate
+both corners — the hit rate set by the touch, the mean by the remainder. It
+does not. The mean falls monotonically with every unit sold: +432.5%, +338.9%,
++245.3%, +151.7%, +58.1% at 0/25/50/75/100% sold. There is no free lunch in the
+interior. (`sell 50% at 3x` does lift the median to +186.9% against holding's
++174.7%, at the cost of 160 points of mean — the same mean/median wedge that
+decided H18 and H20, arriving a fourth time.)
+
+**And the first draft of that table had a column that conflated two questions.**
+"Doubles realised" was computed from the *peak*, which credits a
+hold-and-never-sell with captures it did not make: a name that doubled in year
+three and ended at 1.4x realised nothing. Split into **name doubled** (a
+property of the picking, constant at 69.1% across every selling rule) and **I
+captured it** (what the rule decides). **So "7 of 10 multi-baggers" is settled
+at ENTRY; the exit only decides how much reaches the account.**
+
+## 6. The cell where 8 of 10 appears — and why it is not the answer
+
+Splitting the decile by how many of the three prior years the name was *already*
+in it — knowable at entry, so it passes A5:
+
+| prior years in decile | n | names | touched 2x | median | P(−50%) |
+|---|---|---|---|---|---|
+| new (0 of 3) | 262 | 35 | 56.9% | +33.6% | 18.3% |
+| 1 of 3 | 162 | 14 | 67.9% | +188.7% | 14.2% |
+| 2 of 3 | 144 | 9 | 71.5% | +225.5% | 14.6% |
+| **3 of 3** | 221 | **8** | **82.8%** | +197.2% | **7.2%** |
+
+**Monotone, and 82.8% is eight of ten.** The eight names: ASII, BBCA, BBNI,
+BBRI, BMRI, BUMI, PGAS, TLKM. Clustered permutation over (ticker, year) blocks
+gives z = +3.04, p = 0.00100 against a bar of 0.00069 — **closer than the
+decile, still short.** And it is remarkably stable: **83.6% early against 82.4%
+late, while the base rate collapsed from 70.6% to 40.3%.**
+
+**Four reasons it is not the answer.**
+
+1. **Effective n is 1.8.** Eight names, 221 overlapping windows — about *one*
+   independent observation. This is the thinnest cell in the project.
+2. **It was found by looking**, after the decile result was in hand. Every
+   earlier post-hoc cell here that looked this good failed replication.
+3. **It yields four names today** — BBCA, BBRI, BMRI, TLKM — **and three are
+   banks.** That is one sector bet, not a basket.
+4. **AMMN scores 3 of 3 and is excluded**: it has been listed 3.1 years, so its
+   tenure score is its entire life, while the historical eight were all 20-year
+   names. `MIN_LISTED_YEARS = 10` enforces that a name whose whole history is
+   shorter than the hold cannot be the object the cell measured.
+
+## What the answer to "7 of 10" actually is
+
+**Available, at a price you can read:**
+
+- **10 names at ~69% doubling** — the full liquidity decile, median +174.7%,
+  P(−50%) 13.7%, beating the index by a paired median of +51.8% in both halves.
+- **4 names at ~83% doubling** — the tenure core, on one effective observation
+  and heavily concentrated in banks.
+
+**Ten names at eight-of-ten is not available from this evidence.** The two
+cells trade breadth against hit rate and there is no point on that curve that
+delivers both.
+
+Today's basket is in `reports/decade_basket.txt`, regenerated by
+`python3 scripts/decade.py`. It prints the tenure and listing age beside every
+name so the two tiers are visible rather than blended.

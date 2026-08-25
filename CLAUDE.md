@@ -1553,6 +1553,48 @@ deliberately. A parameter fixed once by convenience and then inherited by
 twelve studies is not a constant; it is an untested assumption with a
 project-wide blast radius. **Vary the thing every experiment holds fixed.**
 
+## A21. The 8-of-10 cell exists, rests on one observation, and is four banks
+
+A20 put the ceiling at ~7 of 10 and left two costs unpaid. Both are now paid
+and a tighter cell was found. Memo `reports/horizon.md` §5–§6, logged H24.
+
+**"200 DRAWS CANNOT RESOLVE BELOW 0.005" WAS A LIMITATION I WROTE AND LEFT.**
+The bar is 0.00071 and more draws is the entire price of an answer. At 5,000
+draws with the +1 correction: z = +2.87, **p = 0.00140. Still does not clear.**
+Two minutes. Naming a cost is not paying it, and this repo has now recorded
+that failure three times (A19's 20-minute rebuild, A19's liquid re-rank, this).
+
+**THE TAKE-PROFIT CONFIRMS P1 AND THE PRICE IS BRUTAL.** Hold to ten years:
+59.6% of positions captured a double, mean **+432.5%**. Sell everything at 2x:
+69.1% captured, mean **+58.1%**. The last 9.5 points of hit rate cost 374
+points of mean return.
+
+**P4 WAS PRE-REGISTERED AND FAILED.** Scaling out does NOT dominate the
+corners — the mean falls monotonically with every unit sold. No free lunch in
+the interior.
+
+**AND A COLUMN CONFLATED TWO QUESTIONS.** "Doubles realised" was computed from
+the PEAK, crediting a never-sell with captures it never made. Split into
+**name doubled** (constant at 69.1% under every selling rule — a property of
+the picking) and **I captured it**. **"7 of 10 multi-baggers" is settled AT
+ENTRY; the exit decides only how much reaches the account.** That distinction
+should have been made the first time P(2x) was written down.
+
+**THE 8-OF-10 CELL IS REAL AND IS ONE OBSERVATION.** Split the decile by how
+many of the three prior years the name was ALREADY in it — backward-looking,
+so A5-clean — and the gradient is monotone: 56.9% (new), 67.9%, 71.5%,
+**82.8% (3 of 3)**. Null z = +3.04, p = 0.00100 against a 0.00069 bar. It is
+strikingly stable — **83.6% early, 82.4% late, while the BASE rate collapsed
+70.6% → 40.3%.** And it rests on **eight names and an effective n of 1.8**,
+was found by LOOKING after the decile result was in hand, yields **four names
+today of which three are banks**, and would have admitted AMMN — listed 3.1
+years, so its tenure score is its entire life — until `MIN_LISTED_YEARS`
+excluded it.
+
+**The honest offer is two priced options, not one answer:** ten names at ~69%
+doubling, or four names at ~83% on one effective observation and a single
+sector. Ten names at eight-of-ten is not available from this evidence.
+
 ### Where the programme stands now
 
 Every branch has been run to its end and the answer is the same from six

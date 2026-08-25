@@ -1479,3 +1479,71 @@ returns you to the regime where costs eat everything.
 
 **Trials after H23: 70.** Bonferroni bar α = 0.05/70 = **0.00071**.
 **The 24-month holdout remains SPENT.**
+
+---
+
+## H24 — pushing on 7-of-10, and the cell where 8-of-10 appears
+
+**2026-08-25.** The user's goal was "do 7 of 10, don't stop pushing". Code
+`scripts/decade_push.py`, `scripts/decade.py`; tests `tests/test_decade.py`
+(15). Memo `reports/horizon.md` §5–§6.
+
+### The two costs H23 named and did not pay
+
+**"200 draws cannot resolve below 0.005"** was left as a limitation when more
+draws was the whole price of an answer. At 5,000 draws (with the +1
+correction, since an empirical p can never honestly be zero): z = +2.87,
+**p = 0.00140** against a bar of 0.00071. **Still does not clear.** Two
+minutes to settle.
+
+**P1 — the 2x take-profit.** Confirmed and brutal. Hold: 59.6% captured, mean
+**+432.5%**. Sell all at 2x: 69.1% captured, mean **+58.1%**. The last 9.5
+points of hit rate cost 374 points of mean.
+
+**P4 WAS PRE-REGISTERED AND FAILED.** I predicted scaling out would dominate
+both corners. It does not — the mean falls monotonically with every unit sold
+(+432.5% / +338.9% / +245.3% / +151.7% / +58.1% at 0/25/50/75/100%). No free
+lunch in the interior. `sell 50% at 3x` lifts the median to +186.9% against
++174.7% for 160 points of mean — the mean/median wedge a fourth time.
+
+**A COLUMN IN THE FIRST DRAFT CONFLATED TWO QUESTIONS.** "Doubles realised" was
+computed from the PEAK, crediting a hold-and-never-sell with captures it never
+made: a name that doubled in year three and ended at 1.4x realised nothing.
+Now split into **name doubled** (a property of the picking, constant at 69.1%
+under every selling rule) and **I captured it** (what the rule decides). **So
+"7 of 10 multi-baggers" is settled AT ENTRY; the exit only decides how much
+reaches the account.**
+
+### The tenure cell
+
+Prior years already in the decile — backward-looking, so it passes A5:
+
+| prior yrs | n | names | touched 2x | median | P(−50%) |
+|---|---|---|---|---|---|
+| 0 of 3 | 262 | 35 | 56.9% | +33.6% | 18.3% |
+| 1 of 3 | 162 | 14 | 67.9% | +188.7% | 14.2% |
+| 2 of 3 | 144 | 9 | 71.5% | +225.5% | 14.6% |
+| **3 of 3** | 221 | **8** | **82.8%** | +197.2% | **7.2%** |
+
+Monotone. **82.8% is eight of ten.** Names: ASII BBCA BBNI BBRI BMRI BUMI PGAS
+TLKM. Clustered null z = +3.04, **p = 0.00100** vs bar 0.00069 — closer than
+the decile, still short. Stable: **83.6% early, 82.4% late**, while the base
+rate collapsed 70.6% → 40.3%.
+
+**FOUR REASONS IT IS NOT THE ANSWER.** Effective n **1.8** — eight names, about
+ONE independent observation, the thinnest cell in the project. It was found by
+LOOKING after the decile result was in hand. It yields **four names today**
+(BBCA BBRI BMRI TLKM) and **three are banks**. And AMMN scores 3 of 3 but has
+been listed 3.1 years, so its tenure score is its whole life against the
+historical eight's 20 — `MIN_LISTED_YEARS = 10` now enforces that a name whose
+entire history is shorter than the hold is not the object measured.
+
+### Verdict
+
+**10 names at ~69%**, or **4 names at ~83%** on one effective observation and
+concentrated in banks. **Ten names at eight-of-ten is not available from this
+evidence**, and the two cells trade breadth against hit rate with no point on
+the curve delivering both.
+
+**Trials after H24: 76.** Bonferroni bar α = 0.05/76 = **0.00066**.
+**The 24-month holdout remains SPENT.**
