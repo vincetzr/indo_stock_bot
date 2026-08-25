@@ -120,3 +120,50 @@ target price would be inventing a number the evidence does not contain.
 entry; the exit only decides how much of it reaches the account. Selling
 everything at 2× captures the full hit rate and costs most of the mean return
 (H24 §5); holding captures less of the hit rate and keeps the tail.
+
+---
+
+## 4. Why no minerals or AI-data-centre names appear — asked directly
+
+**First, the structural answer: the model cannot see narrative at all.** It
+reads eleven cross-sectionally ranked price statistics and a sector code.
+There is no channel through which "AI data centre" or "nickel cycle" could
+reach it, and that is deliberate: there is no point-in-time news archive, so a
+backtest conditioned on narrative would be look-ahead by construction.
+`tests/test_news.py` walks the AST of `spine/` and `features/` and fails the
+build if either imports the news module.
+
+**But they are not merely absent. They rank near the bottom, and on the DOWN
+leg.** Of 276 eligible names:
+
+| theme | best rank | worst rank | notable |
+|---|---|---|---|
+| power for data centres | KEEN 57, POWR 64 | BREN 271 | POWR ratio 2.51 |
+| critical minerals / nickel | NCKL 89, INCO 101 | MDKA 195 | none in the top decile |
+| AI / digital infra | EXCL 112, MTEL 121 | TLKM 265 | none in the top decile |
+| coal / energy | ADRO 115, PTBA 123 | BUMI 267 | none in the top decile |
+| **Prajogo / Barito complex** | PTRO 252 | **TPIA 276 of 276** | see below |
+
+The Barito names are the clearest case. **TPIA ranks last of 276 with a fitted
+P(halve) of 26.7%**; BREN 16.3%, CDIA 21.7%, CUAN 15.3% — against a top-decile
+4.0%. The model is not expressing a view on Chandra Asri's business. It is
+reading price: these are the most extended, most volatile large names in the
+market, and extension plus volatility is precisely what loads the down leg.
+
+**The sector tilt says the same thing.** Top 28 against the universe: Consumer
+Cyclicals **+13**, Industrials +5, Healthcare +4; Energy **−9**,
+Infrastructures −6. The model systematically leans away from the commodity and
+infrastructure themes and toward duller consumer and industrial names.
+
+**And this is a trade, not a free win.** The model's top decile doubles
+**9.2%** of the time against a base of **10.6%** — it gives up upside. Its
+entire edge is the denominator: 4.0% halving against 8.7%. So if the single
+thing you want is the highest chance of a double, the low-ranked narrative
+names are not obviously worse on *that axis alone*; they are far worse on the
+ratio, which is the objective H26 fixed and this model inherited.
+
+**The honest limitation.** If the data-centre or nickel thesis resolves upward,
+this model misses it entirely — it has no way to know. What it can tell you is
+what those names' current price state implies about their risk, and right now
+it implies elevated halving risk. That is a genuine blind spot and not a
+defence of one.
