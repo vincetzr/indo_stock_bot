@@ -32,3 +32,5 @@ data/spine/price_panel.parquet
 # Derived from the panel + the OHLCV cache by scripts/build_indicators.py
 # in about five minutes; 216MB of reproducible floats does not belong in git.
 data/spine/indicator_panel.parquet
+# Likewise the H19 state panel, rebuilt by scripts/recovery.py --rebuild.
+data/spine/recovery_state_*.parquet
