@@ -1357,3 +1357,55 @@ Suite 1,892 → **1,910**.
 
 **Trials after H21: 58.** Bonferroni bar α = 0.05/58 = **0.00086**.
 **The 24-month holdout remains SPENT.**
+
+---
+
+## H22 — can a rule tell you to be out of IDX before a correction?
+
+**2026-08-25.** Nine timing rules on the IHSG, fixed before scoring. Asked
+because the user asked; never asked before, since H9–H21 all ask which NAMES
+to hold and none asks whether to be in the market at all. Code
+`scripts/market_timing.py`, tests `tests/test_market_timing.py` (12). Memo
+`reports/market_timing.md`.
+
+**NOT ONE RULE BEATS HOLDING.** Buy-and-hold +10.32% CAGR; the best rule
+(`above 100d MA`) +8.59%. Two rules beat holding at ZERO cost — `above 100d`
++11.54%, `above 50d` +11.01% — and lose once switching is charged at 0.28% a
+side. The signal is real and the toll eats it: the same wall as H13 and H19
+from a new direction.
+
+**THE MATCHED NULL IS WHAT DECIDES IT.** A rule out of the market a third of
+the time dodges a third of the crashes by construction, so a shallow drawdown
+proves nothing alone. Against 200 random switchers with the SAME trade count
+and time-in-market, three rules carry genuine information (`above 100d`,
+`above 50d`, `1m momentum`) — **and all three still lose to not switching at
+all.** Beating a coin flip about *when* to trade is not the same as trading
+being worth it.
+
+**THE HALF-SPLIT IS UNANIMOUS: 18 cells, all 18 negative.** No rule, no era.
+This is the cleanest negative in the project — everywhere else at least one
+cell survived by chance.
+
+**WHAT IS KNOWABLE IS THE CONDITIONAL, AND IT POINTS THE OPPOSITE WAY TO THE
+INTUITION.** P(index falls a further 5% within 20 sessions), base rate 20.7%:
+
+| state | n | P | vs base |
+|---|---|---|---|
+| vol20 bottom quartile | 1,322 | **11.6%** | −9.0 pp |
+| at/near 52w high | 1,755 | 18.1% | −2.5 pp |
+| dd −10% to −20% | 963 | 26.6% | +5.9 pp |
+| dd worse than −20% | 483 | **31.5%** | +10.8 pp |
+| vol20 top quartile | 1,322 | **32.5%** | +11.9 pp |
+
+A factor of three, and real. **Risk is highest when you are already down, not
+when you are at a high** — so "sell before the correction" means acting on an
+11.6% probability, and the states that do predict further falls are ones you
+can only occupy after the fall has begun. That is precisely why the timing
+rules fail: two-thirds of even the worst cell does not fall further, nowhere
+near enough to carry 56 bps a switch.
+
+**A drawdown-limiting rule is a legitimate PURCHASE, not an edge.** The golden
+cross takes max drawdown from −60.7% to −23.9% for about 1.7% a year.
+
+**Trials after H22: 67.** Bonferroni bar α = 0.05/67 = **0.00075**.
+**The 24-month holdout remains SPENT.**
