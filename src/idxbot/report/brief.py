@@ -24,13 +24,35 @@ the evidence that sits in the same repository. What it can do honestly is:
   * **Candidates.** A ranking on the eight registered features, each printed
     next to H13's measured post-cost result for that same feature.
 
+AND THE PICKS DO NOT BEAT THE INDEX (H21)
+-------------------------------------------
+Later than the paragraph above, and stronger. Every selection rule this repo
+has built — including the multiplier-cell entry and all 32 exit rules — was
+finally compared against the thing a reader can buy instead. On a total-return
+basis the picks trail the IHSG by **2.5% a year**, losing in nine of twelve
+portfolio slots and in **both** halves of the sample. So the candidate section
+is a ranking of names, not a recommendation to hold them over an index fund,
+and the per-feature note beside each name is the whole of its warrant.
+
 WHAT IS NOT HERE
 -----------------
-**News narrative.** There is no news source anywhere in this repo and §3's
-data table lists none. Inventing one from a price move is precisely the failure
-§9.6 was written to prevent — a story is very easy to write and very hard to
-falsify. :func:`narrative_gap` states the absence in the output rather than
-letting it be filled in silently.
+**Nothing, on the news front — and the claim that used to sit here was wrong.**
+This paragraph read: *"There is no news source anywhere in this repo and §3's
+data table lists none."* Both facts were true and the conclusion drawn from
+them was false — §3 listed none because nobody had looked. Eight endpoints were
+tested in about a minute and five answered; see :mod:`idxbot.data.news` and
+:func:`news_caveat`, which carries the retraction in the output itself. The
+sentence is kept here rather than deleted because CLAUDE.md A12 records this
+same shape five times, and because it survived in this docstring for a while
+after the function beneath it had already been corrected: **fixing the code is
+not fixing the claim.**
+
+What the news layer still may not do is enter a statistic. There is no
+point-in-time archive, so a headline visible today cannot be reconstructed as
+it stood on a past bar; ``tests/test_news.py`` walks the AST of ``spine/`` and
+``features/`` and fails if either imports it. Inventing a narrative from a
+price move remains the failure §9.6 was written to prevent — a story is very
+easy to write and very hard to falsify.
 
 THE HOLDOUT STAYS UNTOUCHED
 -----------------------------

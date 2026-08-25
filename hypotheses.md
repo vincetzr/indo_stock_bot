@@ -1088,3 +1088,194 @@ need 300 observations and a 5% share.
 
 **Trials after H19: 52.** Bonferroni bar α = 0.05/52 = **0.00096**.
 **The 24-month holdout remains SPENT.**
+
+---
+
+## H20 — what you actually earn, and does the entry earn any of it? (2026-08-25)
+
+**Pre-registered in `scripts/portfolio.py` before scoring.** 212 cohorts,
+27,451 priced name-cohorts, 658 names, 2004-12 → 2023-08, pre-holdout only.
+Memo: `reports/portfolio.md`.
+
+**Motivation — two critiques of H17–H19, both mine.** (1) The cohort MEDIAN is
+not what an equal-weighted holder receives; the MEAN is. H17 and H18 both
+selected on the median. (2) The random-entry control had never been run against
+the exit layer.
+
+### H20a — the exit gap largely survives random entry
+
+**FAILED.** Best exit vs hold: **+3.18%** CAGR on the multiplier basket,
+**+0.73%** on random baskets — only **23%** survives. The exit's apparent
+benefit is basket-specific, not a general property of volatile names.
+
+### H20b — no rule beats buy-and-hold on terminal wealth; all reduce drawdown
+
+**FAILED on both halves of the prediction.** 3 of 6 beat hold on terminal
+wealth, and only 4 of 6 reduce max drawdown. `stop 25%` has a per-name
+P(−50%) of **0.2%** and the **worst portfolio drawdown of all, −68.7%**,
+because it realises losses 29 times against hold's 18 and redeploys into the
+same regime. **Per-position stops can increase portfolio drawdown.**
+
+### H20c — the growth-optimal rule differs from mean- and median-optimal
+
+**SUPPORTED.** Growth-optimal (mean log) `stop 25%`; mean-optimal `hold 252`;
+median-optimal `chandelier 2x ATR armed +50%`. Three objectives, three answers.
+
+### THE RESULT — the half-split ends it
+
+Paired per slot vs buy-and-hold, inside each half independently:
+
+| rule | early ΔCAGR | wins | late ΔCAGR | wins | both? |
+|---|---|---|---|---|---|
+| trail 15% armed +50% | −9.41% | 1/12 | +0.53% | 7/12 | no |
+| trail 30% armed +50% | +3.85% | 9/12 | +1.69% | 6/12 | **YES** |
+| chandelier 2x ATR armed +50% | −4.52% | 1/12 | −4.97% | 2/12 | no |
+| stoch rollover armed +50% | −8.60% | 0/12 | −4.58% | 2/12 | no |
+| ema50 break armed +50% | −3.16% | 5/12 | +6.73% | 10/12 | no |
+| stop 25% | +2.83% | 10/12 | −2.26% | 2/12 | no |
+
+**Exactly 1 of 6 survives, which is BELOW the 1.5 chance predicts** if each
+half were a coin flip. `trail 30%` is not evidence. `stop 25%` and
+`ema50 break` win in OPPOSITE halves — regime noise, not signal.
+
+**The entry, one pre-specified comparison, paired per slot (12 × 20 draws):**
+
+| half | mean ΔCAGR | wins | win rate |
+|---|---|---|---|
+| early 2004-12 → 2017-08 | **+5.86%** | 204/240 | **85%** |
+| late 2017-08 → 2023-08 | **+0.36%** | 122/240 | **51%** |
+| full | +3.99% | 197/240 | 82% |
+
+**Since 2017 the entry is a coin flip.**
+
+### RETRACTIONS
+
+**H17's +4.13% and H18's +6.35% are withdrawn as improvements.** On portfolio
+CAGR the same rules deliver **+2.4%** and **+1.8%** against buy-and-hold's
+**+10.5%** — they are the two WORST rules tested. They won a statistic nobody
+is paid.
+
+### The bug that changed the winner
+
+The slot scheduler converted held sessions to calendar days and searched the
+date index; a 30-day lock opened 1 February ends 3 March and **skips the
+1 March cohort**. The penalty scales with turnover, biasing short-holding rules
+down. Before the fix `stop 25%` won at 12/12 and t = +7.05; after it, it fails
+the late half. Locking is now in cohort-index space and two tests pin it.
+
+**Only stable findings: two NEGATIVE ones.** `chandelier 2x` and
+`stoch rollover` are worse than holding in both halves. The second is H18's
+own walk-forward pick.
+
+**Trials after H20: 55.** Bonferroni bar α = 0.05/55 = **0.00091**.
+**The 24-month holdout remains SPENT.**
+
+---
+
+## H21 — the benchmark H20 left out, and two critiques of its own conclusions
+
+**2026-08-25.** Not pre-registered. It is the control H20 should have carried
+from the start, and it is recorded here because it is **negative**: a benchmark
+added after the fact is only suspect when it rescues a result, and this one
+destroys the memo's conclusion. Code `scripts/portfolio_critique.py`, tests
+`tests/test_portfolio_critique.py` (15). Raw `reports/portfolio_critique.txt`.
+
+### C3 — every number in H20 is picks-versus-picks
+
+H20 compared the picks against buy-and-hold on the same picks and against
+random draws from the same pool. The IHSG — the thing that can be bought
+instead, for one round trip — appears nowhere in it. `_JKSE.csv.gz` was in
+`data/cache/ohlcv/` the whole time.
+
+**Making it like for like, and both corrections favour the picks.** The name
+returns are on `adj_close`, so they are TOTAL returns; `^JKSE` is a PRICE
+index. The adjustment identifies itself: `log(adj_close/close)` steps only at
+corporate actions, and back-adjustment makes dividend steps positive going
+forward. Across 1.75m steps: **3,707 small positive, ZERO small negative.**
+Mean annual dividend 1.27%, and it rises monotonically with liquidity —
+0.65% in decile 1 to **2.01% in decile 10** — so the cap-weighted index yields
+what large caps yield (1.77%), more than the picks' 1.27%. Correcting the index
+UP is the larger correction and cuts the same way.
+
+| window | picks TR | index TR | **gap** | picks maxDD | IHSG maxDD |
+|---|---|---|---|---|---|
+| early | +13.5% | +16.8% | **−3.3%** | −41.0% | −60.7% |
+| late | +3.2% | +4.7% | **−1.5%** | −46.3% | −41.1% |
+| full | +10.5% | +12.7% | **−2.2%** | −49.8% | −60.7% |
+
+**The picks lose to the index in both halves and buy no risk reduction for it**
+— shallower drawdown than the index over the full sample, *deeper* in the
+recent half. Three uncorrected biases run against the picks (their figures are
+net of cost, the index's is gross; 1.45% of holds end when the name stops
+trading and are marked at last price, not zero, worth ~1.3 pts/yr) and one runs
+for them (index products cost 0.5–1.0%/yr), so the honest gap is **−1.2% to
+−1.7%**.
+
+### C3b — and my own C3 table had two window mismatches, both flattering
+
+The twelve slots begin and end in twelve different months, so one global index
+window compares each slot to a period it did not occupy; and a slot's last
+position is open for its holding period after the final entry, so its span runs
+a year past the last cohort date while the index stopped at it. `slots()` now
+returns `start`/`end` and each slot is paired against the index over its own
+span. **It makes the result stronger:**
+
+| window | picks | index TR | mean Δ | sd | won | 95% CI |
+|---|---|---|---|---|---|---|
+| early | +14.2% | +16.4% | −2.18% | 4.86% | 3/12 | [−4.93%, +0.57%] |
+| late | +1.4% | +4.0% | −2.65% | 6.56% | 6/12 | [−6.36%, +1.06%] |
+| **full** | +9.8% | +12.3% | **−2.53%** | 3.73% | **3/12** | **[−4.64%, −0.42%]** |
+
+Nine of twelve slots lose to the index, and the full-sample interval excludes
+zero. Twelve overlapping slots are not twelve independent trials so that
+interval is too narrow — quoted because it is the reading most favourable to a
+significance claim and the picks still lose it.
+
+**But the claim does not rest on significance.** Even read as a tie, the picks
+cost 18 round trips, single-name concentration and a −50% drawdown to reach the
+same place. **A tie against the cheap alternative is a loss for the expensive
+one.**
+
+### C1 — "a coin flip since 2017" was a POWER statement written as an EFFECT one
+
+A8's exact distinction, and H20 made the wrong side of it. Taking the SLOT as
+the unit (averaging the 20 redraws within each slot first, which H20 did not):
+
+| window | slots | mean ΔCAGR | 95% CI | smallest detectable |
+|---|---|---|---|---|
+| early | 12 | +6.08% | [+3.94%, +8.22%] | 2.14% |
+| late | 12 | −0.01% | [−4.15%, +4.14%] | 4.14% |
+
+The late interval **excludes +6.08%**, so H20's break claim survives — but it
+**cannot rule out an edge of +4.1% a year**. "Coin flip" is too strong.
+
+### C2 — 2017 is a decay, not a cliff
+
+A cut chosen at the median finds a break somewhere. Rolling six-year windows
+stepped a year: **14 of 15 positive**, +12.1% (2007–13) down to −0.6%
+(2018–24), trend −0.45% per year of start date. Overlapping windows share five
+years of six, so this is a shape, not fifteen measurements.
+
+### Verdicts
+
+- **C3 — H20's conclusion RETRACTED.** "The remaining defensible position is
+  buy-and-hold on the picks" is false; the picks trail the index in both halves.
+- **C1 — H20's break claim STANDS, narrowed.** Excludes the early effect, not
+  a smaller one.
+- **C2 — H20's framing CORRECTED.** Persistent decaying edge over the pool, not
+  a switch thrown in 2017.
+
+### And the fifteen tests H20 deleted without failing anything
+
+H20's tests were written to `tests/test_portfolio.py`, **which already existed**
+— 15 tests for `src/idxbot/portfolio.py`, a CLI-exposed module — and replaced
+them. Both files held exactly 15, so the suite total did not move and no run
+said anything had gone. `git status` said ` M` not `??`; that character was the
+only warning. A module can go from covered to uncovered without any test
+failing, because the evidence of coverage is the tests themselves.
+`tests/test_coverage_map.py` now asserts every `src/idxbot/` module is named by
+some test, with the two genuinely uncovered ones listed rather than hidden.
+Suite 1,892 → **1,910**.
+
+**Trials after H21: 58.** Bonferroni bar α = 0.05/58 = **0.00086**.
+**The 24-month holdout remains SPENT.**

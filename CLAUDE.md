@@ -1319,3 +1319,143 @@ it. **Clustered data needs a clustered null — getting the unit of resampling
 right in one place does not carry to the next.** Separately, a cell with a flag
 true for 0.2% of rows produced the first table's largest effect (−46.1%): both
 sides now need 300 observations and a 5% share.
+
+## A18. Portfolio accounting retracts H17 and H18, and the half-split ends it
+
+H17 and H18 both selected an exit rule by maximising the average cohort
+MEDIAN. **An equal-weighted holder is paid the MEAN.** H20 redoes everything on
+portfolio accounting — twelve month-offset slots, capital redeployed when the
+exit fires — and runs the random-entry control that had never been run. Memo:
+`reports/portfolio.md`, logged H20.
+
+**H17 AND H18's HEADLINES ARE WITHDRAWN.** `trail 15% armed +50%` (+4.13% in
+H17) and `stoch rollover armed +50%` (+6.35% in H18) turn a 6.4x buy-and-hold
+into **1.6x and 1.4x**, at **+2.4% and +1.8% CAGR against hold's +10.5%**. They
+are the two worst rules of the seven tested. They won the median by cutting the
+right tail, and the right tail is where the return is. **State the objective
+with every selection result, and check it is the one the investor receives.**
+
+**THE HALF-SPLIT IS THE ONLY THING THAT CHANGED MY MIND.** Paired per slot
+against buy-and-hold, run inside each half: exactly **1 of 6** rules is positive
+in both — and with six rules and a coin flip per half you EXPECT **1.5**. So the
+survivor (`trail 30%`) is not evidence. `stop 25%` (10/12 early) and
+`ema50 break` (10/12 late) win in OPPOSITE halves, which is what regime noise
+looks like. **No exit rule is established, including the one A17's recovery
+curve endorsed on mechanism.**
+
+**AND THE ENTRY IS A COIN FLIP SINCE 2017.** One pre-specified comparison,
+paired per slot, picks vs random draws from the same pool: early half
+**+5.86% CAGR, 204/240 slots (85%)**; late half **+0.36%, 122/240 (51%)**. The
+full-sample +3.99% averages a regime where it worked with one where it did not.
+
+**PER-POSITION STOPS CAN INCREASE PORTFOLIO DRAWDOWN.** `stop 25%` caps every
+name at −25% and has a per-name P(−50%) of **0.2%** — and the **worst portfolio
+drawdown in the table, −68.7%**, because it realises losses 29 times against
+hold's 18 and redeploys straight back into the same bad regime. Position-level
+risk control is not portfolio-level risk control.
+
+**THE BUG THAT CHANGED THE WINNER.** The slot scheduler converted held sessions
+to calendar days and searched the date index; a 30-day lock opened 1 February
+ends 3 March and **skips the 1 March cohort entirely**. The penalty scales with
+turnover, so it fell hardest on short-holding rules — the exact comparison the
+study exists to make. Before the fix `stop 25%` looked best at 12/12 slots and
+t = +7.05. Locking now happens in cohort-index space, which cannot skip.
+
+**THE LESSON, NOW THREE TIMES OVER.** A within-sample consistency statistic over
+correlated units — 12 overlapping slots, 20 redraws, 188 overlapping cohorts —
+reads as overwhelming (12/12, t = 7.05) and says almost nothing about whether an
+effect replicates. Only the half-split does. It is cheap and it should run
+before any rule is reported, not after.
+
+**The only findings that replicate are negative:** `chandelier 2x ATR armed
++50%` and `stoch rollover armed +50%` are worse than holding in both halves.
+~~The defensible position is buy-and-hold on the picks~~ — **retracted by A19,
+which added the benchmark this study did not contain.**
+
+## A19. The benchmark that was never in the study, and it ends the entry too
+
+A18 closed by naming buy-and-hold on the picks as the remaining defensible
+position. **Every number it used to reach that was picks-versus-picks or
+picks-versus-a-random-draw-from-the-same-pool. The IHSG is in none of it**, and
+`_JKSE.csv.gz` had been sitting in `data/cache/ohlcv/` the whole time. Memo:
+`reports/portfolio.md` §5–§6, logged H21.
+
+**THIS IS THE A12 SHAPE FOR THE FIFTH TIME, in its worst form yet.** A1 priced
+IndoPremier per ticker-day. A7 assumed the investor split needed a per-ticker-day
+pull. A11 declared no news source existed without issuing a request. A14 said
+palm oil had no Yahoo symbol on the same day `docs/STANDING_ORDERS.md` was
+written. Each of those was a *missing source*. This one is a **missing
+comparison**, which is worse: the data was already loaded, no request was
+needed, and the omission did not block a result — it manufactured one. A study
+can be internally impeccable, permutation-nulled, half-split, purged and
+bootstrapped, and still answer the wrong question because the alternative the
+reader would actually take was never priced.
+
+**Make it like for like first, and both corrections favour the picks.** The
+names run on `adj_close` and are TOTAL returns; `^JKSE` is a PRICE index. The
+adjustment identifies itself — `log(adj_close/close)` steps only at corporate
+actions, and back-adjustment makes dividend steps positive going forward: across
+1.75m steps, **3,707 small positive and ZERO small negative**. Yield rises
+monotonically with liquidity, 0.65% in decile 1 to **2.01% in decile 10**, so
+the cap-weighted index yields the large-cap 1.77% against the picks' 1.27% and
+correcting the index UP is the bigger move.
+
+**Picks +10.5% against index +12.7% on a total-return basis — a −2.2% a year
+shortfall, negative in BOTH halves** (−3.3% early, −1.5% late). It buys no risk
+reduction: shallower drawdown than the index full-sample, *deeper* in the recent
+half. Three uncorrected biases run against the picks and one for them, leaving
+an honest **−1.2% to −1.7%**.
+
+**AND THE FIRST VERSION OF THAT TABLE HAD TWO WINDOW MISMATCHES OF MY OWN,
+both flattering the picks.** Twelve slots begin and end in twelve different
+months, so one global index window compares each slot to a period it did not
+occupy; and a slot's last position stays open for its holding period after the
+final entry, so its span runs a year past the last cohort date while the index
+stopped at it. Paired per slot over each slot's own span, the shortfall is
+**−2.53% a year, nine of twelve slots losing, 95% CI [−4.64%, −0.42%]** — the
+fix made it stronger. *Every* error in this section ran the same way: comparing
+quantities measured over different windows.
+
+**It does not rest on significance either.** Slot dispersion [+6.7%, +13.8%]
+contains the index, so read as a tie the picks still cost 18 round trips,
+single-name concentration and a −50% drawdown to reach the same place. **A tie
+against the cheap alternative is a loss for the expensive one.**
+
+**Two of A18's own sentences were also wrong, in opposite directions.** "Since
+2017 the entry is a coin flip" was a POWER statement written as an EFFECT
+statement — A8's exact distinction, violated one appendix after citing it. Taking
+the slot as the unit, the late half's interval is [−4.15%, +4.14%]: it excludes
+the early half's +6.08%, so the break is real, but it **cannot rule out +4.1% a
+year**. And the break is a decay, not a cliff — rolling six-year windows are
+**positive in 14 of 15**, trending −0.45% per year of start date. The halves cut
+where the decay bites.
+
+**A18 ALSO DELETED FIFTEEN TESTS WITHOUT FAILING ANYTHING.** Its tests were
+written to `tests/test_portfolio.py`, which already existed — 15 tests for
+`src/idxbot/portfolio.py`, a CLI-exposed module — and replaced them. Both files
+held exactly 15, so the suite total did not move and no run reported anything.
+`git status` said ` M` rather than `??`; that one character was the entire
+warning. **A module can go from covered to uncovered without any test failing,
+because the evidence of coverage is the tests themselves.**
+`tests/test_coverage_map.py` now asserts every module under `src/idxbot/` is
+named by some test, listing the two genuinely uncovered ones rather than hiding
+them. Suite 1,892 → **1,910**.
+
+**AND THE SAME SHAPE WAS FOUND A SIXTH TIME, WITH A NEW TWIST.** A12 corrected
+`brief.news_caveat()` to carry its own retraction. The **module docstring above
+it still said** *"There is no news source anywhere in this repo and §3's data
+table lists none"* — the exact refuted claim, sitting in the file A12 was about,
+for a day after the function beneath it had been fixed. **Fixing the code is not
+fixing the claim.** A reader opening the module met the retracted version first.
+Both are now corrected and the sentence is kept in place, marked, rather than
+deleted.
+
+### Where the programme stands now
+
+Every branch has been run to its end and the answer is the same from five
+directions: flow (H9), broker identity (H10/H11), investor class (H12),
+price/TA (H13), and now the multiplier entry plus every exit rule tested
+(H16–H21). **The Indonesian retail cost structure is wide enough to swallow
+every effect this data can measure, and the selection rules that survive it do
+not beat the index.** Buying the index is the defensible position; the research
+programme's contribution is knowing that with numbers rather than assuming it.

@@ -34,3 +34,6 @@ data/spine/price_panel.parquet
 data/spine/indicator_panel.parquet
 # Likewise the H19 state panel, rebuilt by scripts/recovery.py --rebuild.
 data/spine/recovery_state_*.parquet
+# Likewise the H20 per-name return table, rebuilt by scripts/portfolio_sim.py
+# (drop --report) in about twenty minutes from the panel and the indicators.
+data/spine/portfolio_names.parquet
