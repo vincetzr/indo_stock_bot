@@ -172,3 +172,46 @@ def cone(target_pct: float, sigma: float, stack: bool = False) -> Dict[str, floa
             "med": sessions_to(up, sigma, "med"),
             "q3": sessions_to(up, sigma, "q3"),
             "in_domain": float(in_domain(sigma))}
+
+
+# ============================ H42 — what the SCANNER'S OWN LIST actually did ==
+#  Measured, not fitted: 116,754 replayed signals over 706 names, 2000-2026,
+#  each walked forward 252 sessions, filled at the ACTUAL close of the exit bar.
+#  `picks` is the mean return of the scanner's row; `random` is the same
+#  bracket distances applied to a randomly chosen eligible IDX name on the same
+#  date; `hold` is simply owning the name for the year.
+#
+#  THE TABLE EXISTS SO NO ROW CAN BE QUOTED WITHOUT ITS OUTCOME. A11's rule —
+#  a conditional result quoted without its condition is a wrong result, and the
+#  fix belongs in the code that prints it.
+#
+#  The bin edges were fixed in `scripts/signal_backtest.py` BEFORE the study
+#  ran, so the 1.5 cut below is a sign change at a pre-registered boundary and
+#  not the maximum of a sweep.
+#
+#    r:r       n     share   picks   random    diff   both halves    hold
+BRACKET_CELLS = (
+    #  (rr_lo, rr_hi, share, picks, random, diff, replicates, hold)
+    (0.00, 0.75, 0.54, -0.0027, +0.0045, -0.0072, False, +0.1501),
+    (0.75, 1.50, 0.22, -0.0018, +0.0043, -0.0061, False, +0.1243),
+    (1.50, 2.50, 0.11, +0.0031, +0.0023, +0.0008, True,  +0.1040),
+    (2.50, 4.00, 0.07, +0.0085, +0.0056, +0.0029, False, +0.0779),
+    (4.00, 1e9, 0.06, +0.0201, +0.0092, +0.0109, True,  +0.0926),
+)
+#  Below this the bracket is negative in absolute terms AND negative against a
+#  random name in BOTH halves. It is 76% of everything the scanner used to
+#  print, and it is the half that hits its target most often.
+MIN_RR = 1.5
+#  Bracketing at all, against owning the name for the year, paired and
+#  (ticker, year) block-bootstrapped over 112,190 signals.
+BRACKET_VS_HOLD = (-0.1306, -0.1625, -0.1022)
+
+
+def bracket_cell(rr: float):
+    """The measured outcome of the reward-to-risk cell a live row occupies."""
+    for lo, hi, share, picks, rnd, diff, both, hold in BRACKET_CELLS:
+        if lo <= rr < hi:
+            return {"lo": lo, "hi": hi, "share": share, "picks": picks,
+                    "random": rnd, "diff": diff, "replicates": both,
+                    "hold": hold, "vs_hold": picks - hold}
+    return None

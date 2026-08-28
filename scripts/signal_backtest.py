@@ -97,10 +97,17 @@ MIN_UP = 0.05                 # the scanner's target floor
 STOP_LO, STOP_HI = 0.02, 0.95
 
 
-def signal_rows(P: pd.DataFrame) -> pd.DataFrame:
+def signal_rows(P: pd.DataFrame, min_rr: float = 0.0) -> pd.DataFrame:
     """Every (ticker, bar) the live scanner would have emitted, with its
     quoted target, stop, probabilities and expectancy — and the realised
-    outcome over the next 252 sessions."""
+    outcome over the next 252 sessions.
+
+    `min_rr` is the live scanner's reward-to-risk gate and DEFAULTS TO ZERO
+    here, because the study has to measure the cells the gate rejects in order
+    to justify rejecting them. A backtest that inherits the filter it is
+    supposed to be evaluating can only ever confirm it. The equivalence test
+    against the live scanner passes `MIN_RR` explicitly.
+    """
     frames: List[pd.DataFrame] = []
     for tk, g in P.groupby("ticker", sort=False):
         if len(g) < MIN_BARS + 60:
@@ -130,7 +137,8 @@ def signal_rows(P: pd.DataFrame) -> pd.DataFrame:
             continue
         d_up = res[idx] / p[idx] - 1.0
         d_dn = 1.0 - fp[idx] / p[idx]
-        keep = (d_up >= MIN_UP) & (d_dn > STOP_LO) & (d_dn < STOP_HI)
+        keep = ((d_up >= MIN_UP) & (d_dn > STOP_LO) & (d_dn < STOP_HI)
+                & (d_up / np.maximum(d_dn, 1e-12) >= min_rr))
         idx, d_up, d_dn = idx[keep], d_up[keep], d_dn[keep]
         if not len(idx):
             continue
@@ -276,6 +284,39 @@ def block_boot(v: np.ndarray, blocks: np.ndarray, draws: int = 2000,
         means[d] = v[idx].mean() if len(idx) else np.nan
     return float(v.mean()), float(np.nanpercentile(means, 2.5)), \
         float(np.nanpercentile(means, 97.5))
+
+
+def gates(M: pd.DataFrame, by: str, bins, labels) -> pd.DataFrame:
+    """For each candidate gate: what it returns, what the SAME BRACKET on a
+    random name returns, what HOLDING returns, and whether the difference
+    survives both halves.
+
+    This is the table that decides whether a filter is a fix or a relabelling.
+    A cell that pays because of the geometry pays identically for a randomly
+    chosen name, and gating on it is then not a stock screen at all — it is an
+    instruction to quote a further target, which the reader can do without a
+    scanner.
+    """
+    M = M.copy()
+    M["cell"] = pd.cut(M[by], bins, labels=labels)
+    rows: List[Dict] = []
+    for cell, d in M.groupby("cell", observed=True):
+        if len(d) < 200:
+            rows.append({"cell": cell, "n": len(d),
+                         "note": "insufficient data"})
+            continue
+        m, lo, hi = block_boot(d["diff"].to_numpy(), d["blk"].to_numpy(),
+                               draws=800)
+        e, l = halves(d)
+        rows.append({
+            "cell": cell, "n": len(d), "share": len(d) / len(M),
+            "picks": d["ret"].mean(), "random": d["ret_ctl"].mean(),
+            "diff": m, "lo": lo, "hi": hi,
+            "early": e["diff"].mean(), "late": l["diff"].mean(),
+            "both": (e["diff"].mean() > 0) and (l["diff"].mean() > 0),
+            "hold": d["hold"].mean(),
+            "vs hold": d["ret"].mean() - d["hold"].mean()})
+    return pd.DataFrame(rows)
 
 
 def calib(S: pd.DataFrame, col: str = "p_first", q: int = 10) -> pd.DataFrame:
@@ -454,7 +495,35 @@ def main() -> int:
     print(f"{'bracket vs hold':>18}  n {len(M):>7,}  {m:+.4f} "
           f"[{lo:+.4f}, {hi:+.4f}]")
 
+    #  ===== WHICH GATE, IF ANY, IS WORTH PUTTING IN THE LIVE SCANNER =========
+    def _show(title, G):
+        print(f"\n=== {title}")
+        print(f"{'cell':>10}{'n':>9}{'share':>7}{'picks':>9}{'random':>9}"
+              f"{'diff':>9}{'95% CI':>20}{'early':>9}{'late':>9}{'both':>6}"
+              f"{'hold':>9}{'vs hold':>9}")
+        for _, r in G.iterrows():
+            if r.get("note"):
+                print(f"{str(r['cell']):>10}{int(r['n']):>9,}   "
+                      f"{r['note']}")
+                continue
+            print(f"{str(r['cell']):>10}{int(r['n']):>9,}{r['share']:>7.0%}"
+                  f"{r['picks']:>+9.4f}{r['random']:>+9.4f}{r['diff']:>+9.4f}"
+                  f"  [{r['lo']:+.4f}, {r['hi']:+.4f}]"
+                  f"{r['early']:>+9.4f}{r['late']:>+9.4f}"
+                  f"{'YES' if r['both'] else 'no':>6}"
+                  f"{r['hold']:>+9.4f}{r['vs hold']:>+9.4f}")
+
+    _show("gate on reward:risk — is the paying geometry a SELECTION effect?",
+          gates(M, "rr", [0, 0.75, 1.5, 2.5, 4.0, 99],
+                ["<0.75", "0.75-1.5", "1.5-2.5", "2.5-4", ">4"]))
+    _show("gate on expectancy",
+          gates(M, "ev", [-9, -0.02, 0.0, 0.01, 0.02, 9],
+                ["<-2%", "-2-0%", "0-1%", "1-2%", ">2%"]))
+    _show("gate on how long the ribbon has been green",
+          gates(M, "age", [-1, 5, 20, 60, 9999],
+                ["0-5", "6-20", "21-60", ">60"]))
     S.to_csv(os.path.join(OUT, "signal_backtest.csv.gz"), index=False)
+    C.to_csv(os.path.join(OUT, "signal_control.csv.gz"), index=False)
     return 0
 
 

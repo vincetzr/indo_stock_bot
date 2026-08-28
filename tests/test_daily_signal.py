@@ -210,3 +210,91 @@ def test_the_green_ribbon_count_is_not_the_survivor_count():
     assert a.attrs["n_green"] == b.attrs["n_green"]
     assert a.attrs["n_green"] >= len(a)
     assert b.attrs["n_green"] >= len(b)
+
+
+# ================================================ the H42 reward-to-risk gate
+def test_no_emitted_row_has_a_target_nearer_than_the_gate():
+    """H42: rows below MIN_RR hit their target most often (74.2%) and are the
+    only cell that loses money, beaten by the SAME bracket on a random name in
+    both halves. They are 76% of what the scanner used to print."""
+    from idxbot.cone import MIN_RR
+    S = _scan(_frame(names=40, seed=7))
+    if len(S):
+        assert (S["rr"] >= MIN_RR).all()
+
+
+def test_the_gate_counters_account_for_every_candidate():
+    """n_seen = rows that passed everything except the gate; n_thin = rows the
+    gate rejected. If these do not add up the printed header is lying about
+    how much of the board it threw away."""
+    S = _scan(_frame(names=40, seed=7))
+    assert S.attrs["n_seen"] == S.attrs["n_thin"] + len(S)
+    assert S.attrs["n_green"] >= S.attrs["n_seen"]
+
+
+def test_the_gate_actually_rejects_something_on_a_normal_board():
+    """A gate that never fires is not a gate. On the live board it removed 24
+    of 33 rows; a synthetic board should also produce near targets."""
+    S = _scan(_frame(names=40, seed=7))
+    assert S.attrs["n_thin"] > 0
+
+
+def test_every_row_carries_the_measured_outcome_of_its_own_cell():
+    from idxbot.cone import bracket_cell
+    S = _scan(_frame(names=40, seed=7))
+    for _, r in S.iterrows():
+        c = bracket_cell(r["rr"])
+        assert c is not None
+        assert r["cell_ret"] == c["picks"]
+        assert r["cell_hold"] == c["hold"]
+        assert c["lo"] <= r["rr"] < c["hi"]
+
+
+def test_the_shipped_cell_table_says_the_bracket_loses_to_holding_everywhere():
+    """THE INVARIANT THAT STOPS THE LIST READING AS AN EDGE. Not one cell of
+    H42 had the bracket beating a simple hold, and if a future edit to the
+    table broke that it would be invisible in the printed output."""
+    from idxbot.cone import BRACKET_CELLS
+    for lo, hi, share, picks, rnd, diff, both, hold in BRACKET_CELLS:
+        assert picks < hold, f"cell {lo}-{hi} claims the bracket beat holding"
+
+
+def test_the_cell_table_covers_every_reachable_reward_to_risk():
+    from idxbot.cone import bracket_cell
+    for rr in (0.0, 0.1, 0.74, 0.75, 1.49, 1.5, 2.5, 4.0, 50.0, 1e6):
+        assert bracket_cell(rr) is not None
+
+
+def test_the_cell_shares_sum_to_one():
+    from idxbot.cone import BRACKET_CELLS
+    assert sum(c[2] for c in BRACKET_CELLS) == pytest.approx(1.0, abs=0.02)
+
+
+def test_the_gate_sits_at_a_cell_boundary_not_between_two():
+    """MIN_RR is defensible because it is a SIGN CHANGE at a bin edge fixed
+    before the study ran, not the maximum of a sweep. If it drifted off the
+    boundary it would become a tuned parameter."""
+    from idxbot.cone import BRACKET_CELLS, MIN_RR
+    assert MIN_RR in [c[0] for c in BRACKET_CELLS]
+    below = [c for c in BRACKET_CELLS if c[1] <= MIN_RR]
+    above = [c for c in BRACKET_CELLS if c[0] >= MIN_RR]
+    assert all(c[3] < 0 for c in below), "kept cells must be the positive ones"
+    assert all(c[3] > 0 for c in above)
+
+
+def test_an_empty_scan_still_has_the_columns_a_caller_expects():
+    """`pd.DataFrame([])` has NO COLUMNS, so `S["ticker"]` on a quiet day is a
+    KeyError rather than an empty list. Introducing the H42 gate emptied two
+    synthetic boards and broke the replay test with exactly that."""
+    from daily_signal import COLUMNS
+    S = _scan(_frame(n=60))
+    assert S.empty
+    assert list(S.columns) == list(COLUMNS)
+
+
+def test_the_declared_empty_columns_match_what_a_real_scan_produces():
+    """Pins the tuple against reality so it cannot drift as rows gain fields."""
+    from daily_signal import COLUMNS
+    S = _scan(_frame(names=40, seed=7))
+    assert len(S), "need a populated scan for this to mean anything"
+    assert list(S.columns) == list(COLUMNS)

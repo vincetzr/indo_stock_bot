@@ -179,3 +179,70 @@ a hold of that many bars, so the difference is identically zero by construction
   eligible IDX name matches the hit rate exactly and beats the return.
 - **The bracket itself costs 13 points a year.** That is the finding, and it is
   the same wall this repo has now hit from ten directions.
+
+---
+
+## 7. The fix, and what it can and cannot do
+
+### Which gate is a fix and which is a relabelling
+
+A cell that pays because of its *geometry* pays identically for a randomly
+chosen name, and gating on it is then not a stock screen — it is an instruction
+to quote a further target, which anyone can do without a scanner. So every
+candidate gate was scored against the control, paired and (ticker, year)
+block-bootstrapped, in both halves:
+
+| reward:risk | share | picks | random | **diff** | 95% CI | early | late | both | **vs hold** |
+|---|---|---|---|---|---|---|---|---|---|
+| **< 0.75** | 54% | −0.27% | +0.45% | **−0.72%** | [−1.27, −0.20] | −0.79% | −0.65% | no | **−15.29%** |
+| **0.75–1.5** | 22% | −0.18% | +0.43% | **−0.61%** | [−1.26, +0.05] | −0.86% | −0.36% | no | −12.61% |
+| 1.5–2.5 | 11% | +0.31% | +0.23% | +0.08% | [−0.68, +0.85] | +0.00% | +0.16% | **yes** | −10.09% |
+| 2.5–4 | 7% | +0.85% | +0.56% | +0.29% | [−0.72, +1.26] | +1.12% | −0.54% | no | −6.94% |
+| **> 4** | 6% | +2.01% | +0.92% | **+1.09%** | [−0.44, +2.77] | +1.81% | +0.37% | **yes** | −7.25% |
+
+Two things fall straight out. **The bottom two rows are 76% of the list, are
+negative in absolute terms, and lose to a random name in both halves** — they
+are not merely weak, they are the harmful part. And **the `vs hold` column is
+negative in every single row**, from −15.29% to −6.94%.
+
+The expectancy gate is worse than H42's aggregate made it look. The whole EV>0
+effect lives in the `>2%` bucket (2% of rows), and there the random arm captures
++6.63% of the +8.32% — that cell is not a good *selection*, it is a period in
+which everything did well (its `hold` is **+20.73%**). The `1–2%` bucket is
+*negative* against random by −1.75%. And gating on ribbon age does almost
+nothing: 21–60 sessions green gives +0.22%, everything else is negative.
+
+### What was changed
+
+**`MIN_RR = 1.5` — the scanner no longer prints a row whose target sits nearer
+than 1.5× its stop distance.** That is not a tuned threshold: the bin edges were
+fixed in the study script before it ran, and 1.5 is where the sign changes. On
+the live board of 2026-08-28 it removed **24 of 33 rows**, matching the 76%
+the replay predicted.
+
+**Every surviving row now carries the measured outcome of its own cell** —
+what the scanner's rows in that reward-to-risk bucket actually returned, what
+the same bracket returned on a random name, and what simply holding returned —
+plus a `reps` flag when the picks-minus-random difference is positive in both
+halves. A conditional result quoted without its condition is a wrong result
+(A11), and the fix belongs in the code that prints it.
+
+**The footer now leads with the bracket-vs-hold number.** `BRACKET_VS_HOLD =
+(−0.1306, −0.1625, −0.1022)` ships in `src/idxbot/cone.py` next to the fitted
+laws, and `tests/test_daily_signal.py` asserts that **every** cell of the
+shipped table has the bracket losing to holding — so an edit that broke that
+invariant fails the build rather than quietly printing an edge.
+
+### What the fix does not do, stated as plainly as possible
+
+It **does not make the bracket profitable.** There is no cell of this study —
+no reward-to-risk bucket, no expectancy decile, no ribbon age — in which a
+target and a stop beat owning the name. The gate removes the half of the list
+that was actively harmful; the remainder still loses to holding by 7 to 10
+points a year.
+
+It **does not establish that the name selection is worth anything.** At the
+surviving geometry the scanner beats a random eligible name by +1.09% a year
+with a 95% interval of **[−0.44%, +2.77%]**. That interval contains zero, and
+the honest reading is that the selection is worth somewhere between nothing and
+about two and a half points, on in-sample data, with the holdout already spent.

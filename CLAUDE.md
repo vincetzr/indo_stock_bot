@@ -2305,3 +2305,32 @@ the same row — at three distances into the past. One non-causal helper anywher
 in the chain (a ZigZag drawn at the pivot instead of the confirmation bar, a
 centred window) would turn the whole backtest into a look-ahead, and nothing in
 the output would look wrong.
+
+**AND THE FIX, WHICH IS A REDUCTION IN HARM AND NOT AN EDGE.** Scored against
+the control in both halves, the gate table is unambiguous about which half of
+the list to delete: reward-to-risk **below 1.5 is 76% of the rows, is negative
+in absolute terms, and loses to the same bracket on a random name in BOTH
+halves** (−0.72% and −0.61%). `MIN_RR = 1.5` now rejects them — a sign change at
+a bin edge fixed before the study ran, not the maximum of a sweep — and it
+removed **24 of 33 rows** on the live board, matching the replay's 76%. Every
+surviving row carries `cell/rand/hold`: what its reward-to-risk cell actually
+returned, what the same bracket returned on a random name, and what holding
+returned. **`tests/test_daily_signal.py` asserts that every cell of the shipped
+table has the bracket losing to holding**, so an edit that broke that invariant
+fails the build instead of quietly printing an edge.
+
+**What the fix does NOT do, and the memo says so twice.** It does not make the
+bracket profitable — no cell of H42 has a target and a stop beating a hold, and
+the survivors still lose by 7 to 10 points a year. And it does not establish the
+selection: at the surviving geometry the scanner beats a random name by +1.09%/yr
+with a 95% interval of **[−0.44%, +2.77%]**, which contains zero.
+
+**TWO BUGS THE CHANGE ITSELF CAUSED, BOTH CAUGHT BY TESTS WRITTEN EARLIER.**
+Gating the live scanner without gating the replay made them different screens,
+and the equivalence test failed immediately — so `signal_rows` took the gate as
+a PARAMETER defaulting to zero, because **a backtest that inherits the filter it
+is evaluating can only ever confirm it.** And an emptied scan returned
+`pd.DataFrame([])`, which has no columns at all, turning "nothing qualified
+today" into a `KeyError` in every caller. Both are now pinned, the second by a
+test that also checks the declared column tuple against what a populated scan
+produces so it cannot drift.

@@ -22,6 +22,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir,
                                 "scripts"))
 
 from daily_signal import scan                                   # noqa: E402
+from idxbot.cone import MIN_RR                                  # noqa: E402
 from signal_backtest import (HORIZON, _walk, block_boot,        # noqa: E402
                              signal_rows)
 
@@ -46,7 +47,11 @@ def test_the_replay_reproduces_the_live_scanner_at_a_past_date(back):
     input were non-causal — a ZigZag drawn at the pivot instead of the
     confirmation bar, a centred rolling window — these would diverge."""
     P = _panel()
-    S = signal_rows(P)
+    #  THE GATE MUST BE PASSED EXPLICITLY. `signal_rows` defaults to no gate so
+    #  the study can measure the cells the live scanner throws away; comparing
+    #  an ungated replay to a gated scanner is comparing two different screens,
+    #  which is what this test caught when MIN_RR was introduced.
+    S = signal_rows(P, min_rr=MIN_RR)
     asof = pd.Timestamp(np.sort(P["date"].unique())[-1 - back])
     live = scan(P[P["date"] <= asof], asof)
     back_rows = S[S["date"] == asof]
@@ -66,8 +71,8 @@ def test_a_future_bar_cannot_change_a_past_signal():
     direct statement of no look-ahead, independent of the scanner."""
     P = _panel(n=900)
     cut = pd.Timestamp(np.sort(P["date"].unique())[600])
-    a = signal_rows(P[P["date"] <= cut])
-    b = signal_rows(P)
+    a = signal_rows(P[P["date"] <= cut], min_rr=MIN_RR)
+    b = signal_rows(P, min_rr=MIN_RR)
     a = a[a["date"] == cut].set_index("ticker").sort_index()
     b = b[b["date"] == cut].set_index("ticker").sort_index()
     assert list(a.index) == list(b.index)
@@ -173,8 +178,9 @@ def test_the_block_bootstrap_brackets_the_sample_mean():
 
 # ============================================================ the population ==
 def test_every_emitted_signal_obeys_the_scanners_own_filters():
-    S = signal_rows(_panel(names=10, seed=4))
+    S = signal_rows(_panel(names=10, seed=4), min_rr=MIN_RR)
     if len(S):
+        assert (S["d_up"] / S["d_dn"] >= MIN_RR).all()
         assert (S["d_up"] >= 0.05).all()
         assert ((S["d_dn"] > 0.02) & (S["d_dn"] < 0.95)).all()
         assert (S["cost"] > 0).all()

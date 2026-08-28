@@ -2448,3 +2448,19 @@ the close of its exit bar and so does a hold of that many bars, making the edge
 identically zero by construction (H39's shape). A test pins it.
 
 **Trials after H42: 254.** Bonferroni bar α = 0.05/254 = **0.00020**.
+
+**THE FIX APPLIED (same day).** The gate table, scored against the control in
+both halves, says exactly which half of the list to delete: **R:R below 1.5 is
+76% of rows, negative in absolute terms, and loses to the same bracket on a
+random name in BOTH halves** (−0.72%, −0.61%). `MIN_RR = 1.5` ships in
+`src/idxbot/cone.py` — a sign change at a bin edge fixed before the study ran —
+and removed 24 of 33 rows on the live board. Every surviving row now prints
+`cell/rand/hold`, and a test asserts the bracket loses to holding in EVERY cell
+of the shipped table. **The fix is a reduction in harm, not an edge:** no cell
+has the bracket beating a hold, the survivors still lose 7–10 points a year, and
+the selection's +1.09%/yr carries a 95% interval of [−0.44%, +2.77%].
+Two self-inflicted bugs, both caught by earlier tests: gating the live scanner
+but not the replay made them different screens (the gate is now a PARAMETER
+defaulting to zero, because a backtest that inherits the filter it is evaluating
+can only ever confirm it), and an emptied scan returned a column-less frame,
+turning "nothing qualified" into a KeyError.
