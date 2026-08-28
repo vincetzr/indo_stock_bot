@@ -63,7 +63,16 @@ DAYS_PER_SESSION = 365.25 / 252.0
 
 def scan(P: pd.DataFrame, asof: pd.Timestamp,
          target_pct: float = 0.0) -> pd.DataFrame:
+    #  COUNTED SEPARATELY FROM THE ROWS THAT SURVIVE, because they are not the
+    #  same number and the first version printed one as the other. With the
+    #  swing-high target it said "33 names have a green ribbon"; with a fixed
+    #  +30% target, same board and same day, it said 126. Two runs of one
+    #  quantity disagreeing is a self-contradicting panel, which is the
+    #  cheapest bug detector there is. The gap is real and worth seeing: most
+    #  green names either have NO confirmed resistance above them (they are at
+    #  new highs) or one closer than the 5% floor.
     rows: List[Dict] = []
+    n_green = 0
     for tk, g in P.groupby("ticker", sort=False):
         if len(g) < MIN_BARS or g["date"].iloc[-1] != asof:
             continue
@@ -72,6 +81,7 @@ def scan(P: pd.DataFrame, asof: pd.Timestamp,
         up, on = states(px, 55, "EMA stack")
         if not up[-1]:
             continue                              # ribbon is not green
+        n_green += 1
         #  How many sessions since the ribbon turned? A name green for months
         #  is a different setup from one that turned this week, and the request
         #  was for the ones that just turned.
@@ -140,7 +150,9 @@ def scan(P: pd.DataFrame, asof: pd.Timestamp,
             "med_days": sessions_to(1.0 + d_up, sig, "med"),
             "cost": cost,
             "in_domain": SIGMA_MIN <= sig <= SIGMA_MAX})
-    return pd.DataFrame(rows)
+    out = pd.DataFrame(rows)
+    out.attrs["n_green"] = n_green
+    return out
 
 
 def main() -> int:
@@ -170,10 +182,12 @@ def main() -> int:
     fresh = fresh.sort_values("ev", ascending=False).head(a.top)
 
     print(f"IDX SUITE — end-of-day scan, {asof:%A %d %B %Y}")
-    print(f"{len(S)} names have a green hull55 ribbon; "
-          f"{int((S['age'] <= a.fresh).sum())} turned green within "
-          f"{a.fresh} sessions. Showing the top {len(fresh)} by EXPECTANCY, "
-          f"target = "
+    print(f"{S.attrs['n_green']} names have a green hull55 ribbon; "
+          f"{len(S)} of them carry a quotable setup (liquid enough, a "
+          f"confirmed level at least 5% above, a reachable stop); "
+          f"{int((S['age'] <= a.fresh).sum())} of THOSE turned green within "
+          f"{a.fresh} sessions.")
+    print(f"Showing the top {len(fresh)} by EXPECTANCY, target = "
           f"{'fixed +' + format(a.target_pct, '.0%') if a.target_pct > 0 else 'nearest confirmed swing high'}.\n")
     print(f"{'ticker':<8}{'close':>9}{'age':>5}{'stop':>9}{'':>7}"
           f"{'target':>9}{'':>7}{'P(1st)':>8}{'R:R':>6}{'EV':>8}"

@@ -196,3 +196,17 @@ def test_most_rows_come_back_negative_on_a_random_board(seed):
     S = _scan(_frame(names=40, seed=seed, drift=0.0))
     if len(S) >= 5:
         assert (S["ev"] > 0).mean() < 0.6
+
+
+def test_the_green_ribbon_count_is_not_the_survivor_count():
+    """A SELF-CONTRADICTING PANEL. The header line claims to report how many
+    names have a green ribbon; the first version reported how many survived
+    every filter, so the same board on the same day printed 33 with a
+    swing-high target and 126 with a fixed +30% one. The ribbon count must not
+    depend on the target."""
+    P = _frame(names=30, seed=9)
+    a = _scan(P)
+    b = _scan(P, target_pct=0.30)
+    assert a.attrs["n_green"] == b.attrs["n_green"]
+    assert a.attrs["n_green"] >= len(a)
+    assert b.attrs["n_green"] >= len(b)
