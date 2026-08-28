@@ -467,6 +467,33 @@ var float curLo = na
 var int   zzDir = 0
 var float lastHi = na
 var float lastLo = na
+//  EVERY confirmed pivot is kept, not just the last one. RESISTANCE IS THE
+//  NEAREST CONFIRMED HIGH ABOVE PRICE, and after a deep fall followed by a
+//  lower high the most recent high can sit BELOW price — at which point a
+//  last-pivot-only version prints "none above, at new highs" for a name a
+//  quarter off its 52-week peak. The panel contradicting its own drawdown row
+//  is what exposed that; a chart that only looks at the last pivot cannot see
+//  the level everyone else is watching.
+var array<float> hiArr = array.new<float>()
+var array<float> loArr = array.new<float>()
+f_push(array<float> a, float v) =>
+    array.push(a, v)
+    if array.size(a) > 80
+        array.shift(a)
+f_above(array<float> a, float px) =>
+    best = float(na)
+    if array.size(a) > 0
+        for i = 0 to array.size(a) - 1
+            v = array.get(a, i)
+            best := v > px and (na(best) or v < best) ? v : best
+    best
+f_below(array<float> a, float px) =>
+    best = float(na)
+    if array.size(a) > 0
+        for i = 0 to array.size(a) - 1
+            v = array.get(a, i)
+            best := v < px and (na(best) or v > best) ? v : best
+    best
 //  ONLY THE EXTREME OF THE LEG IN PROGRESS IS TRACKED. A first version updated
 //  both on every bar, so the running high kept ratcheting through a down leg
 //  and the next confirmed high could never be lower than the last -- a swing
@@ -482,18 +509,20 @@ else
 
 if zzDir >= 0 and not na(curHi) and close <= curHi * (1.0 - zzK)
     lastHi := curHi
+    f_push(hiArr, curHi)
     zzDir := -1
     curLo := close
 else if zzDir <= 0 and not na(curLo) and close >= curLo * (1.0 + zzK)
     lastLo := curLo
+    f_push(loArr, curLo)
     zzDir := 1
     curHi := close
 
 // The target is the nearest confirmed level ABOVE, the stop the nearest
 // confirmed level BELOW. When price is making new highs there is no confirmed
 // resistance above it, and the panel says so rather than inventing one.
-resLvl = not na(lastHi) and lastHi > close ? lastHi : na
-supLvl = not na(lastLo) and lastLo < close ? lastLo : na
+resLvl = f_above(hiArr, close)
+supLvl = f_below(loArr, close)
 
 dUp = na(resLvl) ? na : math.log(resLvl / close)
 dDn = na(supLvl) ? na : math.log(close / supLvl)

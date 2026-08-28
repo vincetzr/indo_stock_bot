@@ -2053,3 +2053,16 @@ audited by eye: scroll back and the line sits where it would have sat, because
 it is built from confirmed pivots and never repaints. That is what "dynamic"
 should mean — not that it redraws, but that every past bar shows what was known
 at that bar.
+
+**A LATE ADDITION THAT FOUND A REAL BUG.** Asked to run the indicator on BBCA,
+`scripts/paint_suite.py` reimplements the whole Pine file in Python and renders
+the chart plus the panel. Its first run printed **"resistance: none above — at
+new highs" next to "drawdown from peak −24.7%"** — two rows of the same panel
+contradicting each other. The cause: both the replica and the .pine carried only
+the LAST confirmed swing high, so after a deep fall followed by a lower high the
+most recent high sits *below* price and the level disappears. Resistance is the
+**nearest confirmed high above price**, which needs every pivot kept, not the
+last one; fixed in both, and BBCA then reads Rp 7,158 (+11.8%) against support
+at Rp 6,110 (−4.5%). **A panel that contradicts itself is the cheapest bug
+detector available, and it only works if the panel prints enough rows to
+contradict.**
