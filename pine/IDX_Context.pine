@@ -92,7 +92,15 @@ gS = "Optional screen"
 showSig  = input.bool(false, "Show the strength+calm screen", group = gS,
      tooltip = "OFF by default. This is ONE screen out of many tested and it " +
                "is not a recommendation. See the panel for its measured odds " +
-               "and, more importantly, for what it gives up.")
+               "and, more importantly, for what it gives up.\n\n" +
+               "DO NOT USE IT TO PICK BIG CAPS. Backtested on the " +
+               "point-in-time top 50 by turnover (H29): it improves the " +
+               "ratio (skew 1.54 -> 2.35, clears its null at z=+5.01) and " +
+               "DESTROYS the return. Ten screen names a year returned +7.1% " +
+               "CAGR against +8.9% for random draws from the same 50 and " +
+               "+11.7% for the index -- it beat the index in 0 of 400 draws. " +
+               "It cuts P(2x) from 11.4% to 6.3%: it buys the ratio by " +
+               "giving up the upside, and on big caps that is fatal.")
 sigHi    = input.float(0.9625, "Strength: close / 252-bar high >=", step = 0.0025, group = gS,
      tooltip = "0.9625 = within 3.75% of the 52-week high. This is the " +
                "absolute equivalent of the research's 90th-percentile cut, " +
