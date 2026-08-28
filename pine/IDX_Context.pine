@@ -117,7 +117,6 @@ vol60 = ta.stdev(ret1, 60, false)
 volAnn = vol60 * math.sqrt(252)
 
 hi252 = ta.highest(close, 252)
-lo252 = ta.lowest(close, 252)
 hi52  = close / hi252                       // 1.0 = at the 52-week high
 ddPk  = close / hi252 - 1.0                 // drawdown from the 252-bar peak
 
