@@ -117,13 +117,22 @@ emaSlow  = input.int(200, "Slow EMA", minval = 4, group = gE,
 tintStack = input.bool(true, "Tint the background by stack state", group = gE)
 
 gL = "Flip labels"
-sigSrc = input.string("EMA stack", "Label these flips",
-     options = ["EMA stack", "Hull slope", "Dual Hull cross", "None"], group = gL,
-     tooltip = "Measured 60-session mean log, net of 56bps, against a base of " +
-               "-0.0140 for holding any eligible bar: EMA stack -0.0124, " +
-               "Hull slope -0.0148, dual Hull cross -0.0191. NONE of them " +
-               "compounds and the dual cross is the worst. Drawn for reading " +
-               "the tape, not for entering on.")
+sigSrc = input.string("EMA34 break", "Label these flips",
+     options = ["EMA34 break", "EMA stack", "Hull slope", "Dual Hull cross",
+      "None"], group = gL,
+     tooltip = "TWO DIFFERENT MEASUREMENTS, AND THEY PICK DIFFERENT WINNERS.\n\n" +
+               "As a TURN DETECTOR (H37, 47,002 confirmed 10% swing highs, " +
+               "flip within 30 sessions, against a null with the same flip " +
+               "count): EMA34 recall 0.852 precision 0.583 F1 0.692 " +
+               "(null 0.554); Hull-55 slope 0.812/0.589/0.683 (null 0.472); " +
+               "EMA50 0.758/0.593/0.666; dual Hull 0.825/0.523/0.640; the EMA " +
+               "stack only 0.348/0.614/0.445 -- its recall is BELOW its own " +
+               "null. EMA34 is the most accurate flip of the five.\n\n" +
+               "As an ENTRY (H33, 60-session hold net of 56bps, mean log, " +
+               "against -0.0140 for holding any eligible bar): EMA stack " +
+               "-0.0124, Hull slope -0.0148, dual Hull cross -0.0191. NONE " +
+               "compounds. Accurate at spotting the turn is not the same as " +
+               "profitable to trade, and this indicator says so out loud.")
 
 gC = "Costs (your actual broker schedule)"
 feeBuy  = input.float(0.28, "Buy commission %",  minval = 0, step = 0.01, group = gC,
@@ -260,9 +269,22 @@ stackTint = stackFull ? color.new(color.green, 93)
 bgcolor(showEma and tintStack ? stackTint : na, title = "stack")
 
 // ------------------------------------------------------------- flip labels --
-rawSig = sigSrc == "EMA stack"       ? stackFull
-         : sigSrc == "Hull slope"    ? hullUp
+rawSig = sigSrc == "EMA34 break"      ? close > emaS1
+         : sigSrc == "EMA stack"      ? stackFull
+         : sigSrc == "Hull slope"     ? hullUp
          : sigSrc == "Dual Hull cross" ? hFast > hull : false
+//  H37, measured on 47,002 confirmed swing highs. `giveBack` is the median
+//  share of the peak already surrendered by the time the flip fires — the
+//  number nobody quotes and the one that decides whether to act on it.
+detF1 = sigSrc == "EMA34 break" ? 0.692 : sigSrc == "EMA stack" ? 0.445
+         : sigSrc == "Hull slope" ? 0.683
+         : sigSrc == "Dual Hull cross" ? 0.640 : na
+detNull = sigSrc == "EMA34 break" ? 0.554 : sigSrc == "EMA stack" ? 0.396
+         : sigSrc == "Hull slope" ? 0.472
+         : sigSrc == "Dual Hull cross" ? 0.479 : na
+giveBack = sigSrc == "EMA34 break" ? 0.109 : sigSrc == "EMA stack" ? 0.125
+         : sigSrc == "Hull slope" ? 0.118
+         : sigSrc == "Dual Hull cross" ? 0.105 : na
 sigOn  = sigSrc != "None" and rawSig
 buyFlip  = sigOn and not sigOn[1]
 sellFlip = sigSrc != "None" and not rawSig and rawSig[1]
@@ -496,6 +518,19 @@ fibLo = math.min(nz(lastLo, close), nz(lastHi, close))
 fibHi = math.max(nz(lastLo, close), nz(lastHi, close))
 fibSpan = fibHi - fibLo
 
+// DYNAMIC ACROSS ALL HISTORY, NOT JUST THE RIGHT EDGE. Plotting the levels as
+// a stepped series means every past bar shows the level that was KNOWN THEN,
+// which is what makes the chart auditable by eye: scroll back and the line is
+// where it would have been, because it is built from confirmed pivots only and
+// never repaints. The right-edge lines below are the same numbers, drawn long
+// enough to read a price off.
+plot(showSR ? resLvl : na, "resistance (dynamic)",
+     color.new(color.red, 45), 1, plot.style_linebr)
+plot(showSR ? supLvl : na, "support (dynamic)",
+     color.new(color.lime, 45), 1, plot.style_linebr)
+plot(showFib and fibSpan > 0 ? fibHi - 0.500 * fibSpan : na, "fib 50 (dynamic)",
+     color.new(color.gray, 70), 1, plot.style_linebr)
+
 var line lnRes = na
 var line lnSup = na
 var line f236 = na
@@ -533,7 +568,7 @@ f_pos() =>
 f_size() =>
     txtSize == "Tiny" ? size.tiny : txtSize == "Small" ? size.small : size.normal
 
-var table P = table.new(f_pos(), 2, 34, border_width = 1)
+var table P = table.new(f_pos(), 2, 39, border_width = 1)
 
 f_row(int r, string k, string v, color c) =>
     table.cell(P, 0, r, k, text_size = f_size(), text_color = color.gray,
@@ -547,7 +582,7 @@ f_head(int r, string t) =>
                bgcolor = color.new(color.gray, 70))
 
 if showPanel and barstate.islast
-    table.clear(P, 0, 0, 1, 33)
+    table.clear(P, 0, 0, 1, 38)
 
     f_head(0, "STATE")
     f_row(1, "annualised vol (60b)",
@@ -625,17 +660,28 @@ if showPanel and barstate.islast
     f_row(26, "fibonacci", showFib ? "drawn - measured nothing" : "off",
           color.gray)
 
-    f_head(27, "IDX MECHANICS  [exact]")
-    f_row(28, "board", isThin ? "THIN +/-10%" : "main",
+    f_head(27, "HOW ACCURATE  [H36/H37, measured]")
+    f_row(28, "flip catches the top (F1)",
+          na(detF1) ? "n/a" : str.tostring(detF1, "#.000") + "  vs null " +
+           str.tostring(detNull, "#.000"),
+          na(detF1) ? color.gray : detF1 > detNull ? color.lime : color.red)
+    f_row(29, "  peak already given back",
+          na(giveBack) ? "n/a" : str.tostring(giveBack * 100, "#.1") + "%",
+          color.orange)
+    f_row(30, "P(touch) skill vs base rate", "+0.013 out-of-sample", color.white)
+    f_row(31, "date band coverage", "0.500 measured / 0.50 claimed", color.lime)
+
+    f_head(32, "IDX MECHANICS  [exact]")
+    f_row(33, "board", isThin ? "THIN +/-10%" : "main",
           isThin ? color.orange : color.white)
-    f_row(29, "tick / max step", "Rp " + str.tostring(tick, "#") + " / Rp " +
+    f_row(34, "tick / max step", "Rp " + str.tostring(tick, "#") + " / Rp " +
           str.tostring(maxStep, "#"), color.white)
-    f_row(30, "ARA tomorrow", "Rp " + str.tostring(araLvl, "#") + "  (+" +
+    f_row(35, "ARA tomorrow", "Rp " + str.tostring(araLvl, "#") + "  (+" +
           str.tostring(araPct * 100, "#") + "%)", color.lime)
-    f_row(31, "ARB tomorrow", "Rp " + str.tostring(arbLvl, "#") + "  (-" +
+    f_row(36, "ARB tomorrow", "Rp " + str.tostring(arbLvl, "#") + "  (-" +
           str.tostring(arbPct * 100, "#") + "%)", color.red)
-    f_row(32, "round trip (floor)", str.tostring(roundTrip * 100, "#.2") + "%",
+    f_row(37, "round trip (floor)", str.tostring(roundTrip * 100, "#.2") + "%",
           roundTrip > 0.015 ? color.orange : color.white)
-    f_row(33, "flip labels",
+    f_row(38, "flip labels",
           sigSrc == "None" ? "off" : sigSrc + " - none compound",
           color.gray)

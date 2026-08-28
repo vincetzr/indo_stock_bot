@@ -1974,3 +1974,82 @@ halves` beside them. Fibonacci is drawn on request and labelled *"measured
 nothing"*. Drawing what was asked for while printing the measurement that says
 not to trade it is the right resolution; refusing to draw it, or drawing it
 silently, are both worse.
+
+## A28. The accuracy question, answered three ways, and the give-back nobody quotes
+
+Asked to make the chart dynamic, run it on every stock, and say how accurate it
+is — then, mid-run, to be specific: accurate at *turning colour at the peak* and
+at *TP/SL placement*. Three different questions with three different answers.
+Memo `reports/accuracy.md`, logged H36/H37/H38.
+
+**A WIN RATE WOULD HAVE BEEN A LIE AND IT IS WORTH SAYING WHY.** The panel emits
+probabilities, not calls. A hit rate is undefined until someone picks a
+threshold, and whoever picks the threshold decides the answer. Calibration,
+skill against the base rate, AUC and band coverage are defined; "accuracy" is
+not. Any future request for a single accuracy percentage should be met with this
+paragraph rather than a number.
+
+**EVERY NUMBER THE PANEL PRINTED WAS IN-SAMPLE UNTIL THIS.** The holdout is
+spent and cannot be un-spent, but a **purged walk-forward** is genuinely out of
+sample: for test year Y the laws are refitted only on bars whose 252-session
+window CLOSED before Y began. Without the purge a December Y−1 bar is still
+resolving inside Y and "training" contains the test year's outcomes.
+
+**Calibration is good, skill is thin, and it generalises off the fitted
+universe.** Shipped constants: Brier 0.1861 against a base-rate 0.1935, skill
+**+0.0374**, AUC 0.591. Purged walk-forward: skill **+0.0130**, AUC 0.580. And
+on the **whole board — 777 names, four times the bars, much thinner than the
+Rp1bn/day names the laws were fitted on** — skill **+0.0168** and AUC **0.594**,
+both slightly *better* than the liquid walk-forward.
+
+**THE DATE BAND IS THE BEST-BEHAVED NUMBER IN THIS PROJECT.** It claims to
+contain half the arrivals and contains **0.497 / 0.500 / 0.475** across the
+three arms.
+
+**WHERE THERE IS NO SKILL AT ALL, which the pooled number hides.** By target,
+AUC runs 0.648 at −50% and 0.632 at 2x — and **0.502 at +5% and 0.524 at +10%,
+with NEGATIVE skill**. Almost everything touches +5% inside a year, so there is
+nothing to discriminate. All the skill is in the far targets and more of it on
+the downside. **And the race law has NO discrimination anywhere**: calibrated to
+within 0.3 points on average, BSS 0.000, AUC 0.51, dipping to 0.464. Which
+barrier arrives first is a function of the two distances the user chose and
+nothing about the name.
+
+**THE COLOUR DOES NOT CHANGE AT THE PEAK. IT CHANGES A NINTH OF THE WAY DOWN.**
+Against 47,002 confirmed swing highs, with every detector scored against a
+random detector spending **the same number of flips**: EMA34 recall 0.852,
+precision 0.583, **F1 0.692 against a null of 0.554** — the most accurate of the
+five. Hull-55 slope 0.683 (null 0.472), EMA50 0.666, dual Hull 0.640, and the
+EMA stack **0.445 with recall 0.348 BELOW its own null of 0.367** — it breaks
+long after most tops and misses two thirds of them, while carrying the highest
+precision in the table. It is a confirmation, not a detector.
+
+**And the give-back is the number nobody quotes.** Median share of the peak
+already surrendered when the flip fires: **10.5% to 12.5%**, against a random
+detector's **8.5–8.9%**. **The real detectors give back MORE of the peak than
+random bars do**, even with a shorter median lag in time — because a trend flip
+fires *because* price fell, so it is conditioned on the drop having happened.
+Confirmation costs about an eleventh of the top and that cost is invisible in
+recall, precision and lag alike.
+
+**BOTH PLACEMENT PREDICTIONS WERE WRONG, IN OPPOSITE DIRECTIONS.** I registered
+that selling *into* resistance would beat waiting for the break, from H34b's
+66.4% false-break rate. Monotonically false: mean net runs −0.52% at five
+percent short of the level to **+0.35% at five percent beyond it**. The
+false-break rate is real and the breaks that work pay for all of it. And I
+registered that the stop offset would matter less than the target offset; on
+mean log it matters **ten times more** (spread 0.0099 against 0.0010), while on
+the arithmetic mean it barely matters at all. A18 decides which to read — an
+equal-weighted holder is paid the mean — so **the stop offset is nearly free and
+the target offset is where the money is.**
+
+**Fifty-five bracket and placement combinations across H35 and H38, zero
+positive in both halves.** Placement changes the shape of the outcome and never
+its sign.
+
+**One shipped change worth recording.** The levels now plot as a stepped SERIES
+across all history rather than only at the right edge, so the chart can be
+audited by eye: scroll back and the line sits where it would have sat, because
+it is built from confirmed pivots and never repaints. That is what "dynamic"
+should mean — not that it redraws, but that every past bar shows what was known
+at that bar.

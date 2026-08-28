@@ -217,3 +217,68 @@ within a year)` comes from the H32 first-passage laws, and `P(target first)`
 from a race law fitted on 300 cells — whose volatility coefficient is −0.0225
 against distance coefficients near 0.8, meaning **which barrier arrives first is
 a ratio of distances and not a statement about speed.**
+
+
+## How accurate is it, measured on every stock (2026-08-28)
+
+Three questions, three answers. Full study: `reports/accuracy.md`.
+
+**The probabilities are honest; the skill over the base rate is thin.** The
+panel emits probabilities, not calls, so a win rate is undefined until someone
+picks a threshold. What is defined — with the laws refitted year by year on a
+**purged** walk-forward, so this is genuinely out of sample:
+
+| arm | Brier | base rate | skill | AUC |
+|---|---|---|---|---|
+| shipped constants | 0.1861 | 0.1935 | +0.0374 | 0.591 |
+| **purged walk-forward** | 0.1912 | 0.1935 | **+0.0130** | 0.580 |
+| **whole board, 777 names** | 0.1917 | 0.1956 | **+0.0168** | 0.594 |
+
+Reliability, walk-forward — predicted against observed:
+
+| 0.096 | 0.174 | 0.254 | 0.356 | 0.466 | 0.579 | 0.674 | 0.728 | 0.796 | 0.856 |
+|---|---|---|---|---|---|---|---|---|---|
+| 0.119 | 0.158 | 0.262 | 0.338 | 0.478 | 0.575 | 0.666 | 0.726 | 0.759 | 0.803 |
+
+**The date band contains exactly the half it claims: 0.497 / 0.500 / 0.475.**
+
+**Where there is no skill at all:** at +5% and +10% the AUC is 0.502 and 0.524
+and the skill is *negative* — almost everything touches +5% inside a year, so
+there is nothing to discriminate. All the skill is in the far targets, and more
+of it on the downside (AUC 0.648 at −50%). The `P(target first)` row is
+calibrated to within 0.3 points on average and has **AUC 0.51** — it prices a
+decision you have already made and cannot make one for you.
+
+**The colour turns near the top, about 11% below it.** 47,002 confirmed 10%
+swing highs, each detector against a random one spending the *same number of
+flips*:
+
+| detector | recall | precision | F1 | null F1 | lag | give-back |
+|---|---|---|---|---|---|---|
+| **close over EMA34** | **0.852** | 0.583 | **0.692** | 0.554 | 6 | 10.9% |
+| Hull-55 slope | 0.812 | 0.589 | 0.683 | 0.472 | 11 | 11.8% |
+| close over EMA50 | 0.758 | **0.593** | 0.666 | 0.531 | 6 | 11.5% |
+| HMA-21 over HMA-55 | 0.825 | 0.523 | 0.640 | 0.479 | 11 | 10.5% |
+| price>50>100>200 | 0.348 | **0.614** | 0.445 | 0.396 | 9 | 12.5% |
+
+EMA34 is the most accurate flip and is the default. The EMA stack's recall is
+**below its own null** — it misses two thirds of tops and is a confirmation
+rather than a detector.
+
+**Give-back is the number nobody quotes.** The real detectors surrender **more**
+of the peak than random bars do (10.5–12.5% against 8.5–8.9%), because a trend
+flip fires *because* price fell. The colour does not change at the peak.
+
+**Placement: further out on the target, tight on the stop, and it still loses.**
+Mean net by target offset from the resistance level: −0.52% at five percent
+short, −0.12% at the level, **+0.35% five percent beyond it**. Waiting for the
+break beats selling into it, even though two breakouts in three fail. On the
+stop the mean barely moves; only the mean log does. Twenty-five placements,
+**none positive in both halves**.
+
+## Dynamic across all history
+
+The support, resistance and 50% retracement lines plot as a **stepped series on
+every bar**, not just at the right edge. Scroll back and each bar shows the
+level that was known *then* — the levels are built from confirmed pivots and
+never repaint, so the chart can be audited by eye.

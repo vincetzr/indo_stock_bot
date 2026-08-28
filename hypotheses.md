@@ -2055,3 +2055,126 @@ which barrier arrives first is a ratio of distances and not a question about how
 fast the name moves. Volatility speeds both up equally.
 
 **Trials after H35: 146.** Bonferroni bar α = 0.05/146 = **0.00034**.
+
+---
+
+## H36 — how accurate is the shipped indicator? Purged walk-forward calibration
+
+**2026-08-28.** Asked to run it on all the stocks and say how accurate it is.
+Code `scripts/calibrate.py`, memo `reports/accuracy.md`.
+
+**A WIN RATE WOULD HAVE BEEN A LIE.** The panel emits probabilities, not calls,
+so a hit rate is undefined until someone picks a threshold and whoever picks it
+decides the answer. What is defined: calibration, skill against the base rate,
+AUC, and coverage of the date band.
+
+**Every number the panel printed was in-sample until this.** The holdout is
+spent, but a **purged walk-forward** is genuinely out of sample: for test year Y
+the laws are refitted on bars whose 252-session window CLOSED before Y began.
+
+| arm | Brier | base | **skill** | AUC |
+|---|---|---|---|---|
+| shipped constants | 0.1861 | 0.1935 | **+0.0374** | 0.591 |
+| **purged walk-forward** | 0.1912 | 0.1935 | **+0.0130** | 0.580 |
+| **whole board, 777 names** | 0.1917 | 0.1956 | **+0.0168** | 0.594 |
+
+**Reliability, walk-forward** — predicted 0.096/0.174/0.254/0.356/0.466/0.579/
+0.674/0.728/0.796/0.856 against observed 0.119/0.158/0.262/0.338/0.478/0.575/
+0.666/0.726/0.759/0.803. Straight through the middle; the top two bins are
+over-confident by 4–5 points.
+
+**THE DATE BAND DOES EXACTLY WHAT IT CLAIMS.** It says half the arrivals land
+between the two dates. Measured **0.497 / 0.500 / 0.475** across the three arms.
+The best-behaved number in this project.
+
+**And it generalises off the liquid universe it was fitted on** — the whole
+board is four times the bars and much thinner, and skill (+0.0168) and AUC
+(0.594) are slightly *better* than the liquid walk-forward.
+
+**WHERE THE SKILL IS, AND WHERE THERE IS NONE.** By target, AUC: −50% 0.648,
+−33% 0.614, 2x 0.632, +50% 0.597 — and **+5% 0.502, +10% 0.524 with NEGATIVE
+skill**. Almost everything touches +5% inside a year, so there is nothing to
+discriminate. All the skill sits in the far targets and more of it on the
+downside.
+
+**THE RACE LAW IS CALIBRATED AND CARRIES NO DISCRIMINATION AT ALL.** Observed
+0.5022 against predicted 0.5048 at 10/10 and 0.6425 against 0.6422 at 10/20 —
+near perfect on average — with **BSS 0.000 and AUC 0.51**, dipping to **0.464**
+at 50/10. Which barrier arrives first is a function of the two distances the
+user chose and nothing about the name. Price a decision with it, never make one.
+
+**Trials after H36: 155.** Bonferroni bar α = 0.05/155 = **0.00032**.
+
+---
+
+## H37 — does the colour turn at the peak? Near it, about 11% below it
+
+**2026-08-28.** Ground truth is a confirmed 10% ZigZag swing high — hindsight on
+purpose, since the peak is what is being predicted. "Caught" = a flip-down
+within 30 sessions after it. Code `scripts/turns.py flips`.
+
+**THE MATCHED NULL IS THE WHOLE TEST.** A detector flipping every five bars
+catches every top by construction and also flips two hundred other times, so
+each is scored against a random detector with **the same flip count**.
+
+| detector | flips | recall | precision | **F1** | null F1 | lag | **give-back** |
+|---|---|---|---|---|---|---|---|
+| **close over EMA34** | 107,218 | **0.852** | 0.583 | **0.692** | 0.554 | 6 | 10.9% |
+| Hull-55 slope | 56,732 | 0.812 | 0.589 | 0.683 | 0.472 | 11 | 11.8% |
+| close over EMA50 | 87,956 | 0.758 | **0.593** | 0.666 | 0.531 | 6 | 11.5% |
+| HMA-21 over HMA-55 | 61,070 | 0.825 | 0.523 | 0.640 | 0.479 | 11 | 10.5% |
+| price>50>100>200 | 37,469 | **0.348** | **0.614** | 0.445 | 0.396 | 9 | 12.5% |
+
+**EMA34 is the most accurate flip of the five** and every detector beats its own
+matched null on F1.
+
+**T1 was half wrong.** I registered that they would all sit on one
+recall/precision curve; EMA34 has both higher recall and higher precision than
+the dual-Hull cross, so it dominates rather than trading off.
+
+**The EMA stack fails in an interesting direction**: recall **0.348 BELOW its own
+null of 0.367** — it breaks long after most tops and misses two thirds — while
+its precision **0.614** is the highest in the table. It is a confirmation, not
+a detector.
+
+**T2 CONFIRMED AND IT IS THE NUMBER THAT MATTERS.** Median give-back is
+**10.5–12.5%** against a random detector's **8.5–8.9%**. **The real detectors
+surrender MORE of the peak than random bars do**, despite a shorter median lag
+in time — because a trend flip fires *because* price fell, so it is conditioned
+on the drop having happened. **The colour does not change at the peak; it
+changes about a ninth of the way down from it.**
+
+**Trials after H37: 165.** Bonferroni bar α = 0.05/165 = **0.00030**.
+
+---
+
+## H38 — where the target and the stop should sit relative to the level
+
+**2026-08-28.** Target at the confirmed resistance, stop at the confirmed
+support, offset ±2% and ±5% around each. Exits at the breaching close. 25 cells.
+
+**T3 WAS WRONG, MONOTONICALLY.** I predicted selling *into* resistance would
+beat waiting for the break, reasoning from H34b's 66.4% false-break rate. The
+opposite, on both mean and mean log:
+
+| target offset | −5% | −2% | at level | +2% | +5% |
+|---|---|---|---|---|---|
+| P(target first) | 0.540 | 0.471 | 0.436 | 0.404 | 0.367 |
+| mean net | −0.52% | −0.27% | −0.12% | +0.12% | **+0.35%** |
+| mean log | −0.0167 | −0.0167 | −0.0167 | −0.0158 | **−0.0157** |
+
+The false-break rate is real and **the breaks that work pay for all of it** —
+H35's "let winners run" arriving from a second direction.
+
+**T4 WAS ALSO WRONG, IN THE OPPOSITE WAY.** I predicted the stop offset would
+matter less than the target offset. On mean log it matters **ten times more** —
+spread 0.0099 against 0.0010 — tighter being better because it truncates the
+log-loss tail. On the arithmetic **mean** it barely matters (0.0026 of spread).
+A18's rule decides which to read: an equal-weighted holder is paid the mean, so
+**the stop offset is close to free and the target offset is where the money is.**
+
+**Not one of the twenty-five placements is positive in both halves.** Best is
+target +5% / stop +5%: mean log −0.0117, early −0.0056, late −0.0172. Across
+H35 and H38 that is **fifty-five combinations and zero survivors.**
+
+**Trials after H38: 190.** Bonferroni bar α = 0.05/190 = **0.00026**.
