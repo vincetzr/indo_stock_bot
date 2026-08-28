@@ -1898,3 +1898,79 @@ constants survive only in the retraction paragraph and never in code, and that
 no statement is comma-chained (Pine has no comma operator and this file has made
 that mistake before). **The only thing worse than an unvalidated constant is two
 copies of it that stop matching.**
+
+## A27. Support and resistance are real, Fibonacci is not, and no bracket survives
+
+Asked to add take-profit and stop levels from support/resistance and Fibonacci,
+set from history to maximise profit and minimise loss. Three questions, three
+different answers. Memo `reports/levels.md`, logged H34/H35.
+
+**THE PLACEBO IS THE ENTIRE DESIGN, AND IT IS WHAT MAKES BOTH ANSWERS
+CREDIBLE.** "Price bounced off the 61.8%" cannot be tested against nothing: a
+shallow retracement is reached by every pullback and a deep one only by big
+ones, so comparing 0.618 to 0.90 compares DEPTHS and will always find the
+shallow level stronger. The grid is therefore **continuous — 0.15 to 0.95 in
+steps of 0.025** — and the question is whether 0.618 stands out from **0.60 and
+0.65**, neighbours matched on depth that are not Fibonacci numbers. The same
+logic runs the support test: the placebo is the same construction against the
+same swing high **displaced 7%**.
+
+**FIBONACCI IS A SMOOTH FUNCTION READ AT FIVE ARBITRARY POINTS.** 280,228
+touches. P(the leg high is regained within 60 sessions) runs monotonically from
+0.3964 at r=0.15 to 0.2911 at r=0.95 **with no bump anywhere** — 0.500 reads
+**0.3611** between 0.475's 0.3631 and 0.525's 0.3571. Against 2,000 draws of
+five random non-Fibonacci nodes: **z = +0.77, +0.68, +0.41, −0.95, every p above
+0.35.** The largest effect is five hundredths of a percentage point.
+
+**A PRIOR SWING HIGH IS REAL AND IT REPLICATES — the first level result here
+that does.** Distance-adjusted, ticker-clustered: false-break rate **−6.95 pp
+[−8.46, −5.77]**, follow-through **+4.46 pp**, forward 20-session return
+**+1.00%**, and all three hold in both halves. I registered "a few percentage
+points" and it is seven. **What it is NOT:** the false-break rate at the true
+level is still **66.4%** — two breakouts in three close back under within a
+month. A real level beats a fake one; breakouts still mostly fail.
+
+**NO BRACKET SURVIVES, AND THREE CONTROLS KILLED IT ONE AT A TIME.** 30 (tp, sl)
+pairs, 17.6m entry-cells. *Fill at the actual close, not the nominal level* — a
+bar breaching −5% often closes at −8%, and on IDX can gap to ARB untradeable;
+this alone took the best cell from +0.0173 to **+0.0050** and it flatters
+exactly the tight stops that win. *Match the duration* — the best cell is
+invested **52 sessions of 252**, and on a market whose per-name yearly log
+return is −0.0587, being out of it is most of what a stop does. *Annualise* —
+a 52-session bracket is redeployed five times a year. Result: **not one of the
+thirty cells is positive in both halves**, best **+2.4%/yr** against an index at
+~+12.7% with a late half of **−3.2%**.
+
+**THE DIRECTION OF THE FOLKLORE IS RIGHT AND ITS SIZE IS INSUFFICIENT.** Against
+a hold of its own duration the edge is monotone: tp0.50/sl0.10 **+0.0262** down
+to tp0.05/sl0.30 **−0.0077**. Cut losses short and let winners run is measurably
+correct and worth 3.4 points of log per trade across the whole grid, which the
+annualised column hands straight back to costs and the regime break. That is now
+the same answer from eight directions.
+
+**AND A SYMMETRIC BRACKET IS NOT NEUTRAL, IN A WAY THAT FLIPS.** At 5%/5% the
+stop arrives first more often (0.508 against 0.489); at 20%/20% the target does
+(0.472 against 0.444). Tight brackets are dominated by the negative
+short-horizon drift and the spread, wide ones start catching the fat right tail.
+The fitted race law makes the mechanism explicit: **the volatility coefficient
+is −0.0225 against distance coefficients near 0.8**, so which barrier arrives
+first is a ratio of distances and says nothing about how fast the name moves —
+volatility speeds both up equally.
+
+**Two instrument checks that had to come before the results.** `fib_test` is
+verified against a PLANTED bump (it returns z > 4 when one exists), because a
+null test that cannot detect an effect proves nothing by finding none — the same
+discipline A26's sine-wave control introduced, one section later. And the Pine
+ZigZag's first version updated both running extremes on every bar, so the high
+ratcheted through down legs and the detector **could only ever find higher
+highs** — a swing finder that quietly turns every downtrend into "no resistance
+above".
+
+**The resolution shipped to the chart.** Levels are drawn from structure and
+odds come from measurement: the target is the nearest confirmed swing high, the
+stop the nearest confirmed swing low, and the panel prints P(touch) for each
+plus P(target first) — with the row `bracket verdict: 0 of 30 beat hold in both
+halves` beside them. Fibonacci is drawn on request and labelled *"measured
+nothing"*. Drawing what was asked for while printing the measurement that says
+not to trade it is the right resolution; refusing to draw it, or drawing it
+silently, are both worse.

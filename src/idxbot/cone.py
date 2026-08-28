@@ -70,6 +70,17 @@ PROB_LAW: Dict[str, Tuple[float, float, float, float, float, float]] = {
     "down": (1.5117, -1.3308, -0.3158, 1.0515, 0.2545, -0.3388),
 }
 
+#  H35. logit P(the target is reached BEFORE the stop | one of them is) on
+#  [1, log tp, log sl, log sigma], fitted to 300 (tp, sl, volatility-decile)
+#  cells. Median error 1.26 probability points, p90 3.67.
+#
+#  THE VOLATILITY TERM IS ALMOST EXACTLY ZERO (-0.0225), and that is the
+#  finding: which barrier arrives first is a RATIO OF DISTANCES, not a question
+#  about how fast the name moves. Volatility speeds both up equally. The two
+#  distance coefficients are near mirror images (-0.764, +0.816), so the law is
+#  very nearly a function of log(sl / tp) alone.
+RACE_LAW: Tuple[float, float, float, float] = (0.0588, -0.7635, 0.8160, -0.0225)
+
 #  The fitted range of sigma, from the 10 volatility deciles the cells came
 #  from. Outside it the laws are extrapolation and callers must be told.
 SIGMA_MIN, SIGMA_MAX = 0.0117, 0.0623
@@ -120,6 +131,30 @@ def p_touch(target_mult: float, sigma: float, stack: bool = False,
     a, b, c, e, f, g = PROB_LAW["up" if target_mult > 1.0 else "down"]
     ld, ls = math.log(d), math.log(sigma)
     z = a + b * ld + c * ld * ld + e * ls + f * ld * ls + (g if stack else 0.0)
+    return 1.0 / (1.0 + math.exp(-z))
+
+
+def p_target_first(tp: float, sl: float, sigma: float,
+                   clamp: bool = True) -> float:
+    """P(the target is reached before the stop | one of them is reached).
+
+    `tp` and `sl` are positive fractions — 0.20 means +20% and −20%. This is the
+    question a bracket actually asks, and the two touch probabilities do not
+    answer it: over a year both barriers are usually reachable, so what decides
+    the trade is which arrives first.
+
+    IT DOES NOT SAY THE BRACKET MAKES MONEY. H35 scored thirty (tp, sl) pairs
+    on 17.6 million entries and **not one was positive in both halves** once
+    fills were taken at the actual close, duration was matched, and the result
+    was annualised. The best cell compounds at +2.4%/yr against an index at
+    about +12.7%. This function prices a decision the user has already made.
+    """
+    if not (tp > 0 and sl > 0 and sigma > 0):
+        return float("nan")
+    if clamp:
+        sigma = min(max(sigma, SIGMA_MIN), SIGMA_MAX)
+    a, b, c, e = RACE_LAW
+    z = (a + b * math.log(tp) + c * math.log(sl) + e * math.log(sigma))
     return 1.0 / (1.0 + math.exp(-z))
 
 

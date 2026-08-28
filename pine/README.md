@@ -2,9 +2,10 @@
 
 `IDX_Suite.pine` — paste into TradingView's Pine editor and add to any IDX chart.
 
-Four layers: a Hull ribbon and EMA stack (the visual), IDX mechanics (exact
-arithmetic), a measured price×time **projection**, and flip labels that carry
-their own measurement. Full study: `reports/time_price.md`.
+Five layers: a Hull ribbon and EMA stack (the visual), IDX mechanics (exact
+arithmetic), a measured price×time **projection**, **swing support/resistance
+with target and stop odds**, and flip labels that carry their own measurement.
+Studies: `reports/time_price.md`, `reports/levels.md`.
 
 ## Import
 
@@ -161,3 +162,58 @@ The classic dual-Hull cross is the worst of the four. That matches the repo's
 earlier Hull Suite + UT Bot work — 84 names, 240 configurations, best median
 excess CAGR −6.1%, lost to buy-and-hold in all five walk-forward folds. Set
 **Label these flips** to `None` if the arrows tempt you.
+
+
+## Target and stop, added 2026-08-28
+
+Both were tested before either was drawn, and the two came back opposite.
+
+**Prior swing highs and lows are real barriers.** The event is *the first close
+above a confirmed prior swing high*; the placebo is the same event against that
+same high **displaced ±7%** — identical construction, wrong level. 23,235
+events, distance-adjusted, ticker-clustered 95% CI:
+
+| statistic | true-level effect | 95% CI | early | late |
+|---|---|---|---|---|
+| false break (closes back under within 20b) | **−6.95 pp** | [−8.46, −5.77] | −8.60 | −7.11 |
+| follow-through (+5% within 20b) | **+4.46 pp** | [+3.15, +5.59] | +5.27 | +4.04 |
+| forward 20-session return | **+1.00%** | [+0.57, +1.46] | +1.33 | +1.40 |
+
+All three replicate in both halves — the only level result in this research that
+does. **What it is not:** the false-break rate at the *true* level is still
+**66.4%**. Two breakouts in three close back under within a month. A real level
+beats a fake one; breakouts still mostly fail.
+
+**Fibonacci measured nothing, and is off by default.** On a continuous grid of
+33 retracement depths, P(the leg high is regained within 60 sessions) declines
+monotonically from 0.3964 at r=0.15 to 0.2911 at r=0.95 with no bump anywhere —
+0.500 reads **0.3611**, sitting exactly between 0.475's 0.3631 and 0.525's
+0.3571. Against 2,000 draws of five random non-Fibonacci nodes from the same
+grid: **z = +0.77, +0.68, +0.41, −0.95; every p above 0.35.** The lines are
+drawn on request and the panel says what they are worth.
+
+**No fixed bracket beats holding.** 30 (take-profit, stop) pairs over 17.6
+million entry-cells, filled at the actual close rather than the nominal level,
+compared to a hold of the *same duration*, and annualised:
+
+| tp | sl | P(tp first) | P(sl first) | bars held | annualised | early | late |
+|---|---|---|---|---|---|---|---|
+| 0.50 | 0.05 | 0.137 | **0.806** | 52 | **+2.40%** | +8.04% | **−3.16%** |
+| 0.30 | 0.05 | 0.207 | 0.770 | 40 | +1.09% | +6.73% | −4.47% |
+| 0.10 | 0.30 | 0.670 | 0.250 | 73 | −10.3% | −6.2% | −14.6% |
+
+**Not one of the thirty is positive in both halves**; the best compounds at
++2.4%/yr against an index at about +12.7%. The panel says so in the
+`bracket verdict` row, next to the levels it prints.
+
+The direction of the folklore is right and its size is not enough: against a
+duration-matched hold, `tp 0.50 / sl 0.10` is worth **+0.0262** of mean log per
+trade and `tp 0.05 / sl 0.30` **−0.0077**. Cut losses short and let winners run
+is real, and the annualised column hands it back to costs.
+
+**Reading the target/stop block.** The target is the nearest confirmed swing
+high above price, the stop the nearest confirmed swing low below. `P(touch it
+within a year)` comes from the H32 first-passage laws, and `P(target first)`
+from a race law fitted on 300 cells — whose volatility coefficient is −0.0225
+against distance coefficients near 0.8, meaning **which barrier arrives first is
+a ratio of distances and not a statement about speed.**

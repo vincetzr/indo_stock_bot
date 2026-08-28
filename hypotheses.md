@@ -1934,3 +1934,124 @@ which is the comparison that matters. What is withdrawn is any claim that the
 state compounds positively on its own: late-half absolute is −0.0019, flat.
 
 **Trials after H33: 109.** Bonferroni bar α = 0.05/109 = **0.00046**.
+
+---
+
+## H34 — support and resistance are real, Fibonacci is not
+
+**2026-08-28.** Asked to add take-profit and stop levels drawn from
+support/resistance and Fibonacci. Both were tested before either was drawn.
+Code `scripts/levels.py`, memo `reports/levels.md`.
+
+**THE PLACEBO IS THE WHOLE DESIGN.** "Price bounced off the 61.8%" is not
+evidence: a shallow retracement is reached by every pullback and a deep one only
+by big ones, so any test comparing 0.618 to 0.90 compares *depths* and always
+finds the shallow level stronger. The grid is therefore **continuous — 0.15 to
+0.95 in steps of 0.025** — and the question is whether 0.618 stands out from
+0.60 and 0.65, neighbours matched on depth that are not Fibonacci numbers.
+
+### H34a — the Fibonacci ratios (L1 pre-registered: not special. CONFIRMED)
+
+280,228 (up-leg, ratio) touches, levels gated on the ZigZag **confirmation**
+bar. P(the leg high is regained within 60 sessions):
+
+| 0.475 | **0.500** | 0.525 |
+|---|---|---|
+| 0.3631 | **0.3611** | 0.3571 |
+
+The curve is monotone from **0.3964** at r=0.15 to **0.2911** at r=0.95 with no
+bump anywhere. Quadratic in r, residual at the five Fibonacci nodes against
+2,000 draws of five random non-Fibonacci nodes:
+
+| statistic | obs | null sd | z | p |
+|---|---|---|---|---|
+| P(regain leg high) | +0.0005 | 0.0006 | **+0.77** | 0.447 |
+| fwd 20b mean | +0.0001 | 0.0002 | +0.68 | 0.507 |
+| fwd 20b median | +0.0001 | 0.0001 | +0.41 | 0.691 |
+| P(−10% further) | −0.0013 | 0.0013 | −0.95 | 0.355 |
+
+**Nothing, on all four.** The largest effect is five hundredths of a percentage
+point on a probability of 0.36.
+
+**Two by-products worth more than the headline.** The forward 20-session mean
+return after touching a retracement is **negative at every depth** (−1.6% to
+−2.1%) before costs; and P(the leg high is regained within 60 sessions) never
+exceeds **40%**, so "it'll come back" fails three times in five even at the
+shallowest retracement.
+
+**A test that cannot detect an effect proves nothing by finding none**, so
+`fib_test` is checked against a planted bump: it returns z > 4 when one exists.
+
+### H34b — a prior swing high (L2: mildly special. CONFIRMED, larger than predicted)
+
+Event = first close above a confirmed prior swing high; placebo = the same event
+against that high **displaced ±7%**. 23,235 events. The pooled rows are not
+readable — a level displaced down is crossed early in a rally — so a linear
+probability model in the distance and its square absorbs that, with a
+**ticker-clustered** bootstrap:
+
+| statistic | effect | 95% CI | early | late |
+|---|---|---|---|---|
+| false break (closes back under in 20b) | **−6.95 pp** | [−8.46, −5.77] | −8.60 | −7.11 |
+| follow-through (+5% in 20b) | **+4.46 pp** | [+3.15, +5.59] | +5.27 | +4.04 |
+| forward 20-session return | **+1.00%** | [+0.57, +1.46] | +1.33 | +1.40 |
+
+I registered "a few percentage points"; it is seven on the false-break rate, and
+**all three replicate in both halves — the first level result in this repo that
+does.** Note what it is not: the false-break rate at the TRUE level is still
+**66.4%**. Two breakouts in three close back under within a month. A real level
+beats a fake one; breakouts still mostly fail.
+
+**Trials after H34: 116.** Bonferroni bar α = 0.05/116 = **0.00043**.
+
+---
+
+## H35 — the take-profit / stop grid, and the three controls that killed it
+
+**2026-08-28.** 30 (tp, sl) pairs plus a plain hold, 252-session horizon,
+17,593,275 entry-cells, net of 56 bps.
+
+**Three controls, each added because the previous version flattered the result.**
+
+1. **Fill at the actual close, not the nominal level.** A bar breaching −5%
+   often closes at −8%, and on IDX a name can gap to ARB and be untradeable.
+   Crediting a stop with its nominal price flatters exactly the tight stops that
+   win the grid: correcting it took the best cell from **+0.0173 to +0.0050**.
+2. **Match the duration.** The best cell is invested **52 sessions of 252**. On
+   a market whose per-name yearly log return is −0.0587, being out of it is most
+   of what a stop does.
+3. **Annualise.** A 52-session bracket is redeployed about five times a year —
+   A21's lesson, where a ten-year rate was quoted as annual.
+
+**L3 CONFIRMED. Not one of the thirty cells is positive in both halves.**
+
+| tp | sl | P(tp 1st) | P(sl 1st) | bars | mean | **annualised** | early | late |
+|---|---|---|---|---|---|---|---|---|
+| 0.50 | 0.05 | 0.137 | **0.806** | 52 | +2.48% | **+2.40%** | +8.04% | **−3.16%** |
+| 0.30 | 0.05 | 0.207 | 0.770 | 40 | +1.47% | +1.09% | +6.73% | −4.47% |
+| 0.50 | 0.10 | 0.190 | 0.700 | 82 | +3.10% | +0.22% | +5.68% | −5.17% |
+| 0.10 | 0.30 | 0.670 | 0.250 | 73 | −1.72% | −10.3% | −6.2% | −14.6% |
+
+Best is **+2.4%/yr** against an index at ~+12.7%, and its late half is −3.2%.
+
+**L4 CONFIRMED, with a structure I did not predict.** At tight symmetric
+distances the stop arrives first — 5%/5% gives P(sl) 0.508 against P(tp) 0.489 —
+and it **reverses at wide distances**: 20%/20% gives 0.472 tp against 0.444 sl.
+Tight brackets are dominated by the negative short-horizon drift and the spread;
+wide ones start catching the fat right tail.
+
+**THE ONE SHAPE THAT IS REAL IS A SHAPE, NOT A STRATEGY.** Against a hold of its
+own duration the edge is monotone in the folklore's direction: tp0.50/sl0.10
+**+0.0262**, tp0.50/sl0.05 +0.0229, tp0.15/sl0.15 +0.0072, tp0.05/sl0.30
+**−0.0077**. *Cut losses short and let winners run* is measurably the right
+direction, and the whole width of the effect is 3.4 points of log per trade,
+which the annualised column hands back to costs and the regime break.
+
+**H35b — the race law.** logit P(target first | one is reached) =
+**+0.0588 − 0.7635·log(tp) + 0.8160·log(sl) − 0.0225·log(σ)**, fitted on 300
+(tp, sl, vol-decile) cells, median error 1.26pp. **The volatility term is
+essentially zero and the two distance coefficients are near mirror images**, so
+which barrier arrives first is a ratio of distances and not a question about how
+fast the name moves. Volatility speeds both up equally.
+
+**Trials after H35: 146.** Bonferroni bar α = 0.05/146 = **0.00034**.

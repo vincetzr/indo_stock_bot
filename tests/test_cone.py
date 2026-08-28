@@ -18,8 +18,9 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir, "src"))
 
 from idxbot.cone import (DAYS_PER_SESSION, HORIZON, PROB_LAW,   # noqa: E402
-                         SIGMA_MAX, SIGMA_MIN, TIME_LAW, VOL_DECILES, cone,
-                         in_domain, p_touch, sessions_to, vol_decile)
+                         RACE_LAW, SIGMA_MAX, SIGMA_MIN, TIME_LAW, VOL_DECILES,
+                         cone, in_domain, p_target_first, p_touch, sessions_to,
+                         vol_decile)
 
 PINE = os.path.join(os.path.dirname(__file__), os.pardir, "pine",
                     "IDX_Suite.pine")
@@ -137,6 +138,45 @@ def test_vol_decile_reads_one_for_calm_and_ten_for_wild():
     assert vol_decile(0.100) == 10
 
 
+# ================================================== the race, H35 ============
+def test_a_nearer_target_is_likelier_to_arrive_first():
+    assert p_target_first(0.10, 0.20, 0.025) > p_target_first(0.20, 0.20, 0.025)
+    assert p_target_first(0.20, 0.10, 0.025) < p_target_first(0.20, 0.20, 0.025)
+
+
+def test_a_symmetric_bracket_is_close_to_a_coin_flip_and_slightly_against_you():
+    """L4. The median short-horizon IDX return is negative, so at equal
+    distances the stop arrives first slightly more often. Symmetry is not
+    neutrality on a series whose median drifts down."""
+    p = p_target_first(0.10, 0.10, 0.026)
+    assert 0.45 < p < 0.55
+    assert p < 0.52
+
+
+def test_which_barrier_arrives_first_barely_depends_on_volatility():
+    """THE FINDING IN THE RACE LAW. Volatility speeds both barriers up equally,
+    so it moves the race almost not at all — the fitted coefficient is -0.0225
+    against distance coefficients near 0.8."""
+    calm = p_target_first(0.20, 0.10, SIGMA_MIN)
+    wild = p_target_first(0.20, 0.10, SIGMA_MAX)
+    assert abs(calm - wild) < 0.02
+    assert abs(RACE_LAW[3]) < 0.1 * min(abs(RACE_LAW[1]), abs(RACE_LAW[2]))
+
+
+def test_the_race_is_nearly_a_function_of_the_distance_ratio_alone():
+    """The two distance coefficients are near mirror images, so doubling both
+    barriers should barely move the answer."""
+    a = p_target_first(0.10, 0.10, 0.025)
+    b = p_target_first(0.20, 0.20, 0.025)
+    assert abs(a - b) < 0.05
+
+
+def test_a_degenerate_bracket_returns_nan():
+    assert math.isnan(p_target_first(0.0, 0.10, 0.025))
+    assert math.isnan(p_target_first(0.10, 0.0, 0.025))
+    assert math.isnan(p_target_first(0.10, 0.10, 0.0))
+
+
 # ====================================== the two copies must not drift apart ==
 def _pine() -> str:
     with open(PINE, encoding="utf-8") as fh:
@@ -151,6 +191,7 @@ def test_every_coefficient_appears_verbatim_in_the_pine_file():
     missing = [f"{v:.4f}" for law in (TIME_LAW, PROB_LAW)
                for row in law.values() for v in row
                if f"{abs(v):.4f}" not in src]
+    missing += [f"{v:.4f}" for v in RACE_LAW if f"{abs(v):.4f}" not in src]
     assert not missing, f"absent from IDX_Suite.pine: {missing}"
 
 
@@ -195,8 +236,12 @@ def test_the_pine_file_carries_the_corrected_H30_constants_not_the_withdrawn():
 def test_the_pine_file_has_no_comma_chained_statements():
     """Pine has no comma operator. This file has made that mistake before, and
     it is invisible until the editor rejects it."""
+    #  The pattern is a STATEMENT call followed by another on the same line.
+    #  `line.new(x, color.new(c, 55), line.style_dotted)` is an argument list
+    #  and is fine, so the match has to be anchored at the start of the line.
+    call = r"(box|line|label|table|plot|alert)"
     bad = [ln for ln in _pine().splitlines()
-           if re.search(r"\)\s*,\s*(box|line|label|table)\.", ln)]
+           if re.match(rf"\s*{call}\.\w+\(.*\)\s*,\s*{call}\.", ln)]
     assert not bad, bad
 
 
@@ -221,6 +266,22 @@ def test_no_continuation_line_is_indented_on_a_multiple_of_four():
                     + code.count("[") - code.count("]"))
         prev = code
     assert not bad, bad
+
+
+def test_the_pine_file_states_that_no_bracket_survived():
+    """H35 scored 30 (tp, sl) pairs and none was positive in both halves. A
+    chart that prints target and stop levels without that sentence is selling
+    a bracket the measurement rejects."""
+    src = _pine()
+    assert "0 of 30 beat hold in both halves" in src
+
+
+def test_the_pine_file_says_fibonacci_measured_nothing():
+    """The ratios were asked for and are drawn. Drawing them silently would be
+    the misleading option; the z-scores travel with them."""
+    src = _pine()
+    assert "measured nothing" in src
+    assert "+0.77" in src and "0.3611" in src
 
 
 def test_the_pine_file_uses_the_sample_stdev_form():

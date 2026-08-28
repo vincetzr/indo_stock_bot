@@ -74,7 +74,7 @@
 // =============================================================================
 
 indicator("IDX Suite", "IDX Suite", overlay = true,
-     max_labels_count = 500, max_boxes_count = 20, max_lines_count = 20)
+     max_labels_count = 500, max_boxes_count = 20, max_lines_count = 50)
 
 // ----------------------------------------------------------------- inputs --
 gM = "Panel"
@@ -397,6 +397,134 @@ if projOk and barstate.islast
         lnDn := line.new(bar_index, tgtDn, m, tgtDn,
                          color = color.new(color.red, 40), style = line.style_dotted)
 
+// =============== [MEASURED] H34 — swing levels yes, Fibonacci no ============
+//  A ZigZag swing high is a REAL barrier and the Fibonacci ratios are not, and
+//  both halves of that were measured the same way: the same construction
+//  against the wrong level.
+//
+//  SUPPORT / RESISTANCE (H34b). Event = first close above a confirmed prior
+//  swing high; placebo = the same event against that high displaced +/-7%.
+//  23,235 events, distance-adjusted, ticker-clustered 95% CI:
+//      false break (closes back under within 20 bars)  -6.95pp [-8.26, -5.70]
+//      follow-through (+5% within 20 bars)             +4.46pp [+3.08, +5.58]
+//      forward 20-session return                       +1.00% [+0.58, +1.37]
+//  All three replicate in both halves — the only level result in this research
+//  that does. NOTE WHAT IT IS NOT: the false-break rate at the TRUE level is
+//  still 66.4%. Two breakouts in three close back under within a month. The
+//  finding is that a real level beats a fake one, not that breakouts work.
+//
+//  FIBONACCI (H34a). 280,228 (leg, ratio) touches on a CONTINUOUS grid from
+//  0.15 to 0.95 in steps of 0.025, because the only fair question is whether
+//  0.618 stands out from 0.60 and 0.65 — neighbours matched on depth that are
+//  not Fibonacci numbers. P(the leg high is regained within 60 bars):
+//      0.475 -> 0.3631      0.500 -> 0.3611      0.525 -> 0.3571
+//  The curve is monotone from 0.3964 at r=0.15 to 0.2911 at r=0.95 with no
+//  bump anywhere. Against 2,000 draws of five random non-Fibonacci nodes:
+//  z = +0.77 (p 0.45), +0.68, +0.41, -0.95. NOTHING.
+//  They are drawn because they were asked for. They measured nothing.
+gR = "Levels (H34)"
+showSR   = input.bool(true, "Draw confirmed swing support/resistance", group = gR)
+zzPct    = input.float(10.0, "Swing threshold %", minval = 2.0, maxval = 40.0,
+     step = 0.5, group = gR,
+     tooltip = "A swing high is confirmed only once price has fallen this far " +
+               "from it. THAT LAG IS THE POINT: a pivot drawn at the bar it " +
+               "occurred uses information that did not exist until the " +
+               "reversal, which is the look-ahead trap in every ZigZag study.")
+showFib  = input.bool(false, "Draw Fibonacci retracements", group = gR,
+     tooltip = "OFF by default because they measured nothing. On a continuous " +
+               "grid of 33 retracement depths the bounce-rate curve is " +
+               "perfectly smooth and the five Fibonacci ratios sit exactly on " +
+               "it: z = +0.77, +0.68, +0.41, -0.95, every p above 0.35. " +
+               "0.500 reads 0.3611 between 0.475's 0.3631 and 0.525's 0.3571.")
+
+// The ZigZag, carried forward bar by bar. Confirmation only — `lastHi` and
+// `lastLo` are levels that were knowable at the time, never hindsight pivots.
+zzK = zzPct / 100.0
+var float curHi = na
+var float curLo = na
+var int   zzDir = 0
+var float lastHi = na
+var float lastLo = na
+//  ONLY THE EXTREME OF THE LEG IN PROGRESS IS TRACKED. A first version updated
+//  both on every bar, so the running high kept ratcheting through a down leg
+//  and the next confirmed high could never be lower than the last -- a swing
+//  detector that can only find higher highs, which would have quietly turned
+//  every downtrend into "no resistance above".
+if zzDir > 0
+    curHi := math.max(nz(curHi, close), close)
+else if zzDir < 0
+    curLo := math.min(nz(curLo, close), close)
+else
+    curHi := math.max(nz(curHi, close), close)
+    curLo := math.min(nz(curLo, close), close)
+
+if zzDir >= 0 and not na(curHi) and close <= curHi * (1.0 - zzK)
+    lastHi := curHi
+    zzDir := -1
+    curLo := close
+else if zzDir <= 0 and not na(curLo) and close >= curLo * (1.0 + zzK)
+    lastLo := curLo
+    zzDir := 1
+    curHi := close
+
+// The target is the nearest confirmed level ABOVE, the stop the nearest
+// confirmed level BELOW. When price is making new highs there is no confirmed
+// resistance above it, and the panel says so rather than inventing one.
+resLvl = not na(lastHi) and lastHi > close ? lastHi : na
+supLvl = not na(lastLo) and lastLo < close ? lastLo : na
+
+dUp = na(resLvl) ? na : math.log(resLvl / close)
+dDn = na(supLvl) ? na : math.log(close / supLvl)
+pRes = projOk and not na(dUp) and dUp > 0 ? f_ptouch(dUp, sigUse, true, stackFull) : na
+pSup = projOk and not na(dDn) and dDn > 0 ? f_ptouch(dDn, sigUse, false, stackFull) : na
+
+// P(the target is reached BEFORE the stop | one of them is), which is the
+// question a bracket actually asks and is not answered by the two touch
+// probabilities separately. Fitted on 300 (tp, sl, volatility-decile) cells:
+// median error 1.26pp, p90 3.67pp. The volatility term is almost exactly zero
+// (-0.0225) — WHICH BARRIER ARRIVES FIRST IS A RATIO OF DISTANCES, not a
+// question about how fast the name moves. Volatility speeds up both equally.
+f_race(float dup, float ddn, float sig) =>
+    z = 0.0588 - 0.7635 * math.log(dup) + 0.8160 * math.log(ddn) -
+     0.0225 * math.log(sig)
+    1.0 / (1.0 + math.exp(-z))
+pFirst = projOk and not na(dUp) and not na(dDn) and dUp > 0 and dDn > 0
+     ? f_race(math.exp(dUp) - 1.0, 1.0 - math.exp(-dDn), sigUse) : na
+
+// Fibonacci of the last completed leg, drawn only.
+fibLo = math.min(nz(lastLo, close), nz(lastHi, close))
+fibHi = math.max(nz(lastLo, close), nz(lastHi, close))
+fibSpan = fibHi - fibLo
+
+var line lnRes = na
+var line lnSup = na
+var line f236 = na
+var line f382 = na
+var line f500 = na
+var line f618 = na
+var line f786 = na
+f_level(line old, float y, color c, string st) =>
+    line.delete(old)
+    na(y) ? na : line.new(bar_index - 120, y, bar_index + 30, y, color = c,
+      style = st, width = 1, extend = extend.none)
+
+if barstate.islast
+    lnRes := f_level(lnRes, showSR ? resLvl : na, color.new(color.red, 20),
+      line.style_solid)
+    lnSup := f_level(lnSup, showSR ? supLvl : na, color.new(color.lime, 20),
+      line.style_solid)
+    okFib = showFib and fibSpan > 0
+    f236 := f_level(f236, okFib ? fibHi - 0.236 * fibSpan : na,
+      color.new(color.gray, 55), line.style_dotted)
+    f382 := f_level(f382, okFib ? fibHi - 0.382 * fibSpan : na,
+      color.new(color.gray, 55), line.style_dotted)
+    f500 := f_level(f500, okFib ? fibHi - 0.500 * fibSpan : na,
+      color.new(color.gray, 55), line.style_dotted)
+    f618 := f_level(f618, okFib ? fibHi - 0.618 * fibSpan : na,
+      color.new(color.gray, 55), line.style_dotted)
+    f786 := f_level(f786, okFib ? fibHi - 0.786 * fibSpan : na,
+      color.new(color.gray, 55), line.style_dotted)
+
 // ------------------------------------------------------------- the panel ----
 f_pos() =>
     panelPos == "Top right"     ? position.top_right    :
@@ -405,7 +533,7 @@ f_pos() =>
 f_size() =>
     txtSize == "Tiny" ? size.tiny : txtSize == "Small" ? size.small : size.normal
 
-var table P = table.new(f_pos(), 2, 26, border_width = 1)
+var table P = table.new(f_pos(), 2, 34, border_width = 1)
 
 f_row(int r, string k, string v, color c) =>
     table.cell(P, 0, r, k, text_size = f_size(), text_color = color.gray,
@@ -419,7 +547,7 @@ f_head(int r, string t) =>
                bgcolor = color.new(color.gray, 70))
 
 if showPanel and barstate.islast
-    table.clear(P, 0, 0, 1, 25)
+    table.clear(P, 0, 0, 1, 33)
 
     f_head(0, "STATE")
     f_row(1, "annualised vol (60b)",
@@ -472,17 +600,42 @@ if showPanel and barstate.islast
            : not showProj ? "projection off" : "in-sample; band, not a date",
           not daily or outOfDomain ? color.orange : color.gray)
 
-    f_head(19, "IDX MECHANICS  [exact]")
-    f_row(20, "board", isThin ? "THIN +/-10%" : "main",
+    f_head(19, "TARGET / STOP  [H34, swing levels]")
+    f_row(20, "resistance (target)",
+          na(resLvl) ? "none above - at new highs"
+           : str.tostring(resLvl, format.mintick) + "   +" +
+             str.tostring(100 * (resLvl / close - 1.0), "#.1") + "%",
+          na(resLvl) ? color.gray : color.red)
+    f_row(21, "  P(touch it within a year)",
+          na(pRes) ? "n/a" : str.tostring(pRes * 100, "#.0") + "%",
+          na(pRes) ? color.gray : color.white)
+    f_row(22, "support (stop)",
+          na(supLvl) ? "none below - at new lows"
+           : str.tostring(supLvl, format.mintick) + "   -" +
+             str.tostring(100 * (1.0 - supLvl / close), "#.1") + "%",
+          na(supLvl) ? color.gray : color.lime)
+    f_row(23, "  P(touch it within a year)",
+          na(pSup) ? "n/a" : str.tostring(pSup * 100, "#.0") + "%",
+          na(pSup) ? color.gray : color.white)
+    f_row(24, "P(target first | one is hit)",
+          na(pFirst) ? "n/a" : str.tostring(pFirst * 100, "#.0") + "%",
+          na(pFirst) ? color.gray : pFirst >= 0.5 ? color.lime : color.orange)
+    f_row(25, "bracket verdict",
+          "0 of 30 beat hold in both halves", color.orange)
+    f_row(26, "fibonacci", showFib ? "drawn - measured nothing" : "off",
+          color.gray)
+
+    f_head(27, "IDX MECHANICS  [exact]")
+    f_row(28, "board", isThin ? "THIN +/-10%" : "main",
           isThin ? color.orange : color.white)
-    f_row(21, "tick / max step", "Rp " + str.tostring(tick, "#") + " / Rp " +
+    f_row(29, "tick / max step", "Rp " + str.tostring(tick, "#") + " / Rp " +
           str.tostring(maxStep, "#"), color.white)
-    f_row(22, "ARA tomorrow", "Rp " + str.tostring(araLvl, "#") + "  (+" +
+    f_row(30, "ARA tomorrow", "Rp " + str.tostring(araLvl, "#") + "  (+" +
           str.tostring(araPct * 100, "#") + "%)", color.lime)
-    f_row(23, "ARB tomorrow", "Rp " + str.tostring(arbLvl, "#") + "  (-" +
+    f_row(31, "ARB tomorrow", "Rp " + str.tostring(arbLvl, "#") + "  (-" +
           str.tostring(arbPct * 100, "#") + "%)", color.red)
-    f_row(24, "round trip (floor)", str.tostring(roundTrip * 100, "#.2") + "%",
+    f_row(32, "round trip (floor)", str.tostring(roundTrip * 100, "#.2") + "%",
           roundTrip > 0.015 ? color.orange : color.white)
-    f_row(25, "flip labels",
+    f_row(33, "flip labels",
           sigSrc == "None" ? "off" : sigSrc + " - none compound",
           color.gray)
