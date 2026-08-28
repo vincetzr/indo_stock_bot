@@ -597,36 +597,48 @@ f_pos() =>
 f_size() =>
     txtSize == "Tiny" ? size.tiny : txtSize == "Small" ? size.small : size.normal
 
+// THEME-AWARE, BECAUSE color.white IS INVISIBLE ON A WHITE CHART. The first
+// version in a user's hands was run in TradingView light mode and every row
+// coloured color.white vanished: annualised vol, % of 52-week high, turnover,
+// all three projection dates, board, tick and round trip were simply blank,
+// while the orange and lime rows beside them showed fine. A panel that
+// silently drops half its rows depending on a display setting is worse than
+// one that fails loudly. chart.fg_color contrasts with whatever background
+// the user has, and the cells now paint their own background so the price
+// lines cannot bleed through the text either.
+fgCol = chart.fg_color
+cellBg = color.new(chart.bg_color, 12)
+headBg = color.new(chart.fg_color, 82)
+
 var table P = table.new(f_pos(), 2, 39, border_width = 1)
 
 f_row(int r, string k, string v, color c) =>
-    table.cell(P, 0, r, k, text_size = f_size(), text_color = color.gray,
-               text_halign = text.align_left)
+    table.cell(P, 0, r, k, text_size = f_size(), text_color = fgCol,
+               bgcolor = cellBg, text_halign = text.align_left)
     table.cell(P, 1, r, v, text_size = f_size(), text_color = c,
-               text_halign = text.align_right)
+               bgcolor = cellBg, text_halign = text.align_right)
 f_head(int r, string t) =>
-    table.cell(P, 0, r, t, text_size = f_size(), text_color = color.white,
-               bgcolor = color.new(color.gray, 70), text_halign = text.align_left)
-    table.cell(P, 1, r, "", text_size = f_size(),
-               bgcolor = color.new(color.gray, 70))
+    table.cell(P, 0, r, t, text_size = f_size(), text_color = fgCol,
+               bgcolor = headBg, text_halign = text.align_left)
+    table.cell(P, 1, r, "", text_size = f_size(), bgcolor = headBg)
 
 if showPanel and barstate.islast
     table.clear(P, 0, 0, 1, 38)
 
     f_head(0, "STATE")
     f_row(1, "annualised vol (60b)",
-          na(volAnn) ? "n/a" : str.tostring(volAnn * 100, "#.0") + "%", color.white)
+          na(volAnn) ? "n/a" : str.tostring(volAnn * 100, "#.0") + "%", fgCol)
     f_row(2, "IDX volatility decile",
           na(vol60) ? "n/a" : str.tostring(volDecile(vol60)) + " of 10",
-          na(vol60) ? color.gray : volDecile(vol60) >= 9 ? color.orange : color.white)
+          na(vol60) ? color.gray : volDecile(vol60) >= 9 ? color.orange : fgCol)
     f_row(3, "% of 52-week high",
           na(hi52) ? "n/a" : str.tostring(hi52 * 100, "#.1") + "%",
-          not na(hi52) and hi52 >= 0.90 ? color.lime : color.white)
+          not na(hi52) and hi52 >= 0.90 ? color.lime : fgCol)
     f_row(4, "drawdown from peak",
           na(ddPk) ? "n/a" : str.tostring(ddPk * 100, "#.1") + "%",
-          not na(ddPk) and ddPk < -0.20 ? color.orange : color.white)
+          not na(ddPk) and ddPk < -0.20 ? color.orange : fgCol)
     f_row(5, "turnover (20b median)",
-          "Rp " + str.tostring(rpDay / 1e9, "#.##") + "bn", color.white)
+          "Rp " + str.tostring(rpDay / 1e9, "#.##") + "bn", fgCol)
 
     f_head(6, "TREND  [H30, corrected]")
     f_row(7, "EMA stack", stackLbl + "  " + str.tostring(stackScore) + "/3",
@@ -645,17 +657,17 @@ if showPanel and barstate.islast
           projOk ? str.tostring(pUp * 100, "#.0") + "%" : "n/a",
           projOk ? color.lime : color.gray)
     f_row(13, "  earliest quartile", projOk ? f_date(sQ1) + "  (" +
-          str.tostring(sQ1, "#") + "b)" : "n/a", color.white)
+          str.tostring(sQ1, "#") + "b)" : "n/a", fgCol)
     f_row(14, "  median", projOk ? f_date(sMed) + "  (" +
-          str.tostring(sMed, "#") + "b)" : "n/a", color.white)
+          str.tostring(sMed, "#") + "b)" : "n/a", fgCol)
     f_row(15, "  latest quartile", projOk ? f_date(sQ3) + "  (" +
-          str.tostring(sQ3, "#") + "b)" : "n/a", color.white)
+          str.tostring(sQ3, "#") + "b)" : "n/a", fgCol)
     f_row(16, "mirror  -" + str.tostring(tgtPct, "#.#") + "%",
           projOk ? str.tostring(tgtDn, format.mintick) + "   " +
                    str.tostring(pDn * 100, "#.0") + "%" : "n/a",
           projOk ? color.red : color.gray)
     oddsCol = not projOk ? color.gray : pUp / pDn >= 1.2 ? color.lime
-               : pUp / pDn < 1.0 ? color.red : color.white
+               : pUp / pDn < 1.0 ? color.red : fgCol
     f_row(17, "up / down odds",
           projOk ? str.tostring(pUp / pDn, "#.00") + "x" : "n/a", oddsCol)
     f_row(18, "caveat",
@@ -672,7 +684,7 @@ if showPanel and barstate.islast
           na(resLvl) ? color.gray : color.red)
     f_row(21, "  P(touch it within a year)",
           na(pRes) ? "n/a" : str.tostring(pRes * 100, "#.0") + "%",
-          na(pRes) ? color.gray : color.white)
+          na(pRes) ? color.gray : fgCol)
     f_row(22, "support (stop)",
           na(supLvl) ? "none below - at new lows"
            : str.tostring(supLvl, format.mintick) + "   -" +
@@ -680,7 +692,7 @@ if showPanel and barstate.islast
           na(supLvl) ? color.gray : color.lime)
     f_row(23, "  P(touch it within a year)",
           na(pSup) ? "n/a" : str.tostring(pSup * 100, "#.0") + "%",
-          na(pSup) ? color.gray : color.white)
+          na(pSup) ? color.gray : fgCol)
     f_row(24, "P(target first | one is hit)",
           na(pFirst) ? "n/a" : str.tostring(pFirst * 100, "#.0") + "%",
           na(pFirst) ? color.gray : pFirst >= 0.5 ? color.lime : color.orange)
@@ -697,20 +709,20 @@ if showPanel and barstate.islast
     f_row(29, "  peak already given back",
           na(giveBack) ? "n/a" : str.tostring(giveBack * 100, "#.1") + "%",
           color.orange)
-    f_row(30, "P(touch) skill vs base rate", "+0.013 out-of-sample", color.white)
+    f_row(30, "P(touch) skill vs base rate", "+0.013 out-of-sample", fgCol)
     f_row(31, "date band coverage", "0.500 measured / 0.50 claimed", color.lime)
 
     f_head(32, "IDX MECHANICS  [exact]")
     f_row(33, "board", isThin ? "THIN +/-10%" : "main",
-          isThin ? color.orange : color.white)
+          isThin ? color.orange : fgCol)
     f_row(34, "tick / max step", "Rp " + str.tostring(tick, "#") + " / Rp " +
-          str.tostring(maxStep, "#"), color.white)
+          str.tostring(maxStep, "#"), fgCol)
     f_row(35, "ARA tomorrow", "Rp " + str.tostring(araLvl, "#") + "  (+" +
           str.tostring(araPct * 100, "#") + "%)", color.lime)
     f_row(36, "ARB tomorrow", "Rp " + str.tostring(arbLvl, "#") + "  (-" +
           str.tostring(arbPct * 100, "#") + "%)", color.red)
     f_row(37, "round trip (floor)", str.tostring(roundTrip * 100, "#.2") + "%",
-          roundTrip > 0.015 ? color.orange : color.white)
+          roundTrip > 0.015 ? color.orange : fgCol)
     f_row(38, "flip labels",
           sigSrc == "None" ? "off" : sigSrc + " - none compound",
           color.gray)
