@@ -58,7 +58,7 @@
 //  research repository. Every number below traces to one of them.
 // =============================================================================
 
-indicator("IDX Context", "IDX Ctx", overlay = true, max_labels_count = 100)
+indicator("IDX Suite", "IDX Suite", overlay = true, max_labels_count = 100)
 
 // ----------------------------------------------------------------- inputs --
 gM = "Panel"
@@ -87,6 +87,18 @@ boardIn = input.string("Auto", "Auto-rejection board",
                "Auto infers from the 6-month average price (IDX's own rule: " +
                "below Rp51 puts a name on the watchlist), which is a guess, " +
                "so override it if you know the board.")
+
+gE = "EMA stack (H30, measured on IDX)"
+showEma  = input.bool(true, "Show the EMA stack", group = gE)
+emaFast  = input.int(50,  "Fast EMA",   minval = 2, group = gE)
+emaMid   = input.int(100, "Mid EMA",    minval = 3, group = gE)
+emaSlow  = input.int(200, "Slow EMA",   minval = 4, group = gE,
+     tooltip = "50/100/200 is not here because it is conventional -- it was " +
+               "GRIDDED on IDX. 36 (fast, mid, slow) combinations were scored " +
+               "over 744 names and 5,879 pre-holdout sessions, and the state " +
+               "price>50>100>200 came out best on mean LOG return, which is " +
+               "the statistic that decides whether a thing compounds.")
+tintStack = input.bool(true, "Tint the background by stack state", group = gE)
 
 gS = "Optional screen"
 showSig  = input.bool(false, "Show the strength+calm screen", group = gS,
@@ -172,6 +184,55 @@ arbLvl = math.ceil (close * (1 - arbPct) / tick) * tick
 halfSpread = (tick / 2.0) / close
 roundTrip  = (feeBuy + feeSell + feeTax) / 100.0 + 2.0 * halfSpread
 
+// ------------------------------------------ [MEASURED] H30, the EMA stack ---
+// GRIDDED ON IDX, NOT INHERITED FROM US FOLKLORE. 36 (fast, mid, slow)
+// combinations over 744 names and 5,879 pre-holdout sessions, 60-session
+// forward hold, scored on MEAN LOG return because that is what compounds.
+//
+//   UNCONDITIONAL, every eligible name-bar:  mean +3.88%, median +0.00%,
+//   mean log +0.0021 -> +0.9%/yr. The mean is volatility drag in disguise and
+//   this is the benchmark every row below is measured against.
+//
+//   state                n         mean log   early    late   both>base?
+//   price > EMA100       253,136   +0.0159   +0.0308  +0.0009     no
+//   50>100>200           205,790   +0.0142   +0.0270  +0.0014     no
+//   13>34>100            195,393   +0.0197   +0.0331  +0.0063    YES
+//   price>50>100>200     142,797   +0.0218   +0.0327  +0.0109    YES  <- best
+//
+// SO THE FULL STACK IS WHAT SURVIVES, and a single moving average does not:
+// price>EMA100 alone and the bare 50>100>200 cross both collapse to the base
+// rate in the recent half. Requiring price ABOVE the stack as well as the
+// stack being ordered is what holds up in both eras.
+//
+// AND THE CROSS ITSELF IS NOT THE SIGNAL -- THE STATE IS.
+// Entering on the bar the stack first aligns and holding 60 sessions gives a
+// positive mean (+4.25% net for the best of 36) with a NEGATIVE median
+// (-0.62%) and a sub-50% win rate, and it does NOT compound positively in
+// both halves (mean log +0.0274 early, -0.0145 late). That is the same
+// mean/median wedge that withdrew H17 and H18. So this plots the STATE and
+// deliberately does not fire an entry alert on the crossover.
+emaF = ta.ema(close, emaFast)
+emaM = ta.ema(close, emaMid)
+emaS = ta.ema(close, emaSlow)
+
+stackFull = close > emaF and emaF > emaM and emaM > emaS
+stackOrd  = emaF > emaM and emaM > emaS          // ordered but price below
+stackScore = (close > emaF ? 1 : 0) + (emaF > emaM ? 1 : 0) +
+             (emaM > emaS ? 1 : 0)
+
+// The measured mean-log for the state the chart is in right now, and the base.
+stackLog  = stackFull ? 0.0218 : stackOrd ? 0.0142 : 0.0021
+stackLbl  = stackFull ? "price>F>M>S  (best)" :
+            stackOrd  ? "ordered, price below" : "not aligned"
+
+plot(showEma ? emaF : na, "EMA fast", color.new(color.aqua, 30), 1)
+plot(showEma ? emaM : na, "EMA mid",  color.new(color.orange, 30), 1)
+plot(showEma ? emaS : na, "EMA slow", color.new(color.fuchsia, 30), 2)
+bgcolor(showEma and tintStack
+        ? (stackFull ? color.new(color.green, 93)
+           : stackOrd ? color.new(color.olive, 96) : na) : na,
+        title = "stack state")
+
 // ------------------------------------------- [MEASURED] the conditionals ----
 // H26. Asymmetry by distance from the 52-week high, 1-year horizon, IDX
 // 2000-2024 pre-holdout. skew = P(touch 2x) / P(end at or below half).
@@ -228,6 +289,9 @@ sigFresh = sigOn and not sigOn[1]
 bgcolor(showSig and sigOn ? color.new(color.teal, 92) : na, title = "screen active")
 plotshape(showSig and sigFresh, "screen turns on", shape.triangleup,
           location.belowbar, color.new(color.teal, 20), size = size.tiny)
+// NO ALERT ON THE STACK CROSSOVER, DELIBERATELY. The cross does not compound
+// positively in both halves; the state does. An alert would turn a state into
+// a trigger, which is precisely what the measurement says not to do.
 alertcondition(sigFresh, "IDX strength+calm screen",
      "{{ticker}}: strength+calm screen turned on. Measured 1-year odds: " +
      "P(touch 2x) 8.3%, P(halve) 4.1%, skew 2.01. In-sample; not advice.")
@@ -242,7 +306,7 @@ f_pos() =>
 f_size() =>
     txtSize == "Tiny" ? size.tiny : txtSize == "Small" ? size.small : size.normal
 
-var table P = table.new(f_pos(), 2, 22, border_width = 1)
+var table P = table.new(f_pos(), 2, 25, border_width = 1)
 
 f_row(int r, string k, string v, color c) =>
     table.cell(P, 0, r, k, text_size = f_size(), text_color = color.gray,
@@ -257,7 +321,7 @@ f_head(int r, string t) =>
                bgcolor = color.new(color.gray, 70))
 
 if showPanel and barstate.islast
-    table.clear(P, 0, 0, 1, 21)
+    table.clear(P, 0, 0, 1, 24)
 
     f_head(0, "STATE")
     f_row(1, "annualised vol (60b)", str.tostring(volAnn * 100, "#.0") + "%", color.white)
@@ -288,12 +352,18 @@ if showPanel and barstate.islast
     f_row(17, "asymmetry (up/down)", str.tostring(bucketSkew, "#.2") + "x",
           bucketSkew >= 1.5 ? color.lime : bucketSkew < 1.0 ? color.red : color.white)
     f_row(18, "base for any IDX name", "12.1% / 9.0% = 1.33x", color.gray)
+    f_row(22, "60b fwd mean log, this state",
+          str.tostring(stackLog, "#.####") + "  (base 0.0021)",
+          stackLog > 0.015 ? color.lime : color.gray)
+    f_row(23, showSig ? "screen" : "note",
+          showSig ? (sigOn ? "ON  8.3%/4.1% = 2.01x" : "off")
+                  : "in-sample - no magnitude forecast",
+          showSig ? (sigOn ? color.teal : color.gray) : color.gray)
     f_row(19, ddPk < -0.02 ? "P(new high in 60b)" : "horizon check",
           ddPk < -0.02
             ? str.tostring(recOdds * 100, "#.0") + "%" + (emaBonus > 0 ? " (>EMA50)" : "")
             : "2x rate: 9.5% 1y -> 55.5% 10y",
           ddPk < -0.02 ? (recOdds >= 0.5 ? color.lime : color.orange) : color.gray)
-    f_row(20, showSig ? "screen" : "note",
-          showSig ? (sigOn ? "ON  8.3%/4.1% = 2.01x" : "off")
-                  : "in-sample - no magnitude forecast",
-          showSig ? (sigOn ? color.teal : color.gray) : color.gray)
+    f_head(20, "EMA STACK  [H30, gridded on IDX]")
+    f_row(21, "stack state", stackLbl + "  " + str.tostring(stackScore) + "/3",
+          stackFull ? color.lime : stackOrd ? color.olive : color.gray)

@@ -1735,3 +1735,49 @@ space is empty. The next real instrument is non-price fundamentals, and
 `data/cache/fundamentals` holds 59 names of 725.
 
 **Trials after H27: 85.** Bonferroni bar α = 0.05/85 = **0.00059**.
+
+---
+
+## H30 — the triple-EMA golden cross on IDX: the state works, the cross does not
+
+**2026-08-25.** Asked for a "triple EMA golden cross pointer trained on IDX".
+Trained has to mean measured, so all 36 (fast, mid, slow) combinations were
+gridded on 744 names and 5,879 pre-holdout sessions, 60-session hold. Code
+`scripts/ema_cross_idx.py`, memo `reports/ema_cross_idx.md`.
+
+**PRE-REGISTERED:** no configuration beats buy-and-hold after costs; what
+survives is the alignment STATE, not the cross. **Half wrong, half exactly
+right.**
+
+**THE BENCHMARK.** Unconditional 60-session forward: mean +3.88%, median
++0.00%, **mean log +0.0021 → +0.9%/yr.** The mean is volatility drag in
+disguise, which is why everything is scored on mean-log.
+
+**THE CROSS IS NOT A TRIGGER.** Best of 36 (`20/21/100`): mean **+4.25%** net,
+which does edge buy-and-hold — so the prediction was wrong there. But median
+**−0.62%**, win rate **48.5%**, and half-split mean log **+0.0274 early,
+−0.0145 late** — it does NOT compound in both halves. All 36 rows share that
+shape: positive mean, negative median, sub-50% win rate. The winner also has
+fast=20 mid=21, so the fast/mid axis is noise.
+
+**THE STATE WORKS AND A SINGLE MA DOES NOT.**
+
+| state | n | mean log | early | late | both>base |
+|---|---|---|---|---|---|
+| price>EMA100 | 253,136 | +0.0159 | +0.0308 | +0.0009 | no |
+| 50>100>200 | 205,790 | +0.0142 | +0.0270 | +0.0014 | no |
+| 13>34>100 | 195,393 | +0.0197 | +0.0331 | +0.0063 | YES |
+| **price>50>100>200** | 142,797 | **+0.0218** | +0.0327 | **+0.0109** | **YES** |
+
+`price>EMA100` alone and the bare `50>100>200` collapse to the base rate in the
+recent half. **Requiring price ABOVE the stack as well as the stack ordered is
+what holds in both eras.**
+
+**A BUG COST A WHOLE TABLE.** The first run reported identical counts for
+"cross" and "aligned" in every row. `DataFrame.shift()` on a boolean frame
+returns OBJECT dtype; `~` on a Python bool is integer negation, `~True` is −2
+and `~False` is −1, and **both are truthy** — so `aligned & ~prev` evaluated to
+`aligned` and the table measured the state while labelling it the trigger.
+`.astype(bool)` is the fix.
+
+**Trials after H30: 95.** Bonferroni bar α = 0.05/95 = **0.00053**.
