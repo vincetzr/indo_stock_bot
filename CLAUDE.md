@@ -2121,3 +2121,57 @@ is not one: that edge measures "better than a random-start hold of the same
 length", not "better than holding". Two benchmarks that sound alike answering
 opposite questions is the same shape as A19's missing index comparison, caught
 this time before it was published rather than after.
+
+## A30. The Hull's flip price is computable, is a WIDE stop, and still loses
+
+Asked for a dynamic TP/SL "based on when the Hull will turn colour", then
+whether that beats a classic stop from support or an EMA. Memo
+`reports/hull_stop.md`, logged H40.
+
+**THE REQUEST SPLITS AND ONLY ONE HALF IS POSSIBLE.** Forecasting the flip DATE
+is A26's failed claim. Computing the PRICE at which it flips tomorrow is exact,
+because **the Hull average is LINEAR in the next close** — one `x*` solves
+HMA_{t+1} = HMA_t. Derived in closed form and **verified against a brute-force
+recomputation to 1e-14**. It says where, never when, and it is now plotted.
+
+**IT IS A VERY WIDE STOP, WHICH IS THE POINT OF PRINTING IT.** Every green
+hull55 bar over 891 names: the level sits **13.5% below the close at the
+median**, 29.8% at the lower quartile, **75.8% in the worst twentieth**. Anyone
+treating "stop where the Hull turns" as a tight stop is wrong by an order of
+magnitude. Same fact H37 measured from the other side as an 11% give-back.
+
+**THE HEAD-TO-HEAD ANSWERS THE QUESTION AND THEN EMBARRASSES EVERY INDICATOR.**
+Same entry, 252-session cap on every rule, net of 56 bps, on CAGR: trail −25%
+from peak **+1.73%**, fixed −20% +1.47%, hull55 flip +1 bar +1.01%, trail −15%
++0.57%, **hull55 flip price −0.15%**, **confirmed swing support −1.27%**,
+**EMA50 −1.81%**, **EMA34 −1.89%**, hull21 flip −4.59%. So the Hull flip beats
+support and both EMAs — and **the best stop in the table is the dumbest one, a
+plain wide percentage trail.** The ordering is close to monotone in time
+invested, which is the same wall from a ninth direction. 0 of 13 beat
+buy-and-hold.
+
+**THE EMA STOPS FAIL FOR A REASON WORTH NAMING: a 22.5% win rate**, the lowest
+in the table. Price crosses an EMA on noise, so a stop there is hit by nothing.
+
+**S2 FAILED AND THE FAILURE IS THE FINDING.** I predicted exiting AT the flip
+price would beat waiting one bar to confirm, since the bar after a flip should
+be down. The opposite: **+1.01% against −0.15%**. **The bar after the Hull turns
+red is on average an UP bar** — H13's `rev1` reversal effect. Confirming a bar
+later is not just safer, it is better, and that inverts the usual "cut the lag"
+instinct.
+
+**S4 FAILED TOO.** A tighter trail was predicted to raise the win rate and lower
+the mean; it lowers **both**. The only thing that raises the win rate is a
+take-profit — the swing-high TP reaches **46.6%** while collapsing the mean to
++0.48% and the CAGR to −1.98%. *A high win rate is bought, and the price is the
+right tail.*
+
+**TWO BUGS, BOTH CAUGHT BY IMPOSSIBLE NUMBERS.** A win rate of **exactly 0.0%**:
+the fixed stops had no other exit, so a level sitting below the entry closes
+losers and never winners and every completed trade was a loss by construction —
+fixed with a time cap on every rule, which is also what makes a fixed stop
+comparable to a trailing one. And a CAGR of **nan**: `ret = ratio − 1 − cost`
+can fall below −1 on a collapsing name, so the growth factor goes negative and a
+fractional power is NaN. **A statistic that cannot occur is the cheapest bug
+detector available**, and this is the second catch of that kind in two studies —
+H39's "beat buy-and-hold on 0.0% of trades" was the first.

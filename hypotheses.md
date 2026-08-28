@@ -2239,3 +2239,63 @@ entry year the rule is market beta with turnover — +0.2275 mean in 2010,
 +0.1016 in 2021, **−0.0427 in 2008, −0.0280 in 2024**.
 
 **Trials after H39: 230.** Bonferroni bar α = 0.05/230 = **0.00022**.
+
+---
+
+## H40 — the Hull's flip price as a stop, against support, EMAs and a plain trail
+
+**2026-08-28.** Asked for a dynamic TP/SL "based on when the Hull will turn
+colour", then whether that beats a classic stop from support or an EMA. Code
+`scripts/hull_stop.py`, memo `reports/hull_stop.md`.
+
+**THE REQUEST SPLITS AND ONLY ONE HALF IS POSSIBLE.** Forecasting the flip DATE
+is what H31 tested and failed. Computing the PRICE at which it flips tomorrow is
+exact: the Hull average is linear in the next close, so a single `x*` solves
+HMA_{t+1} = HMA_t. Closed form derived and **verified against brute force to
+1e-14**. It is arithmetic, not prediction — it says where, never when.
+
+**S1 CONFIRMED AND WORSE THAN PREDICTED.** How far below the close the ribbon's
+own reversal level sits, every green hull55 bar over 891 names: p5 **−75.8%**,
+p25 −29.8%, **median −13.5%**, p75 −4.9%. **A stop at the Hull flip is not a
+tight stop** — it is the same fact H37 measured as an 11% median give-back.
+
+**THE HEAD-TO-HEAD**, same entry (hull55 rising + EMA stack), 252-session cap on
+every rule so winners and losers both close, net of 56 bps, ranked on CAGR:
+
+| stop | win | mean | in mkt | **CAGR** | hold |
+|---|---|---|---|---|---|
+| trail −25% from peak | 40.9% | +14.59% | 55.4% | **+1.73%** | +8.83% |
+| fixed −20% from entry | 39.3% | +22.46% | 59.8% | +1.47% | +7.26% |
+| hull55 flip **+1 bar** | 33.7% | +3.00% | 28.4% | +1.01% | +10.28% |
+| trail −15% from peak | 36.0% | +6.87% | 46.0% | +0.57% | +9.64% |
+| **hull55 flip price** | 30.3% | +2.49% | 27.0% | **−0.15%** | +10.93% |
+| **confirmed swing support** | 30.5% | +3.31% | 43.1% | **−1.27%** | +8.87% |
+| **close under EMA50** | 22.5% | +2.70% | 32.3% | **−1.81%** | +10.12% |
+| **close under EMA34** | 22.6% | +1.60% | 29.2% | **−1.89%** | +10.73% |
+| hull21 flip price | 28.1% | +0.14% | 22.1% | −4.59% | +11.27% |
+
+**The Hull flip beats support and both EMA stops**, and loses to a plain wide
+percentage trail. The EMA stops are the worst of the classic family and their
+**22.5% win rate** says why: price crosses an EMA on noise. The ordering is
+close to monotone in time invested. **S3 CONFIRMED: 0 of 13 beat buy-and-hold.**
+
+**S2 FAILED, INFORMATIVELY.** I predicted exiting AT the flip price would beat
+waiting one more bar. The opposite: **+1.01% against −0.15%**. **The bar after
+the Hull turns red is on average an UP bar** — H13's `rev1` short-term reversal.
+Confirming a bar later is not just safer, it is better.
+
+**S4 FAILED.** A faster trail was predicted to raise the win rate and lower the
+mean. It lowers **both** (hull21 28.1% / +0.14% against hull55 30.3% / +2.49%).
+The only thing that raises the win rate is a take-profit — the swing-high TP
+reaches **46.6%** and collapses the mean to +0.48% and the CAGR to −1.98%. *A
+high win rate is bought, and the price is the right tail.*
+
+**TWO BUGS, BOTH CAUGHT BY IMPOSSIBLE NUMBERS.** The fixed stops printed a win
+rate of **exactly 0.0%** — with no other exit, a stop below the entry closes
+losers and never winners, so every completed trade was a loss by construction;
+fixed with a 252-session cap on every rule. And CAGR printed **nan** because
+`ret = ratio − 1 − cost` can fall below −1, making the growth factor negative
+and a fractional power NaN; clipped at 1%. **A statistic that cannot occur is
+the cheapest bug detector available** — the second such catch in two studies.
+
+**Trials after H40: 243.** Bonferroni bar α = 0.05/243 = **0.00021**.

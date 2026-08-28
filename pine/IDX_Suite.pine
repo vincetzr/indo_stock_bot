@@ -222,6 +222,45 @@ ehmaSlow = ta.ema(2.0 * ta.ema(close, hHalf) - ta.ema(close, hSlow), hRoot)
 hmaFast  = ta.wma(2.0 * ta.wma(close, fHalf) - ta.wma(close, fSlow), fRoot)
 ehmaFast = ta.ema(2.0 * ta.ema(close, fHalf) - ta.ema(close, fSlow), fRoot)
 
+// ---------------------------------------- [MEASURED] H40, the flip price ----
+//  THE PRICE AT WHICH THE RIBBON TURNS RED TOMORROW, in closed form. The Hull
+//  average is LINEAR in the next close, so there is exactly one price x* at
+//  which tomorrow's HMA equals today's; above it the ribbon stays green, below
+//  it turns red. With m = n/2, s = round(sqrt(n)), W_k = k(k+1)/2:
+//      WMA(p,k)_{t+1} = (k*x + C_k)/W_k,   C_k = W_{k-1} * WMA(p,k-1)_t
+//      d_{t+1} = 2*WMA(p,m)_{t+1} - WMA(p,n)_{t+1} = b*x + a
+//      x*      = (HMA_t * W_s - E - s*a) / (s*b),  E = W_{s-1}*WMA(d,s-1)_t
+//  Verified against a brute-force recomputation to 1e-14. This is ARITHMETIC,
+//  not a forecast: it says where the flip happens, never when.
+//
+//  AND IT IS A WIDE STOP, WHICH IS THE POINT OF PRINTING IT. Measured on every
+//  bar where the hull55 ribbon is green, across 891 names: the level sits
+//  13.5% below the close at the MEDIAN, 29.8% at the lower quartile and 75.8%
+//  in the worst twentieth. Anyone treating "stop where the Hull turns" as a
+//  tight stop is wrong by an order of magnitude, and the panel says so.
+//
+//  H40 also ran it against the alternatives, same entry, only the stop
+//  differing, 891 names, net of 56 bps, ranked on compounded CAGR:
+//      trail -25% from peak   +1.73%      hull55 flip price      -0.15%
+//      fixed -20% from entry  +1.47%      confirmed support      -1.27%
+//      hull55 flip + 1 bar    +1.01%      close under EMA50      -1.81%
+//      trail -15% from peak   +0.57%      close under EMA34      -1.89%
+//  The Hull flip beats support and both EMA stops and loses to a plain wide
+//  percentage trail. NONE of the thirteen beat buy-and-hold (+8.8% to +11.6%).
+zWm = hHalf * (hHalf + 1) / 2.0
+zWn = hSlow * (hSlow + 1) / 2.0
+zWs = hRoot * (hRoot + 1) / 2.0
+zb  = 2.0 * hHalf / zWm - hSlow / zWn
+zCm = (hHalf - 1) * hHalf / 2.0 * ta.wma(close, math.max(1, hHalf - 1))
+zCn = (hSlow - 1) * hSlow / 2.0 * ta.wma(close, math.max(1, hSlow - 1))
+za  = 2.0 * zCm / zWm - zCn / zWn
+zd  = 2.0 * ta.wma(close, hHalf) - ta.wma(close, hSlow)
+zE  = (hRoot - 1) * hRoot / 2.0 * ta.wma(zd, math.max(1, hRoot - 1))
+//  The derivation is the WMA Hull only; in EHMA mode it does not apply and the
+//  panel says n/a rather than printing a number from the wrong formula.
+flipPx = hullMode == "EHMA" ? na
+     : (hmaSlow * zWs - zE - hRoot * za) / (hRoot * zb)
+
 hull   = hullMode == "EHMA" ? ehmaSlow : hmaSlow
 hFast  = hullMode == "EHMA" ? ehmaFast : hmaFast
 hull2  = hull[2]
@@ -230,6 +269,8 @@ hullUp = hull > hull2
 pH1 = plot(showHull ? hull  : na, "Hull", hullUp ? color.new(color.lime, 20)
            : color.new(color.red, 20), 2)
 pH2 = plot(showHull ? hull2 : na, "Hull offset", color.new(color.gray, 90), 1)
+plot(showHull and hullUp ? flipPx : na, "flip price (ribbon turns red below)",
+     color.new(color.orange, 25), 1, plot.style_linebr)
 fill(pH1, pH2, color = hullUp ? color.new(color.lime, 80)
      : color.new(color.red, 80), title = "Hull ribbon")
 
@@ -610,7 +651,7 @@ fgCol = chart.fg_color
 cellBg = color.new(chart.bg_color, 12)
 headBg = color.new(chart.fg_color, 82)
 
-var table P = table.new(f_pos(), 2, 39, border_width = 1)
+var table P = table.new(f_pos(), 2, 41, border_width = 1)
 
 f_row(int r, string k, string v, color c) =>
     table.cell(P, 0, r, k, text_size = f_size(), text_color = fgCol,
@@ -623,7 +664,7 @@ f_head(int r, string t) =>
     table.cell(P, 1, r, "", text_size = f_size(), bgcolor = headBg)
 
 if showPanel and barstate.islast
-    table.clear(P, 0, 0, 1, 38)
+    table.clear(P, 0, 0, 1, 40)
 
     f_head(0, "STATE")
     f_row(1, "annualised vol (60b)",
@@ -648,81 +689,85 @@ if showPanel and barstate.islast
           stackLog > 0.0 ? color.lime : color.gray)
     f_row(9, "Hull " + str.tostring(hullLen) + " slope", hullUp ? "rising" : "falling",
           hullUp ? color.lime : color.red)
+    f_row(10, hullUp ? "  turns RED below" : "  turns GREEN above",
+          na(flipPx) ? "n/a (EHMA)" : str.tostring(flipPx, format.mintick) +
+           "   " + str.tostring(100 * (flipPx / close - 1.0), "#.1") + "%",
+          na(flipPx) ? color.gray : hullUp ? color.orange : color.lime)
 
-    f_head(10, "PROJECTION  [H32, in-sample, 1y]")
-    f_row(11, "target  +" + str.tostring(tgtPct, "#.#") + "%",
+    f_head(11, "PROJECTION  [H32, in-sample, 1y]")
+    f_row(12, "target  +" + str.tostring(tgtPct, "#.#") + "%",
           projOk ? str.tostring(tgtUp, format.mintick) : "n/a",
           projOk ? color.lime : color.gray)
-    f_row(12, "P(touch it within a year)",
+    f_row(13, "P(touch it within a year)",
           projOk ? str.tostring(pUp * 100, "#.0") + "%" : "n/a",
           projOk ? color.lime : color.gray)
-    f_row(13, "  earliest quartile", projOk ? f_date(sQ1) + "  (" +
+    f_row(14, "  earliest quartile", projOk ? f_date(sQ1) + "  (" +
           str.tostring(sQ1, "#") + "b)" : "n/a", fgCol)
-    f_row(14, "  median", projOk ? f_date(sMed) + "  (" +
+    f_row(15, "  median", projOk ? f_date(sMed) + "  (" +
           str.tostring(sMed, "#") + "b)" : "n/a", fgCol)
-    f_row(15, "  latest quartile", projOk ? f_date(sQ3) + "  (" +
+    f_row(16, "  latest quartile", projOk ? f_date(sQ3) + "  (" +
           str.tostring(sQ3, "#") + "b)" : "n/a", fgCol)
-    f_row(16, "mirror  -" + str.tostring(tgtPct, "#.#") + "%",
+    f_row(17, "mirror  -" + str.tostring(tgtPct, "#.#") + "%",
           projOk ? str.tostring(tgtDn, format.mintick) + "   " +
                    str.tostring(pDn * 100, "#.0") + "%" : "n/a",
           projOk ? color.red : color.gray)
     oddsCol = not projOk ? color.gray : pUp / pDn >= 1.2 ? color.lime
                : pUp / pDn < 1.0 ? color.red : fgCol
-    f_row(17, "up / down odds",
+    f_row(18, "up / down odds",
           projOk ? str.tostring(pUp / pDn, "#.00") + "x" : "n/a", oddsCol)
-    f_row(18, "caveat",
+    f_row(19, "caveat",
           not daily ? "SET CHART TO DAILY"
            : outOfDomain ? "vol outside fitted range"
            : not showProj ? "projection off" : "in-sample; band, not a date",
           not daily or outOfDomain ? color.orange : color.gray)
 
-    f_head(19, "TARGET / STOP  [H34, swing levels]")
-    f_row(20, "resistance (target)",
+    f_head(20, "TARGET / STOP  [H34, swing levels]")
+    f_row(21, "resistance (target)",
           na(resLvl) ? "none above - at new highs"
            : str.tostring(resLvl, format.mintick) + "   +" +
              str.tostring(100 * (resLvl / close - 1.0), "#.1") + "%",
           na(resLvl) ? color.gray : color.red)
-    f_row(21, "  P(touch it within a year)",
+    f_row(22, "  P(touch it within a year)",
           na(pRes) ? "n/a" : str.tostring(pRes * 100, "#.0") + "%",
           na(pRes) ? color.gray : fgCol)
-    f_row(22, "support (stop)",
+    f_row(23, "support (stop)",
           na(supLvl) ? "none below - at new lows"
            : str.tostring(supLvl, format.mintick) + "   -" +
              str.tostring(100 * (1.0 - supLvl / close), "#.1") + "%",
           na(supLvl) ? color.gray : color.lime)
-    f_row(23, "  P(touch it within a year)",
+    f_row(24, "  P(touch it within a year)",
           na(pSup) ? "n/a" : str.tostring(pSup * 100, "#.0") + "%",
           na(pSup) ? color.gray : fgCol)
-    f_row(24, "P(target first | one is hit)",
+    f_row(25, "P(target first | one is hit)",
           na(pFirst) ? "n/a" : str.tostring(pFirst * 100, "#.0") + "%",
           na(pFirst) ? color.gray : pFirst >= 0.5 ? color.lime : color.orange)
-    f_row(25, "bracket verdict",
+    f_row(26, "bracket verdict",
           "0 of 30 beat hold in both halves", color.orange)
-    f_row(26, "fibonacci", showFib ? "drawn - measured nothing" : "off",
+    f_row(27, "fibonacci", showFib ? "drawn - measured nothing" : "off",
           color.gray)
 
-    f_head(27, "HOW ACCURATE  [H36/H37, measured]")
-    f_row(28, "flip catches the top (F1)",
+    f_head(28, "HOW ACCURATE  [H36/H37, measured]")
+    f_row(29, "flip catches the top (F1)",
           na(detF1) ? "n/a" : str.tostring(detF1, "#.000") + "  vs null " +
            str.tostring(detNull, "#.000"),
           na(detF1) ? color.gray : detF1 > detNull ? color.lime : color.red)
-    f_row(29, "  peak already given back",
+    f_row(30, "  peak already given back",
           na(giveBack) ? "n/a" : str.tostring(giveBack * 100, "#.1") + "%",
           color.orange)
-    f_row(30, "P(touch) skill vs base rate", "+0.013 out-of-sample", fgCol)
-    f_row(31, "date band coverage", "0.500 measured / 0.50 claimed", color.lime)
+    f_row(31, "P(touch) skill vs base rate", "+0.013 out-of-sample", fgCol)
+    f_row(32, "date band coverage", "0.500 measured / 0.50 claimed", color.lime)
 
-    f_head(32, "IDX MECHANICS  [exact]")
-    f_row(33, "board", isThin ? "THIN +/-10%" : "main",
+    f_head(33, "IDX MECHANICS  [exact]")
+    f_row(34, "board", isThin ? "THIN +/-10%" : "main",
           isThin ? color.orange : fgCol)
-    f_row(34, "tick / max step", "Rp " + str.tostring(tick, "#") + " / Rp " +
+    f_row(35, "tick / max step", "Rp " + str.tostring(tick, "#") + " / Rp " +
           str.tostring(maxStep, "#"), fgCol)
-    f_row(35, "ARA tomorrow", "Rp " + str.tostring(araLvl, "#") + "  (+" +
+    f_row(36, "ARA tomorrow", "Rp " + str.tostring(araLvl, "#") + "  (+" +
           str.tostring(araPct * 100, "#") + "%)", color.lime)
-    f_row(36, "ARB tomorrow", "Rp " + str.tostring(arbLvl, "#") + "  (-" +
+    f_row(37, "ARB tomorrow", "Rp " + str.tostring(arbLvl, "#") + "  (-" +
           str.tostring(arbPct * 100, "#") + "%)", color.red)
-    f_row(37, "round trip (floor)", str.tostring(roundTrip * 100, "#.2") + "%",
+    f_row(38, "round trip (floor)", str.tostring(roundTrip * 100, "#.2") + "%",
           roundTrip > 0.015 ? color.orange : fgCol)
-    f_row(38, "flip labels",
+    f_row(39, "flip labels",
           sigSrc == "None" ? "off" : sigSrc + " - none compound",
           color.gray)
