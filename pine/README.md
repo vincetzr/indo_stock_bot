@@ -282,3 +282,109 @@ The support, resistance and 50% retracement lines plot as a **stepped series on
 every bar**, not just at the right edge. Scroll back and each bar shows the
 level that was known *then* — the levels are built from confirmed pivots and
 never repaint, so the chart can be audited by eye.
+
+
+---
+
+# How to use it, in plain English
+
+*Added 2026-08-28, because everything above is written for someone checking the
+statistics. This part is written for someone with the chart open.*
+
+## The one-minute version
+
+The chart tells you **where you are**. It does not tell you what to do, and the
+research says that every attempt to turn it into a what-to-do lost money.
+
+1. **Green Hull ribbon = the name is in an uptrend.** Red = it is not.
+2. **The orange line under the ribbon is where the ribbon turns red tomorrow.**
+   Exact arithmetic, not a guess. It is usually *far* below price — 13.5% at the
+   median — so treat it as "the trend is over here", not as a stop.
+3. **The red line above price is the target, the green line below is the stop.**
+   Both are prior swing levels the whole market can see. Real, and measured.
+4. **The panel's `P(target first | one is hit)` row is the trade in one number.**
+   Above 50% the target is the more likely of the two to arrive first.
+5. **The `round trip (floor)` row is what you pay to find out.** On a Rp 100
+   stock it is over 1.5%, which is most of a small target.
+
+## Reading the panel top to bottom
+
+**STATE — where the name is.**
+
+| row | what to do with it |
+|---|---|
+| annualised vol / IDX vol decile | decile 9–10 is the wild end. Everything moves faster there — the good and the bad equally. |
+| % of 52-week high | above 90% is the good half of the measured asymmetry (skew 2.15 near the high against 0.80 far below). |
+| drawdown from peak | past −20%, the odds of a new high inside 60 sessions are 27% and falling. |
+| turnover | under Rp 1bn/day, the spread eats a small target. This is the single most common way a good-looking setup is not one. |
+
+**TREND — is it going up.** `price > EMA50 > EMA100 > EMA200` is the best of 36
+gridded states. The `60b fwd mean log` row is what that state was historically
+worth over the next 60 sessions, against a base of −0.0140 — **note that the
+base is negative**: the average IDX name over the average 60 sessions lost
+money. The stack beats it. It does not by itself make money.
+
+**PROJECTION — set your target, read the odds and the date band.** Turn the
+`Target move %` dial. The panel answers: how often a name that looked like this
+touched `+X%` within a year, how often it touched `−X%` instead, and the
+quartile date band for the arrival. Half the cases that get there land between
+the two dates. **Half do not, which is the point of a band.**
+
+**TARGET / STOP.** The nearest confirmed swing high above and swing low below,
+each with the chance of touching it inside a year, plus `P(target first)`.
+
+**HOW ACCURATE.** The panel's own report card, on the chart, permanently.
+
+**IDX MECHANICS.** Tomorrow's ARA and ARB prices, the tick, the round-trip cost.
+This block is arithmetic and is the most reliable thing on the screen.
+
+## A worked read
+
+> Hull green, stack `price>F>M>S 3/3`, 8% off the 52-week high, turnover Rp
+> 4bn, resistance +11.8% away, support −4.5% away, `P(target first) 61%`,
+> round trip 0.72%.
+
+Uptrend confirmed, liquid enough that the spread is not the trade, and the
+target is 2.6× as far away as the stop while being the *more likely* of the two
+to arrive first. That is the shape you want. It is still a **coin flip with a
+good payout**, not a prediction — and 39% of the time the stop arrives first.
+
+> Hull green, 31% off the high, turnover Rp 0.4bn, resistance +3% away, stop
+> −24% away, round trip 1.9%.
+
+A 3% target that costs 1.9% to attempt, with a stop eight times further away
+than the target, on a name too thin to exit. Green ribbon, terrible trade. **The
+ribbon colour is the least informative thing on the chart.**
+
+## The four things the measurements say not to do
+
+1. **Do not trade the BUY/SELL arrows.** All four flip rules lose over 60
+   sessions net of cost; the classic dual-Hull cross is the worst. They are
+   drawn because a chart is for looking at.
+2. **Do not treat the Hull flip as a stop.** It sits 13.5% below price at the
+   median and 76% below in the worst twentieth.
+3. **Do not use Fibonacci.** It is off by default and measured nothing.
+4. **Do not take a target under about 5%.** The cost floor eats it, and the
+   probability laws have no discrimination that close in (AUC 0.502 at +5%).
+
+## The daily routine
+
+```bash
+python3 scripts/refresh.py --panel     # ~6 min, pulls the whole board
+python3 scripts/daily_signal.py        # names whose ribbon just turned green
+python3 scripts/daily_signal.py --fresh 9999 --top 25   # every green name
+```
+
+Run it after the close. IDX shuts at 15:50 WIB, so 19:00 Shanghai (11:00 UTC,
+18:00 WIB) is two hours after the bell and the daily bar is final.
+
+The list is ordered by **expectancy** — `P(target first) × target −
+P(stop first) × stop − cost` — and not by upside. That is deliberate: H25 ranked
+on the upside alone, cleared this project's significance bar, and H26 then
+showed the same screen was indistinguishable from a random cell on the ratio and
+compounded at −16%/yr. *A rate is not an objective; check what the denominator
+is doing before ranking on the numerator.*
+
+**Most rows come back negative.** On a typical evening 4 or 5 of 25 green names
+have a positive expectancy. That is the honest output of the arithmetic, and a
+list where everything looks good is a list with the cost term missing.

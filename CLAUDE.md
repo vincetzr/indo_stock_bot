@@ -2175,3 +2175,73 @@ can fall below −1 on a collapsing name, so the growth factor goes negative and
 fractional power is NaN. **A statistic that cannot occur is the cheapest bug
 detector available**, and this is the second catch of that kind in two studies —
 H39's "beat buy-and-hold on 0.0% of trades" was the first.
+
+## A31. The account simulator, and the control that took the answer back
+
+Asked for the TradingView script, a plain-English guide, a daily end-of-day
+signal, and *"if i start trading with 50 jt what is the expected return per
+month"*. The first three are packaging. The fourth is a research question and
+it needed a control this project had never run for a trading rule: **the same
+machine picking names at random.** Memo `reports/monthly.md`, logged H41.
+
+**THE FIRST TWO RUNS SAID THE ACCOUNT BEATS THE INDEX, AND THAT SHOULD HAVE
+BEEN THE WARNING.** H39 had measured the same rule compounding at +1.13% a year
+against +9.88% for holding the same names. A portfolio built from a rule that
+loses to holding, returning +15.0% against the index's +11.05%, is two studies
+of one rule disagreeing — which is the signal that one of them is wrong, not
+that the portfolio version found something.
+
+**Both explanations turned out to be true at once.** One bug: the entry filled
+on its own signal bar, a close only known once the bar was finished. And one
+structural fact: **a five-name book rotating constantly with a trailing stop,
+invested 87% of the time, IS an equal-weighted IDX portfolio with an exit
+rule.** A19 had already established that such a basket behaves nothing like the
+cap-weighted index. So the index was never the right comparison and beating it
+was never evidence.
+
+| | CAGR | mean month |
+|---|---|---|
+| Hull-filtered | +15.00% | +1.43% |
+| **random, identical machine** | **+14.19%** | **+1.44%** |
+| IHSG buy and hold | +11.05% | +1.04% |
+
+**+0.81% a year against a draw-to-draw luck spread of 8.35 points, and a mean
+month LOWER than random's.** Then the half-split: edge **−1.34%** early,
+**+2.55%** late, both inside their own error bars, and **1 of 10 draws beating
+the random mean in both halves against 2.5 expected by chance.** The filter
+does worse than a coin flip on the one replication test this repo trusts.
+
+**THE POWER STATEMENT IS THE MOST USEFUL NUMBER IN THE STUDY.** Months needed
+at t = 2 to distinguish this account's mean from **zero**: 104, i.e. **8.7
+years**. From **random picking**: **46,856, i.e. 3,905 years**. That is not a
+joke about precision — it is what a +0.81%/yr edge against a 7.30% monthly sd
+arithmetically means. **No live track record of any realistic length can tell
+this rule from random selection**, so anyone trading it for a year and judging
+by the outcome is reading noise in whichever direction it points. Stated
+separately from the effect, because A19 recorded conflating the two as its own
+error.
+
+**AND M2 FAILED IN THE DIRECTION THAT FLATTERED THE RULE, WHICH TAUGHT
+SOMETHING NEW.** The registered prediction was that the account would
+underperform the index. It did not. That failure is worth exactly nothing,
+because the control moved with it. **A prediction can fail in the flattering
+direction and still be uninformative if the benchmark it failed against is not
+the alternative the investor would actually take.** This is A19's missing-
+comparison lesson arriving from the opposite side: there the omission
+manufactured a result, here it would have manufactured a retraction of one.
+
+**The delivered answer is therefore a distribution and a disclaimer, not a
+rate:** typically +0.73% a month (Rp +366k on 50 juta), on average +1.43%
+(Rp +714k), ±7.30% of ordinary swing (±Rp 3.65m), with a −30.2% month
+(−Rp 15.1m) in the sample — **none of it attributable to the signal, and all of
+it in-sample.**
+
+**Two pieces of packaging shipped alongside.** `scripts/daily_signal.py` ranks
+every green-ribbon name on **expectancy** — `P(target first)×target −
+P(stop first)×stop − cost` — never on upside (H25→H26) and never on the odds
+ratio, which promoted setups with a 3% target and a 24% stop. On a typical
+evening **4 or 5 of 25 rows are positive**, and a scanner where everything looks
+good is a scanner with the cost term missing. And a Routine fires the scan at
+11:00 UTC on weekdays (19:00 Shanghai, two hours after the 15:50 WIB close),
+carrying the H39/H40/H41 caveats in its own prompt so the list cannot arrive
+without them.

@@ -2299,3 +2299,75 @@ and a fractional power NaN; clipped at 1%. **A statistic that cannot occur is
 the cheapest bug detector available** — the second such catch in two studies.
 
 **Trials after H40: 243.** Bonferroni bar α = 0.05/243 = **0.00021**.
+
+---
+
+## H41 — Rp 50 juta through the Hull rule: the monthly distribution, against a random-entry control (2026-08-28)
+
+**Question, as asked:** *"tell me if i start trading with 50 jt what is the
+expected return per month".* A single number would have been wrong three ways —
+the distribution is too skewed for a mean to describe it, one backtest reports
+its own luck, and no return means anything without the alternative beside it.
+So an actual book: Rp 50,000,000, at most 5 equal-weighted positions, entry on
+hull55 rising + EMA stack, exit on H40's best stop (−25% trail from peak,
+252-session cap), 0.56% a round trip plus the fraksi-harga spread, cash idle.
+777 names, 2,438,621 name-days, 293 months, 10 draws per arm.
+Memo: `reports/monthly.md`. Code: `scripts/monthly.py`.
+
+**PRE-REGISTERED before any cell was scored:**
+- **M1** median month near zero or negative, mean positive (right skew).
+- **M2** the account underperforms the index (H39: +1.13% vs +9.88% per name;
+  A19: the picks trail by ~2.2%/yr).
+- **M3** monthly sd several times the mean, so a year cannot tell skill from noise.
+
+**THE ANSWER, on Rp 50m:** mean month **+1.43%** (Rp +714,457), **median month
++0.73%** (Rp +365,527), 57% of months positive, sd **7.30%** (±Rp 3,648,964),
+worst month **−30.2%** (−Rp 15,120,393), invested 87% of the time. Draw-to-draw
+CAGR **+10.09% to +18.44%** — an 8.35-point spread that is luck, and is what a
+single backtest would have reported as the answer.
+
+**AND THE CONTROL RETRACTS IT.** A five-name book rotating constantly with a
+trailing stop **is an equal-weighted IDX portfolio with an exit rule**, and A19
+established that such a basket behaves nothing like the cap-weighted index — so
+beating the index says nothing about the signal. Against the SAME machine
+picking at random from the same universe:
+
+| | CAGR | mean month |
+|---|---|---|
+| Hull-filtered | **+15.00%** | +1.43% |
+| **random, identical machine** | **+14.19%** | **+1.44%** |
+| IHSG buy and hold | +11.05% | +1.04% |
+
+**+0.81% a year against a luck spread of 8.35 points, and a mean month LOWER
+than random's.** The account beats the index; so does picking at random. The
+outperformance belongs to equal weighting, not to the Hull.
+
+**THE HALF-SPLIT KILLS WHAT IS LEFT.** Edge early **−1.34% ± 4.22%**, edge late
+**+2.55% ± 6.34%** — opposite signs, both inside their error bars. Draws
+beating the random mean in **both** halves: **1 of 10, against 2.5 expected by
+chance.** The filter does worse than a coin flip on the one replication test
+this repo trusts.
+
+**THE POWER STATEMENT, KEPT SEPARATE FROM THE EFFECT STATEMENT** (A19 recorded
+conflating them as its own error). Months needed at t = 2 to tell this account's
+mean from **zero**: **104 (8.7 years)**. From **random picking**: **46,856
+(3,905 years)**. No live track record of any realistic length distinguishes this
+rule from random selection; a year of trading it and judging by the outcome is
+reading noise.
+
+**M1 PARTLY FAILED** — the skew is there (mean 1.43% vs median 0.73%) but the
+median is clearly positive, so "most months lose a little" is wrong; most months
+make a little. **M2 FAILED** — and the failure is not evidence for the rule,
+because the random arm moved with it. *A prediction can fail in the direction
+that flatters the rule and still tell you nothing, if the control moved too.*
+**M3 CONFIRMED** at 5.1×.
+
+**TWO BUGS, BOTH FOUND BY DISAGREEMENT WITH AN EARLIER STUDY.** The entry filled
+on its own signal bar — a close only known once the bar was finished — while H39
+filled at t+1 throughout; *two studies of one rule disagreeing is the signal that
+one of them is wrong.* And a delisted name was carried at its last price for the
+rest of the backtest, blocking a slot and inflating the book; now realised after
+five missing sessions. Neither moved the headline much, which is itself
+information about how little return sits in the entry bar.
+
+**Trials after H41: 246.** Bonferroni bar α = 0.05/246 = **0.00020**.
