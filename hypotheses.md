@@ -2178,3 +2178,64 @@ target +5% / stop +5%: mean log −0.0117, early −0.0056, late −0.0172. Acro
 H35 and H38 that is **fifty-five combinations and zero survivors.**
 
 **Trials after H38: 190.** Bonferroni bar α = 0.05/190 = **0.00026**.
+
+---
+
+## H39 — the Hull round trip: the filter is real, the trading destroys it
+
+**2026-08-28.** Asked to run "buy when the Hull turns green and there is a buy
+signal, sell when it turns red and there is a sell signal" across every IDX
+name, report the accuracy and the average return, and optimise for profit —
+then, separately, whether it is better to sell the moment the Hull turns red
+since IDX is long-only. Code `scripts/hull_trade.py`, memo
+`reports/hull_trade.md`.
+
+**THE RULE, MADE EXACT.** Both flips never land on the same bar, so it is the
+CONJUNCTION of two states. Enter the first bar where Hull rising AND signal on;
+exit the first bar where both reverse. **Every fill is the NEXT bar's close.**
+
+**G1 CONFIRMED.** Hull 55 + EMA stack, 15,327 round trips over 703 names, mean
+hold 32 sessions, net of 56 bps: **win rate 32.5%** against a matched hold's
+42.7%, **average return +5.54%** against +2.08%, median −2.58%. Classic
+trend-following shape — and **the best 1% of trades contribute 71% of the total
+return** (p95 +48.7%, p99 +161.6%).
+
+**THE PER-TRADE EDGE IS REAL.** Mean log +0.0127 against a duration-matched
+hold's −0.0022, positive in both halves (+0.0254 early, +0.0052 late).
+
+**AND IT DOES NOT SURVIVE BEING TURNED INTO MONEY.** The rule is in the market
+**33.5%** of the time. Compounded per name over the span it was active:
+**median CAGR +1.13% against +9.88% for simply owning the name**, beating it on
+**21.5% of names**. **Across the 40-cell grid, ZERO configurations beat
+buy-and-hold on CAGR**; the best is +1.63% against +2.76%. G2 confirmed.
+
+**MY FIRST VERSION OF THAT COMPARISON PRINTED 0.0% AND WAS MEANINGLESS.** It
+compared each trade to a hold over that trade's OWN entry and exit bars — the
+same trade minus the toll, so the rule could never win by construction. **A
+statistic that reads exactly 0.0% is a bug, not a finding.**
+
+**THE EXIT QUESTION HAS A CLEAN ANSWER.** Hull 89 + stack: exiting on the Hull
+alone gives **CAGR +1.45%** against **+1.00%** for waiting on both, while
+waiting on both earns **more per trade** (+6.85% vs +4.90%) by holding winners
+38 sessions instead of 29 — and sitting through the first leg down on every
+loser. **Faster out wins the compounding; slower out wins the average trade.**
+The ordering is stable across every Hull length and signal, which is why it is
+quoted at all: it is the one comparison here that is not the maximum of a sweep.
+
+**THE BENCHMARK COLUMN REVEALED THE REAL FINDING.** For EMA-stack cells the
+hold benchmark is **+9.9% to +11.2%/yr**; for EMA34/EMA50/hull-only cells it is
+**+2.0% to +3.0%**, against a panel median of **+2.56%**. So the stack entry
+filter selects spans where merely owning the name returned about four times the
+typical rate — **and the trading rule converts that 9.9% into 1.13%.** The
+signal carries real information about *what to own*; the act of flipping in and
+out destroys about nine tenths of its value. Part is the toll (32 sessions a
+trade at 56 bps ≈ 4.4%/yr); the larger part is being out of a rising asset two
+thirds of the time.
+
+**G3 CONFIRMED.** 33 of 40 cells are positive in both halves on the
+*duration-matched* edge, which sounds strong and is not: that measures "better
+than a random-start hold of the same length", not "better than holding". By
+entry year the rule is market beta with turnover — +0.2275 mean in 2010,
++0.1016 in 2021, **−0.0427 in 2008, −0.0280 in 2024**.
+
+**Trials after H39: 230.** Bonferroni bar α = 0.05/230 = **0.00022**.

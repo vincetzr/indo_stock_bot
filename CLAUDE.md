@@ -2066,3 +2066,58 @@ last one; fixed in both, and BBCA then reads Rp 7,158 (+11.8%) against support
 at Rp 6,110 (−4.5%). **A panel that contradicts itself is the cheapest bug
 detector available, and it only works if the panel prints enough rows to
 contradict.**
+
+## A29. The Hull round trip, and the benchmark column that found the real result
+
+Asked to trade the chart's own signals across every IDX name — buy on Hull
+green + BUY, sell on Hull red + SELL — and report accuracy and average return;
+then, separately, whether to exit on the Hull alone since IDX is long-only.
+Memo `reports/hull_trade.md`, logged H39.
+
+**WHAT WAS ASKED FOR, MEASURED.** 15,327 round trips over 703 names, mean hold
+32 sessions, net of 56 bps: **win rate 32.5%** against a matched hold's 42.7%,
+**average return +5.54%** against +2.08%, median −2.58%. The textbook
+trend-following shape, and **the best 1% of trades contribute 71% of the total
+return.**
+
+**THE PER-TRADE EDGE IS REAL AND THE MONEY IS NOT.** Mean log +0.0127 against a
+duration-matched hold's −0.0022, positive in both halves. But the rule is in
+the market **33.5%** of the time, and compounded per name over the span it was
+active it returns a median **+1.13% CAGR against +9.88% for simply owning the
+name** — beating it on 21.5% of names. **Zero of forty grid configurations beat
+buy-and-hold on CAGR.**
+
+**A STATISTIC THAT READS EXACTLY 0.0% IS A BUG, NOT A FINDING.** The first
+version compared each trade to a "buy-and-hold" over that trade's OWN entry and
+exit bars — the same trade minus the toll, so the rule could never win by
+construction, and it dutifully printed "beat buy-and-hold on 0.0% of trades".
+The number was so clean it was obviously definitional. The comparison the
+question actually asks is the whole campaign: compound every trade a name
+produced against owning it across the same span.
+
+**THE EXIT QUESTION HAS A CLEAN AND STABLE ANSWER, unusually for this repo.**
+Exiting the moment the Hull turns red beats waiting for both conditions on CAGR
+(+1.45% against +1.00%), while waiting for both earns **more per trade** (+6.85%
+against +4.90%) by holding winners 38 sessions instead of 29 and sitting through
+the first leg down on every loser. **Faster out wins the compounding; slower out
+wins the average trade.** The ordering holds across every Hull length and every
+signal, which is why it is quoted at all — it is the one comparison here that is
+not the maximum of a sweep.
+
+**AND THE BENCHMARK COLUMN, ADDED AS A CONTROL, CONTAINED THE ACTUAL FINDING.**
+For EMA-stack cells the hold benchmark runs **+9.9% to +11.2%/yr**; for the
+EMA34, EMA50 and hull-only cells it runs **+2.0% to +3.0%**, against a panel
+median of **+2.56%**. The stack entry filter therefore selects spans in which
+merely owning the name returned about four times the typical rate — **and the
+trading rule converts that 9.9% into 1.13%.** The signal carries real
+information about WHAT TO OWN, and flipping in and out of it destroys roughly
+nine tenths of that value: part the toll (32 sessions a trade at 56 bps is
+~4.4%/yr), the larger part simply being out of a rising asset two thirds of the
+time. **A control added to make a result readable turned out to be the result.**
+
+**One packaging trap avoided.** 33 of the 40 cells are positive in both halves
+on the *duration-matched* edge, which reads as an overwhelming validation and
+is not one: that edge measures "better than a random-start hold of the same
+length", not "better than holding". Two benchmarks that sound alike answering
+opposite questions is the same shape as A19's missing index comparison, caught
+this time before it was published rather than after.
