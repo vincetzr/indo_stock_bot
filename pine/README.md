@@ -1,12 +1,16 @@
-# IDX Context — a TradingView indicator
+# IDX Suite — a TradingView indicator
 
-`IDX_Context.pine` — paste into TradingView's Pine editor and add to any IDX chart.
+`IDX_Suite.pine` — paste into TradingView's Pine editor and add to any IDX chart.
+
+Four layers: a Hull ribbon and EMA stack (the visual), IDX mechanics (exact
+arithmetic), a measured price×time **projection**, and flip labels that carry
+their own measurement. Full study: `reports/time_price.md`.
 
 ## Import
 
 1. TradingView → open any IDX chart (e.g. `IDX:BBCA`).
 2. Bottom panel → **Pine Editor** → **Open** → **New blank indicator**.
-3. Select everything in the editor and replace it with `IDX_Context.pine`.
+3. Select everything in the editor and replace it with `IDX_Suite.pine`.
 4. **Save** (name it anything), then **Add to chart**.
 5. Set the chart to **daily** — every number is measured on daily bars.
 6. Chart settings → Symbol → tick **Adjust data for dividends** if available.
@@ -103,3 +107,57 @@ ranked against ~24 live names is noisier than a fixed threshold is stale.
   statistics and portfolio outcomes can disagree completely.
 * **Not advice**, and not suitable as the basis of a discretionary
   recommendation for someone else's money.
+
+
+## The projection, added 2026-08-28
+
+Set a target percentage and the panel answers three measured questions: how
+often an IDX name in this state touched `+X%` within a year, how often it
+touched `−X%` instead, and — if it got there — when. The date band is a
+**quartile** band drawn as a box on the chart: half the cases that reach the
+target do so between the two dates.
+
+**Why a band and not a date.** The premise of any time-projection method is
+that turning points recur on a schedule. Tested four ways on 891 names and it
+does not:
+
+| test | result |
+|---|---|
+| ZigZag pivot-spacing regularity | CV **2.246** vs a block-bootstrap null of **1.340**, z **+32.7** — *less* regular than random |
+| is the interval memory a cycle? | at a 252-day block the null reproduces **87%** of it, excess z **+1.64**, ns |
+| a fixed period in the IHSG | strongest 885 sessions, power **140.2** vs null **151.6 ± 56.6**, **p = 0.499** |
+| month-of-year | pivot share runs **0.865 – 1.097** |
+
+Knowing a name's entire history of turn spacings narrows the 50% band for its
+next turn from ±140% of the median gap to ±125%.
+
+**And trend state moves the odds, not the clock.** Median sessions to +20%:
+base 54, EMA-stacked 54, not stacked 54, Hull rising 53. The only thing that
+moves the clock is volatility — 89 sessions in the calmest IDX decile against
+30 in the wildest — which is why the band is computed from the name's own
+`vol60`.
+
+**A trend filter is mostly a risk filter.** The stack multiplies upside odds by
+**1.19** and downside odds by **0.71**.
+
+**What it is worth.** The two laws reproduce the 180 measured cells to a median
+of **1.7 probability points** and **6% on the median time**; `python3
+scripts/pine_cone_check.py` prints the residuals and fails if they drift. Every
+number is in-sample, one-year, and the top of the date band is partly the
+252-session ceiling rather than the market.
+
+## The flip labels are drawn and are measured as worthless
+
+60-session hold, net of 56 bps, mean log return:
+
+| rule | mean log |
+|---|---|
+| any eligible bar, no toll — the benchmark | **−0.0140** |
+| EMA stack turns on | −0.0124 |
+| Hull-55 slope turns up | −0.0148 |
+| **HMA-21 crosses over HMA-55** | **−0.0191** |
+
+The classic dual-Hull cross is the worst of the four. That matches the repo's
+earlier Hull Suite + UT Bot work — 84 names, 240 configurations, best median
+excess CAGR −6.1%, lost to buy-and-hold in all five walk-forward folds. Set
+**Label these flips** to `None` if the arrows tempt you.
