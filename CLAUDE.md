@@ -2245,3 +2245,63 @@ good is a scanner with the cost term missing. And a Routine fires the scan at
 11:00 UTC on weekdays (19:00 Shanghai, two hours after the 15:50 WIB close),
 carrying the H39/H40/H41 caveats in its own prompt so the list cannot arrive
 without them.
+
+## A32. The scanner's own list, replayed through 26 years, and the hit rate is the trap
+
+A31 shipped `scripts/daily_signal.py` without ever checking it. Every number it
+prints — target, stop, `P(target first)`, the `EV` it ranks on — is a FITTED
+LAW; nothing had asked whether the rows it SELECTS behave as advertised. H42
+replays the identical scan at every historical bar: 116,754 signals, 706 names,
+2000-2026. Memo `reports/signal_backtest.md`.
+
+**THE ANSWER INVERTS THE QUESTION. The target IS reliably hit, and that is
+exactly why the list makes no money.** 68.5% touch it within a year, **59.1%
+reach it before the stop**, and the mean signal returns **+0.08%** against
+**+12.97%** for holding the same name for the year. Split by reward-to-risk it
+is perfectly monotone: R:R below 0.75 hits **74.2%** of the time and returns
+**−0.20%**; R:R above 4 hits **24.7%** and returns **+2.01%**. And **55% of all
+signals sit in that first bucket** — near target, far stop, high hit rate, the
+only cell that loses money. *A high win rate is bought and the price is the
+right tail* (H40's S4), reached here from a completely different direction.
+
+**THE CONTROL AGAIN, AND IT IS THE SAME ANSWER AS H41.** Same date, same bracket
+distances, a random eligible name: P(target first) **0.591 against 0.591** — to
+three decimals — and mean return **+0.50% against +0.08%**, so the random arm
+makes six times as much. Paired per signal with (ticker, year) block resampling:
+**−0.43% [−0.88%, +0.05%]**, negative in both halves of every arm. The interval
+clips zero so "worse than random" is not established; "no better than random" is.
+
+**AND THE NUMBER THAT ENDS IT: the bracket costs −13.06% a year
+[−16.25%, −10.22%]** against owning the name, negative in ALL TEN EV deciles.
+
+**B3 FAILED AND IT IS A SMALL GENUINE WIN.** I registered the EV column as a
+predicted-null. It separates — **+1.93% against −0.15%, in both halves** — but
+only in the top decile, and the `hold` column of the same table runs +21.55% in
+the worst EV bin down to +11.07% in the best: **the scanner systematically
+prefers names that, held, go up less.** Registering a predicted-null and having
+it fire is A9's lesson working as designed, in the direction that finds a real
+effect rather than a phantom one.
+
+**B1 CONFIRMED, and it is the cleanest statement of what the panel is for.**
+Pooled predicted 0.566 against realised 0.591, and under-confident rather than
+over-. Realised runs 0.275 → 0.893 across predicted deciles, which LOOKS like
+strong discrimination and is not — the deciles ARE the ratio of the two
+distances the reader chose. That is H36's AUC 0.51 restated: **it prices a
+decision already made and cannot make one.**
+
+**THE FOURTH IMPOSSIBLE NUMBER IN FOUR STUDIES, AND A FIFTH AVOIDED.** The first
+run printed an annualised return of **1.7e28** — annualising each trade's
+arithmetic return separately means a +50% trade held one bar contributes 1.5^252
+and one row swamps a hundred thousand. Annualise the MEAN LOG. And the trap that
+was avoided rather than committed: **a duration-matched hold is not a benchmark
+here**, because the bracket exits at the CLOSE of its exit bar and so does a hold
+of that many bars — the edge is identically zero by construction, H39's "0.0% of
+trades" waiting to happen. A test pins both.
+
+**AND THE REPLAY IS TESTED RATHER THAN ASSERTED**, which is what makes any of it
+readable. `tests/test_signal_backtest.py` truncates the panel to a past date,
+runs the LIVE scanner on what was knowable then, and demands the replay return
+the same row — at three distances into the past. One non-causal helper anywhere
+in the chain (a ZigZag drawn at the pivot instead of the confirmation bar, a
+centred window) would turn the whole backtest into a look-ahead, and nothing in
+the output would look wrong.

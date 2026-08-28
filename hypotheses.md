@@ -2371,3 +2371,80 @@ five missing sessions. Neither moved the headline much, which is itself
 information about how little return sits in the entry bar.
 
 **Trials after H41: 246.** Bonferroni bar α = 0.05/246 = **0.00020**.
+
+---
+
+## H42 — replaying the daily scan through 26 years of history (2026-08-28)
+
+**Question, as asked:** *"can you back test by creating signals for anytime in
+the [past] and whether it reliably hits the target?"* Every number
+`scripts/daily_signal.py` prints comes from a FITTED LAW; nothing had ever
+checked whether the rows the scanner SELECTS behave as it says. 116,754 signal
+rows, 706 names, 2000-07-27 → 2026-08-28, 252-session horizon, 2,793 censored
+and excluded. Memo: `reports/signal_backtest.md`.
+
+**The replay is causal and it is TESTED, not asserted.** EMAs/HMAs by
+construction, the flip price from trailing WMAs, swing levels gated on the
+CONFIRMATION bar, vol and turnover trailing. `tests/test_signal_backtest.py`
+truncates the panel to a past date, runs the LIVE scanner on it, and demands the
+same row back at three distances into the past. Exits fill at the ACTUAL CLOSE
+of the exit bar (A27), never the nominal level.
+
+**PRE-REGISTERED:** B1 the race law is calibrated but has no discrimination
+beyond the geometry. B2 "reliably hits the target" is false. B3 the EV column
+does NOT predict realised return (registered as the predicted-null control).
+B4 the top-N-by-EV basket does not beat the same bracket on random names.
+
+**B2 IS THE HEADLINE AND IT INVERTS THE QUESTION. The target IS reliably hit
+and it does not matter.** 68.5% touch it within a year, **59.1% reach it before
+the stop**, and the mean signal returns **+0.08%** against **+12.97%** for
+simply holding the same name for the year. Split by reward-to-risk the
+mechanism is perfectly monotone:
+
+| R:R | n | P(target first) | mean ret |
+|---|---|---|---|
+| <0.75 | 62,220 | **74.2%** | **−0.20%** |
+| 0.75–1.5 | 24,353 | 50.4% | −0.12% |
+| 1.5–2.5 | 12,923 | 39.1% | +0.35% |
+| 2.5–4 | 7,803 | 32.2% | +0.87% |
+| **>4** | 6,661 | **24.7%** | **+2.01%** |
+
+**55% of all signals carry a near target and a far stop** — the bucket that
+hits 74% of the time and the only one that loses money. *A high win rate is
+bought and the price is the right tail* — H40's S4 from a completely different
+direction.
+
+**B1 CONFIRMED.** Pooled predicted 0.566 against realised 0.591, slightly
+UNDER-confident (the safe direction). Realised runs 0.275 → 0.893 across
+predicted deciles, which looks like strong discrimination and is not: the
+deciles ARE the distance ratio the user chose. Exactly H36's AUC 0.51 — **it
+prices a decision already made and cannot make one.**
+
+**B3 FAILED, and the failure is a small genuine win.** EV>0 realised **+1.93%**
+against EV≤0 **−0.15%**, separating in BOTH halves (early +4.28 vs +0.26, late
+−0.27 vs −0.57). Two things stop it mattering: it lives entirely in the top
+decile (bins 0–8 are all within tens of bps of zero), and the hold column of the
+same table runs +21.55% in the worst EV bin down to +11.07% in the best — **the
+scanner prefers names that, held, go up less.**
+
+**B4 CONFIRMED, AND WORSE.** Same date, same bracket distances, a random
+eligible name: P(target first) **0.591 against 0.591** and mean return **+0.50%
+against +0.08%** — the random arm makes six times as much. Paired per signal,
+(ticker, year) block bootstrap: all signals **−0.43% [−0.88%, +0.05%]**, EV>0
+−0.48%, top-10 −0.42%, **negative in both halves of every arm.** The CI clips
+zero, so "worse than random" is not established at 95%; "no better than random"
+is, comfortably.
+
+**AND THE NUMBER THAT ENDS IT: bracketing costs −13.06% a year
+[−16.25%, −10.22%]** against owning the name. The bracket-minus-hold edge is
+negative in ALL TEN EV deciles, −8.85% even in the best.
+
+**THE FOURTH IMPOSSIBLE NUMBER IN FOUR STUDIES.** The first run printed an
+annualised return of **1.7e28**: annualising each trade's arithmetic return
+separately means a +50% trade held one bar contributes 1.5^252. Annualise the
+MEAN LOG instead. And a second trap was avoided rather than committed — **a
+duration-matched hold is not a benchmark here**, because the bracket exits at
+the close of its exit bar and so does a hold of that many bars, making the edge
+identically zero by construction (H39's shape). A test pins it.
+
+**Trials after H42: 254.** Bonferroni bar α = 0.05/254 = **0.00020**.
