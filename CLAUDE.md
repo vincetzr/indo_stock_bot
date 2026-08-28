@@ -1810,3 +1810,91 @@ does not clear this repo's Bonferroni bar, effective n is ~56, and the holdout
 is spent. Buying the index remains defensible; buying the ten most liquid names
 and not touching them for ten years is now the one measured alternative that
 has ever beaten it here.
+
+## A26. The time method does not exist, the cone does, and H30's constants were wrong
+
+Asked for an Astronacci-style read — technical gives the horizontal price
+target, a time method gives the date, and the two cross — plus a Hull ribbon
+with buy/sell labels like the TradingView charts everyone posts. Memo
+`reports/time_price.md`, logged H31/H32/H33, deliverable `pine/IDX_Suite.pine`.
+
+**THE CLAIM SPLITS IN TWO AND ONLY ONE HALF SURVIVES.** T1, that turning points
+recur on a schedule, is the strong claim and the one that makes the method
+distinctive. T2, that from a defined state the joint (how far, how long)
+distribution is quotable as a range with odds, needs no cycle at all. **T1 fails
+four ways; T2 holds and is wide.**
+
+**T1 FAILS, AND IT FAILS BY BEING MORE RANDOM THAN RANDOM.** ZigZag pivot
+spacing has a coefficient of variation of **2.246** against **1.340** for a
+block-bootstrap of the same returns, z = **+32.7**. A cycle makes spacing MORE
+regular. The interval memory that does exist — R² 0.145 against a null of
+0.062 — is volatility clustering: lengthen the bootstrap block to a year and
+the null reproduces **87%** of it (excess z = **+1.64**, not significant). The
+IHSG has no dominant period either: strongest 885 sessions, peak/mean power
+140.2 against a null of **151.6 ± 56.6**, **p = 0.499**, weaker than the median
+scrambled control. Month-of-year pivot share runs 0.865 to 1.097.
+
+**The number that ends it:** the 50% band for the date of the next turn is
+**±140%** of the median gap knowing nothing and **±125%** knowing that name's
+entire history of gaps. Full cycle knowledge is worth about a tenth of the
+band's width.
+
+**A DETECTOR THAT CANNOT FIND A CYCLE PROVES NOTHING BY NOT FINDING ONE.** The
+first ZigZag tracked only the previous bar before its first leg was confirmed,
+so it could not start until a SINGLE bar moved 10%, and it read **zero turns in
+a pure sine wave**. The whole negative result rested on it. The sine is now a
+test. **Every negative result about a detector needs a positive control on a
+case with a known answer** — this repo has recorded the null deciding a result
+seven times, and this is the same discipline one level down: check the
+instrument before believing what it fails to see.
+
+**T2 HOLDS, AND THE CENTRAL FINDING IS THAT STATE MOVES THE ODDS AND NOT THE
+CLOCK.** Median sessions to +20% by state: base **54**, EMA-stacked **54**, not
+stacked **54**, Hull rising **53**. A confirmed uptrend changes the chance of
+arriving and moves the timing by one session. **Volatility is the only clock**
+— 89 sessions in the calmest decile against 30 in the wildest — and it places
+the band rather than narrowing it. So the honest deliverable is a **cone**: a
+price band crossed with a quartile date band, computed from the name's own
+volatility, with a measured hit rate. The interquartile range for +20% is
+24 → 110 sessions, a factor of **4.6**. A quarter, never a week.
+
+**A TREND FILTER IS MOSTLY A RISK FILTER, which is not how anyone sells one.**
+The stack multiplies upside odds by **1.19** and downside odds by **0.71**.
+Twice the effect on the side nobody puts in the headline.
+
+**THE FIT NEARLY SHIPPED WRONG AND POOLED STATISTICS HID IT.** The cone is two
+closed-form laws so the chart can answer any target rather than nine. The first
+version was linear in log(distance): R² 0.95, median error 4.2 probability
+points — and it **under-predicted P(+20%) by ELEVEN POINTS, at the exact target
+the chart ships as its default**. Adding a quadratic and a distance×volatility
+interaction takes the median error to 1.71pp. **A pooled fit statistic does not
+tell you the fit is good at the cell the reader will actually ask for.**
+
+**AND H30's HEADLINE CONSTANTS ARE WITHDRAWN.** `ema_cross_idx.py` computed the
+60-session forward return as `px.shift(-60)/px` on a **date × ticker pivot**, so
+the step ran over the panel's union index instead of the name's own bars.
+Recomputed within ticker, the base is **−0.0140** and the stacked state
+**+0.0127**, not the published +0.0021 and +0.0218 — confirmed by reproducing
+both numbers with each method. **This is A11's own rule — "group by ticker,
+never roll on a pivot" — recommitted by its own author eight appendices later,
+in a study whose constants had already been shipped into a Pine script and given
+to the user.** The finding survives and improves: the stack beats the base by
++207 bps of mean log early and **+276 bps late**, positive in both halves
+relative to the base. What dies is the claim that it compounds on its own.
+
+**THE FLIP LABELS WERE ASKED FOR, ARE DRAWN, AND ARE MEASURED AS WORTHLESS.**
+60-session hold net of 56 bps, mean log: base (no toll) −0.0140, EMA stack
+−0.0124, Hull slope −0.0148, **HMA-21 over HMA-55 −0.0191 — the classic dual
+Hull cross is the worst of the four.** That matches `reports/hullut_*.csv`,
+where the published Hull Suite + UT Bot lost to buy-and-hold in 240 of 240 grid
+cells and all five walk-forward folds. Drawing a thing a user asked for while
+printing the measurement that says not to trade it is the right resolution;
+refusing to draw it, or drawing it silently, are both worse.
+
+**One drift guard worth keeping.** Pine cannot import anything, so the 27 fitted
+coefficients exist twice. `tests/test_cone.py` parses the .pine file and asserts
+every one appears verbatim, that the clamp matches, that the withdrawn H30
+constants survive only in the retraction paragraph and never in code, and that
+no statement is comma-chained (Pine has no comma operator and this file has made
+that mistake before). **The only thing worse than an unvalidated constant is two
+copies of it that stop matching.**

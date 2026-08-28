@@ -1781,3 +1781,156 @@ and `~False` is −1, and **both are truthy** — so `aligned & ~prev` evaluated
 `.astype(bool)` is the fix.
 
 **Trials after H30: 95.** Bonferroni bar α = 0.05/95 = **0.00053**.
+
+---
+
+## H31 — do IDX turning points recur on a schedule? (the Astronacci premise)
+
+**2026-08-28.** Asked to build an Astronacci-style read: technical analysis
+gives a horizontal price target, a time method gives the date. That decomposes
+into T1 "turning points recur on a schedule" and T2 "from a state, the joint
+(how far, how long) distribution is quotable as a range". H31 tests T1. Code
+`scripts/time_price.py cycles`, memo `reports/time_price.md`.
+
+**PRE-REGISTERED (P1, P2):** T1 fails; interval R² under 0.05; month-of-year
+indistinguishable from its null. **The threshold was wrong and the conclusion
+was right**, which is worth separating rather than claiming a clean hit.
+
+ZigZag pivots at 5/10/20%. Null: circular moving-block resample of each name's
+own returns — same marginal distribution, same short-range volatility
+clustering, no cycle. 100 draws, 150 names, observed computed on the same names.
+
+**PIVOT SPACING IS LESS REGULAR THAN A RANDOM WALK'S.** At 10%: CV **2.246**
+against a null of **1.340**, z = **+32.7**. A cycle makes spacing *more*
+regular. Median gap 12 sessions against the null's 14 — IDX turns sooner and
+far less predictably.
+
+**THE MEMORY THAT IS THERE IS VOLATILITY CLUSTERING.** R² forecasting the next
+gap from the last two is 0.145 against a null of 0.062 — above my registered
+0.05 and significant at z = +17.5. It is not a cycle. Lengthen the bootstrap
+block, which preserves longer volatility regimes, and the excess dies:
+
+| block | obs R² | null R² | excess | z |
+|---|---|---|---|---|
+| 5 | 0.119 | 0.028 | 0.091 | +29.6 |
+| 21 | 0.119 | 0.049 | 0.070 | +15.7 |
+| 63 | 0.119 | 0.076 | 0.042 | +6.4 |
+| **252** | 0.119 | **0.103** | **0.016** | **+1.64** |
+
+At a one-year block the null reproduces **87%** of it. A quiet regime yields
+several long gaps in a row and a violent one several short gaps; that is all.
+
+**NO FIXED PERIOD IN THE IHSG EITHER (H31c).** Detrended log index, 8,853
+sessions from 1990, periods 10–1,260: strongest is **885 sessions (3.51y)**,
+peak/mean power **140.2** against a null of **151.6 ± 56.6**, **p = 0.499** —
+*weaker* than the median scrambled control.
+
+**NO CALENDAR (P2 SUPPORTED).** Pivot share ÷ panel share by month runs
+**0.865 to 1.097**.
+
+**THE PRACTITIONER'S VERSION.** The 50% band for the date of the next turn is
+**±140%** of the median gap knowing nothing and **±125%** knowing that name's
+entire history of gaps. Full cycle knowledge narrows the date band by about a
+tenth of its width.
+
+**A DETECTOR THAT CANNOT FIND A CYCLE PROVES NOTHING BY NOT FINDING ONE.** The
+first version tracked only the previous bar before the first leg was confirmed,
+so it could not start until a *single* bar moved k — and read **zero turns in a
+pure sine wave**. Fixed, re-run, and the sine check is now a test. Every
+negative result about a detector needs a positive control on a case with a
+known answer.
+
+**Trials after H31: 99.** Bonferroni bar α = 0.05/99 = **0.00051**.
+
+---
+
+## H32 — the price×time cone, which is what a "target by date" honestly is
+
+**2026-08-28.** T2. Every eligible bar is an entry; for nine target levels the
+study records the **first passage time** within 252 sessions, dropping windows
+that run off the end of a name's life as censored rather than counting them as
+misses. 623,126 entries. Code `scripts/time_price.py cone law`.
+
+**PRE-REGISTERED (P3, P4): both supported.**
+
+**P(touch within a year), base:** +5% 0.824, +10% 0.725, +20% 0.567, +50% 0.293,
+**2x 0.122**; −10% 0.741, −20% 0.560, −33% 0.363, **−50% 0.177**.
+
+**A TREND FILTER IS MOSTLY A RISK FILTER.** The EMA stack moves P(+20%)
+0.567 → 0.598 (+5% relative) and P(−20%) 0.560 → 0.509 (−9% relative); at the
+2x/half pair, +11% up against −20% down. Fitted, the stack multiplies **upside
+odds by 1.19 and downside odds by 0.71** — nearly twice the effect on the side
+nobody puts in the headline.
+
+**P4 CONFIRMED AND IT IS THE CENTRAL RESULT.** Median sessions to +20% by state:
+base **54**, stacked **54**, not stacked **54**, Hull rising **53**. A confirmed
+uptrend changes the odds of arriving and moves the clock by one session.
+Direction and timing are separate questions and technical state answers only
+the first.
+
+**VOLATILITY IS THE CLOCK.** Median sessions to +20% by vol60 decile: **89** in
+the calmest, **62**, **49**, **30** in the wildest, while P(+20%) rises 0.415 →
+0.632 and P(−20%) rises 0.421 → 0.700. It places the band and does not narrow
+it — vol-scaling the time axis moves the interquartile ratio for +20% only from
+4.62 to 4.33 and makes 2x *worse*.
+
+**AND THE BAND IS WIDE IN EVERY ROW.** For +20% the interquartile range is
+24 → 110 sessions, a factor of **4.6**. A quarter-wide band, never a week.
+
+**TOUCH IS NOT END.** Base up/down at 2x reads **0.69** here against H26's skew
+of 1.33, because H26 measured P(*end* ≤ half) and this measures P(*touch* half).
+That is the difference between what a stop experiences and what a holder does.
+
+**H32b — the closed form, and the fit that nearly shipped wrong.** The 180-cell
+grid is reduced to two laws in `[1, log d, (log d)², log σ, log d·log σ]`
+(+ stack). **The first version was linear in log d, looked respectable pooled —
+R² 0.95, median error 4.2pp — and under-predicted P(+20%) by ELEVEN POINTS at
+the exact target the chart ships as its default.** With curvature: median error
+**1.71pp** up, **1.75pp** down, and 6.1% on the median time. *A pooled fit
+statistic does not tell you the fit is good at the cell the reader will ask
+for.* `scripts/pine_cone_check.py` is the check that caught it.
+
+**Trials after H32: 105.** Bonferroni bar α = 0.05/105 = **0.00048**.
+
+---
+
+## H33 — the flip rule the requested chart draws, and H30's withdrawn constants
+
+**2026-08-28.** Every flip a Hull/EMA chart would label, entered on the flip
+bar, held 60 sessions, charged 56 bps. Code `scripts/time_price.py flips`.
+
+**PRE-REGISTERED (P5): confirmed.**
+
+| rule | n | mean | median | win | mean log | early | late |
+|---|---|---|---|---|---|---|---|
+| price>50>100>200 turns on | 11,875 | +1.96% | −1.62% | 45.6% | −0.0124 | +0.0069 | −0.0311 |
+| **base — any eligible bar, no toll** | 611,023 | +2.27% | −1.02% | 46.2% | **−0.0140** | +0.0042 | −0.0295 |
+| hull55 slope turns up | 14,066 | +2.17% | −1.68% | 45.5% | −0.0148 | +0.0048 | −0.0310 |
+| **hma21 over hma55** | 16,736 | +1.80% | −1.96% | 45.1% | **−0.0191** | −0.0019 | −0.0336 |
+
+**The dual-Hull cross — the exact signal on the chart that was asked for — is
+the worst of the four**, 51 bps of mean log below simply owning an eligible
+name, and the only one negative in both halves. Consistent with the repo's
+earlier Hull Suite + UT Bot work: 84 names, 240 configurations, best median
+excess CAGR −6.1%, beat buy-and-hold on 26% of names, lost in all five
+walk-forward folds.
+
+**H30's +0.0218 AND +0.0021 ARE WITHDRAWN.** `ema_cross_idx.py` computed the
+forward return as `px.shift(-60)/px` on a **date × ticker pivot**, so the step
+ran over the panel's union index rather than the name's own bars — shorter
+windows for any name that does not trade every session, biasing a negative mean
+log toward zero. Recomputed within ticker: base **−0.0140**, stack **+0.0127**.
+Diagnosed by reproducing both figures with each method — the pivot version
+returns 0.00214 and 0.02203, matching H30 to three decimals.
+
+**THIS IS A11's OWN DEFECT, RECOMMITTED EIGHT APPENDICES LATER BY THE SAME
+AUTHOR**, in a study whose constants had already been shipped into a Pine script
+and handed to the user. Writing the rule down does not make it operate; the only
+thing that catches it is recomputing the number a second way.
+
+**The finding survives and is cleaner.** The stack beats the base by +207 bps
+early and **+276 bps late** — positive in both halves *relative to the base*,
+which is the comparison that matters. What is withdrawn is any claim that the
+state compounds positively on its own: late-half absolute is −0.0019, flat.
+
+**Trials after H33: 109.** Bonferroni bar α = 0.05/109 = **0.00046**.

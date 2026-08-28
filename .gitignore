@@ -43,3 +43,6 @@ data/spine/liquid_rerank.parquet
 # And the H23 horizon table, rebuilt by scripts/horizon_sweep.py (drop
 # --report) in about five minutes from the panel.
 data/spine/horizon_sweep.parquet
+# And the H32 first-passage table, rebuilt by scripts/time_price.py cone in
+# about ten minutes from the panel. 35MB of reproducible integers.
+data/spine/cone.parquet
