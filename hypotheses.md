@@ -2464,3 +2464,70 @@ but not the replay made them different screens (the gate is now a PARAMETER
 defaulting to zero, because a backtest that inherits the filter it is evaluating
 can only ever confirm it), and an emptied scan returned a column-less frame,
 turning "nothing qualified" into a KeyError.
+
+---
+
+## H43 — rebalance frequency for the strength+calm screen, and a conflict it exposes (2026-08-28)
+
+**The parameter nobody chose.** H26's screen is the one result here that cleared
+the Bonferroni bar, replicated in both halves, and was confirmed out of sample
+by H27 — and its basket was rebalanced ANNUALLY because H16 picked a 252-session
+horizon for an unrelated reason and twelve studies inherited it. A20: when the
+horizon was finally varied it INVERTED the answer. 6 holding periods × 8 start
+phases, each against a size-matched random basket from the identical universe
+and against the IHSG on a total-return basis over that arm's OWN window. Cost
+charged on TURNOVER, not on frequency. Memo: `reports/rebalance.md`.
+
+**PRE-REGISTERED:** P1 net return is humped in the holding period, optimum
+between a quarter and a year. P2 the picks-minus-random edge is roughly
+INVARIANT to frequency, since signal quality is a property of the cross-section
+not of how often you act. P3 PREDICTED NULL — the start phase does not matter.
+
+| hold | turn | cost/yr | CAGR | random | index | **vs index** | gross edge |
+|---|---|---|---|---|---|---|---|
+| 1 month | **58%** | 5.84% | +10.91% | −5.21% | +11.52% | −0.61% | **+12.78%** |
+| 1 quarter | 76% | 2.53% | **+11.97%** | −0.13% | +11.64% | **+0.33%** | +11.53% |
+| 6 months | 84% | 1.39% | +11.99% | +2.67% | +12.18% | −0.18% | +9.12% |
+| 1 year | 91% | 0.74% | +10.98% | +5.31% | +13.20% | −2.22% | +5.60% |
+| 2 years | 92% | 0.37% | +7.94% | +5.90% | +13.84% | −5.90% | +2.01% |
+| 3 years | 96% | 0.25% | +6.67% | +3.68% | +14.53% | −7.86% | +2.99% |
+
+**P1 CONFIRMED** — humped, peaking between a quarter and six months.
+
+**P2 FAILED AND IT IS THE FINDING.** The GROSS edge over random decays
+monotonically **+12.78% → +2.01%** as the hold goes from a month to two years.
+**The screen is a SHORT-HORIZON signal**, not a buy-and-hold-forever one. Gross
+is reported separately because the control churns 95% against the screen's 58%,
+so a net difference confounds selection with turnover.
+
+**THE SCREEN IS STICKY, which is new.** Only 58% of the basket changes month to
+month, so monthly rebalancing costs 5.84%/yr rather than the ~12% a full
+rotation implies. Every earlier study here priced a rebalance as the whole book.
+
+**P3 NEARLY FIRED.** Across-frequency spread 3.38% against a within-frequency
+phase spread of **2.93%** — ratio 1.15, very nearly a tie. A first version
+printed "frequency dominates, the result is readable", which is far too
+generous. With 8 phases the se of a frequency mean is 1.04%, so **differences
+under ~2.08% are not readable and monthly/quarterly/six-month are mutually
+indistinguishable.** The SHAPE is established (2- and 3-year holds are readably
+worse); the optimum is not. Measured on the excess over the index, not raw
+CAGR, because a 3-year phase offset moves the start date by 3 years (A19).
+
+**THE CONFLICT, WHICH MATTERS MORE.** H26's memo claims the screen returns
+**+18.5%/yr against the index's +14.4%**. This reproducible portfolio walk says
+**+10.98% against +13.20% over the same window — the sign flips.** Three things:
+H26's basket number is a **hardcoded `EVIDENCE` dict and the simulation that
+produced it is not in the repo**, which violates §15 independently of which
+number is right; its language ("median 58.3×", "90.2% of draws", percentiles) is
+that of RESAMPLING, not a historical path, and **if those draws sampled names
+independently from a pooled distribution they would understate how correlated
+one year's screen is** — every name in the cell is a high-momentum low-vol
+liquid name — inflating the median compounded outcome; and until it is
+reproduced (~1 hour) the reproducible one should be believed.
+
+**AND BEATING THE RANDOM CONTROL IS NECESSARY AND NOWHERE NEAR SUFFICIENT.**
+The same portfolio beats random by +12.78% and loses to the index by 0.61%.
+Both are true; only the second is a decision. A19 recorded the missing index
+comparison as the error that manufactured a result — here it catches a second.
+
+**Trials after H43: 262.** Bonferroni bar α = 0.05/262 = **0.00019**.

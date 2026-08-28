@@ -2334,3 +2334,57 @@ is evaluating can only ever confirm it.** And an emptied scan returned
 today" into a `KeyError` in every caller. Both are now pinned, the second by a
 test that also checks the declared column tuple against what a populated scan
 produces so it cannot drift.
+
+## A33. The rebalance frequency nobody chose, and the conflict it exposed
+
+A32 closed the scanner. The next question was the one parameter the SURVIVING
+screen had never had varied: H26's basket was rebalanced annually because H16
+picked 252 sessions for an unrelated reason and twelve studies inherited it —
+the exact shape A20 says has a project-wide blast radius. Memo
+`reports/rebalance.md`, logged H43.
+
+**P1 CONFIRMED: the curve is humped**, peaking between a quarter and six months
+(+11.97%, +11.99%) against monthly +10.91% and three-yearly +6.67%.
+
+**P2 FAILED AND IT IS THE FINDING.** I registered that the selection edge would
+be INVARIANT to how often you act on it, since signal quality is a property of
+the cross-section. It is not: the GROSS edge over a random basket decays
+monotonically **+12.78% at a one-month hold to +2.01% at two years**. **The
+screen is a SHORT-HORIZON signal, not a buy-and-hold-forever one** — which
+corrects advice I had given one message earlier, extrapolating H23's ten-year
+result on the LIQUID DECILE to a screen that behaves nothing like it.
+
+**GROSS HAD TO BE SEPARATED FROM NET BECAUSE THE CONTROL CHURNS MORE THAN THE
+TREATMENT.** A random basket redrawn monthly rotates ~95% of its book; the
+screen rotates **58%**. A net-of-cost difference between them confounds
+SELECTION with TURNOVER, and at monthly frequency the cost gap alone is several
+points a year. The stickiness is itself new: cost is charged on TURNOVER here,
+and every earlier study in this repo priced a rebalance as the whole book.
+
+**P3, THE PREDICTED NULL, NEARLY FIRED.** Across-frequency spread 3.38% against
+a within-frequency PHASE spread of 2.93% — ratio **1.15**, very nearly a tie. A
+first version printed "frequency dominates, the result is readable", which is
+far too generous for 1.15. With 8 phases the se of a frequency mean is 1.04%, so
+**differences under ~2.08% are not readable: monthly, quarterly and six-month
+are mutually indistinguishable.** The SHAPE is established, the optimum is not.
+**A binary verdict on a ratio near one is a way of not reporting a null.**
+
+**AND THE CONFLICT MATTERS MORE THAN THE FREQUENCY.** H26's memo claims the
+screen returns **+18.5%/yr against the index's +14.4%**; this reproducible,
+costed, window-matched portfolio walk says **+10.98% against +13.20% — the sign
+flips on the central claim of the one surviving result.** H26's basket number is
+a **hardcoded `EVIDENCE` dict whose simulation is not in the repo**, violating
+§15 independently of which number is right. Its language — "median 58.3x",
+"beats the index in 90.2% of draws", percentiles — is that of RESAMPLING rather
+than a historical path, and **draws that sample names independently from a
+pooled distribution would understate how correlated one year of this screen is**
+(every name in it is a high-momentum low-vol liquid name), inflating the median
+compounded outcome. That is a hypothesis, not a demonstration, because the code
+is gone; reproducing it costs about an hour.
+
+**AND BEATING THE RANDOM CONTROL IS NECESSARY AND NOWHERE NEAR SUFFICIENT.** The
+same portfolio beats random by **+12.78%** and loses to the index by **0.61%**.
+Both are true of one thing and only the second is a decision. A19 recorded the
+missing index comparison as the error that manufactured a result; this is the
+same comparison catching a second one, in the study that was supposed to be
+tuning the winner.
