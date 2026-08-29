@@ -2531,3 +2531,61 @@ Both are true; only the second is a decision. A19 recorded the missing index
 comparison as the error that manufactured a result — here it catches a second.
 
 **Trials after H43: 262.** Bonferroni bar α = 0.05/262 = **0.00019**.
+
+---
+
+## H44 — the simple methods on a cost ladder (2026-08-29) — HEADLINE WITHDRAWN
+
+**Question:** does IDX reward support/resistance, stochastic, EMA and Fibonacci,
+and does the answer change at institutional cost? Monthly decile portfolios,
+36,508 (period, name) rows, 774 names, cost swept 56→0 bp, long-only and
+long-short. Memo: `reports/cost_ladder.md`.
+
+**THE FIRST RUN SAID YES AND IT WAS AN ARTEFACT.** `ema_cross` +26.5% at 56bp
+with a 200-draw clustered-null z of **+6.58**, `stoch_strong` +21.1% z=+5.08,
+`sr_break` +21.0% z=+4.66, with `fib_618` (z −0.79) and the predicted-null
+`rand` (z −1.41) both flat exactly as registered. It would have been the first
+positive result in the project.
+
+**FIVE DEFECTS. The two that mattered are controls this repo already mandates
+and I skipped.**
+1. **IC by liquidity decile was never run (§7).** Rank IC of stoch_k vs forward
+   return: **+0.072 bottom turnover tercile, −0.0021 (t −0.15) top tercile**,
+   and it rises monotonically with price STALENESS (+0.035 for names that move
+   daily, **+0.099 for names flat >30% of the month**) — non-synchronous
+   trading, not forecasting.
+2. **The fraksi-harga half-spread was omitted (A23, second commission).** 44–54
+   bps on the harness's own picks, so the ladder's top rung sat below the real
+   retail floor.
+3. **Annualisation at 12 periods/yr when the surviving rate is 10.99.**
+4. **Tie-break (A15):** `ema_stack` is 96.4% tied within a date and sorts
+   alphabetically; 25 random tie-breaks span **+16.2% to +36.2%**. Withdrawn.
+5. **`sr_break` never measured breakouts** — capped at exactly 0.0000 on all
+   36,508 rows, i.e. a new-high flag.
+
+**ON A TRADEABLE UNIVERSE (close ≥Rp500, turnover ≥Rp10bn) IT INVERTS:**
+stoch_strong **−1.7% gross / −7.4% net**, ema_cross **+1.5% / −2.8%**, against
+an equal-weighted pool of **+4.1%** — i.e. BELOW the pool they are drawn from,
+z = −0.17 against a random-book null. sr_break +7.8%/+3.5% weakly survives;
+`mom12_1` +10.4%/+8.1% is the only real survivor and it is the academic control,
+not a chart method — and it still loses to the index.
+
+**The framing was spurious too:** a plain 21-session trailing return scores
++34.3% and a close-only 14-day range +37.1% in the same harness. One factor,
+and it is recent price change on thin names (A22 from a new direction).
+
+**H13 IS RECONCILED, NOT CONTRADICTED.** H13 quoted a NEUTRALISED long-short
+QUINTILE spread on the whole panel; this quoted a RAW long-only DECILE-minus-mean
+on the liquid third. Different objects. H13's own note that "the most liquid 5%
+collapses the signal's t fivefold" was the answer from the start.
+
+**THE NEW LESSON, and it is the most important sentence in the memo: a
+permutation null tests whether a ranking beats a RANDOM RANKING. It cannot tell
+you the ranking is picking names nobody can trade.** It returned z = +6.58 on an
+artefact, because shuffling labels still leaves the same illiquid names in the
+book. Two independent null constructions (block-permuted returns, within-date
+score shuffle) agreed with each other and both were wrong about what mattered.
+
+**The user's hunch scores 0 for 4 at a tradeable threshold.**
+
+**Trials after H44: 280.** Bonferroni bar α = 0.05/280 = **0.00018**.

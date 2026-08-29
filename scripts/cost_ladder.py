@@ -71,6 +71,8 @@ import pandas as pd
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir, "src"))
 sys.path.insert(0, os.path.dirname(__file__))
 
+from paint_suite import tick_of                                  # noqa: E402
+
 PANEL = os.path.join("data", "spine", "price_panel.parquet")
 IND = os.path.join("data", "spine", "indicator_panel.parquet")
 INDEX = os.path.join("data", "cache", "ohlcv", "_JKSE.csv.gz")
@@ -255,6 +257,16 @@ def build(step: int = STEP, cache: bool = True) -> pd.DataFrame:
     D = D.dropna(subset=["fwd"])
     #  THE PREDICTED NULL. Deterministic from a hash of (ticker, date) so it is
     #  reproducible without a global RNG, which the workflow runtime forbids.
+    #  THE FRAKSI-HARGA HALF-SPREAD, PER NAME. A5's toll is 56 bps of FEES
+    #  PLUS half a tick each way, and on IDX the tick is a step function of
+    #  price: Rp1 under 200, Rp2 under 500, Rp5 under 2000. On the median
+    #  selected name (~Rp 700) that is another ~50 bps round trip -- almost as
+    #  much again as the entire commission. A first version charged fees only
+    #  and understated the real retail cost by about half. A23's lesson, which
+    #  this repo has now committed twice: every cost figure here is a FEE plus
+    #  a SPREAD, and dropping the spread is not a rounding error.
+    D["tick_bps"] = [10000.0 * tick_of(c) / c
+                     for c in D["close"].to_numpy(float)]
     D["rand"] = ((pd.util.hash_pandas_object(
         D["ticker"] + D["date"].astype(str), index=False).to_numpy()
         % 100000) / 100000.0)
@@ -265,8 +277,13 @@ def build(step: int = STEP, cache: bool = True) -> pd.DataFrame:
 
 
 def walk(D: pd.DataFrame, rule: str, toll_bps: float,
-         short: bool = False) -> Dict:
-    """Equal-weighted decile portfolio, cost charged on TURNOVER."""
+         short: bool = False, spread: bool = True) -> Dict:
+    """Equal-weighted decile portfolio, cost charged on TURNOVER.
+
+    `spread` adds the point-in-time fraksi-harga half-spread of the names
+    actually held, on top of `toll_bps`. It defaults ON because a toll without
+    it is the cost of a trade nobody makes.
+    """
     toll = toll_bps / 10000.0
     prev_l: set = set()
     prev_s: set = set()
@@ -284,10 +301,13 @@ def walk(D: pd.DataFrame, rule: str, toll_bps: float,
         tl = 1.0 - len(lset & prev_l) / max(len(lset), 1)
         ts = (1.0 - len(sset & prev_s) / max(len(sset), 1)) if short else 0.0
         turn = (tl + ts) / (2.0 if short else 1.0)
+        sp = 0.0
+        if spread and "tick_bps" in g.columns:
+            sp = float(pd.concat([L, S])["tick_bps"].mean()) / 10000.0
         r = float(L["fwd"].mean())
         if short:
             r = 0.5 * r - 0.5 * float(S["fwd"].mean())
-        rets.append(r - turn * toll * (2.0 if short else 1.0))
+        rets.append(r - turn * (toll + sp) * (2.0 if short else 1.0))
         turns.append(turn)
         dates.append(day)
         prev_l, prev_s = lset, sset
