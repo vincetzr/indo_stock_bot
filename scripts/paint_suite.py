@@ -220,6 +220,19 @@ def panel(g: pd.DataFrame, tk: str, target: float) -> List[str]:
               f"Rp {np.ceil(close * (1 - arb) / tick) * tick:,.0f}  (-{arb:.0%})"),
           row("round trip (floor)", f"{round_trip * 100:.2f}%"),
           row("flip labels", "EMA34 break - none compound")]
+    #  H44'S LIQUIDITY GATE, mirrored from the .pine so the two agree. Every
+    #  apparent edge in the simple-method sweep lived BELOW this line: the rank
+    #  IC of a stochastic against the forward return is +0.072 in the bottom
+    #  turnover tercile and -0.0021 (t -0.15) in the top, rising with price
+    #  STALENESS (+0.099 for names flat >30% of the month). That is
+    #  non-synchronous pricing, not forecasting.
+    rp60 = float(np.nanmedian((g["close"] * g["volume"]).tail(60)))
+    ok = bool(close >= 500 and rp60 >= 1e10)
+    L += ["", "H44 LIQUIDITY GATE  [the row that matters most]"]
+    L += [row("tradeable universe",
+              "YES - edges tested here are ~ZERO" if ok
+              else "NO - edges here are non-synchronous pricing"),
+          row("60-bar median turnover", f"Rp {rp60 / 1e9:,.1f}bn")]
     return L
 
 

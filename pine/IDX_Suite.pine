@@ -164,6 +164,16 @@ hi252 = ta.highest(close, 252)
 hi52  = close / hi252
 ddPk  = close / hi252 - 1.0
 rpDay = ta.median(close * volume, 20)
+// H44's LIQUIDITY GATE, and it is the most important row on this panel.
+// Every apparent edge in the simple-method sweep -- EMA, stochastic, breakout
+// -- lived BELOW this line and inverted above it. The rank IC of a stochastic
+// against the forward return is +0.072 in the bottom turnover tercile and
+// -0.0021 (t = -0.15) in the top one, and it rises with price STALENESS
+// (+0.099 for names flat more than 30% of the month), which is non-synchronous
+// trading rather than forecasting. On names that clear this gate the same
+// rules finish BELOW the pool they are drawn from.
+rp60      = ta.median(close * volume, 60)
+tradeable = close >= 500 and rp60 >= 1e10
 
 // Where this name's volatility sits across IDX, from the measured decile edges
 // of 623,126 eligible name-days. Context, and the reason the date band moves.
@@ -771,3 +781,7 @@ if showPanel and barstate.islast
     f_row(39, "flip labels",
           sigSrc == "None" ? "off" : sigSrc + " - none compound",
           color.gray)
+    f_row(40, "H44 tradeable universe",
+          tradeable ? "YES - indicator edges tested here are ~ZERO"
+           : "NO - thin/cheap; edges here are non-synchronous pricing",
+          tradeable ? color.lime : color.red)
