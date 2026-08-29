@@ -2842,6 +2842,18 @@ label "hit target first" is identically zero, so the classifier had nothing to
 learn and returned the unranked sample while printing a row that looked like a
 model result. That arm's meta-label is now "did this trade end positive".
 
+**AND THE HORIZON GAP H50 LEFT OPEN, NOW CLOSED.** The frontier swept 21/63/126/
+252 sessions and stopped at one year — the same error A20 names, committed in
+the study whose docstring cites it. Retested with a pure hold (no take-profit,
+no stop: the configuration that maximises the mean and the positive rate at
+once) at 1, 2, 5 and 10 years: positive rate 46.7% -> 47.9% -> 49.3% -> **52.9%**,
+**0 of 8 cells reach the joint goal**. Ten years of holding buys six points of
+positive rate, not thirty-three. Two by-products: the MEDIAN ten-year outcome
+for the eligible board is **+9.66% in total**, about 1%/yr (A20's far better
+ten-year numbers were the liquid DECILE, a much narrower set); and `ann` stays
+**negative at ten years (−1.5%)** because enough names fall 90–99% that the left
+tail dominates the mean log. Time does not rescue an equal-weighted basket.
+
 **Trial count: 7 registered tests (Q0–Q6). The 120-cell frontier and 10-cell
 model table are a frontier MAP, not 130 hypotheses. Trials after H50: 302.**
 Bonferroni bar α = 0.05/302 = **0.00017**. No positive claim is made against it:

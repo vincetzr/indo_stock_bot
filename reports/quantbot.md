@@ -235,6 +235,43 @@ model's skill.
 
 ---
 
+## 5b. The horizon gap this study left open — now closed
+
+**H50 swept 21 / 63 / 126 / 252 sessions and stopped at one year, which is the
+same error A20 names — a parameter fixed by convenience and then inherited —
+committed inside the study whose docstring cites it.** On a market with positive
+drift the probability a trade ends positive *rises* with the horizon, so if the
+joint target is reachable anywhere it is out past a year. Tested with a pure
+hold (no take-profit, no stop), the configuration that maximises **both** the
+mean and the positive rate at once — if this cannot reach the target, nothing
+weaker can. `scripts/quantbot_longhz.py`.
+
+| horizon | arm | n | names | **positive** | **mean** | median | ann | indep. n | goal? |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 year | trend | 178,822 | 323 | 47.3% | +5.97% | −2.30% | −5.1% | 1,721 | no |
+| 2 years | trend | 166,885 | 299 | 47.9% | +11.02% | −2.36% | −4.1% | 780 | no |
+| 5 years | trend | 125,782 | 205 | 50.5% | +36.44% | +1.11% | −3.1% | 231 | no |
+| **10 years** | trend | 76,774 | 136 | **52.2%** | +104.79% | +6.79% | −1.5% | 61 | **no** |
+
+**0 of 8 cells reach the joint goal, and the best positive rate a pure hold
+reaches at ANY horizon is 52.9%.** Ten years of holding moves the positive rate
+from 46.7% to 52.9% — six points, not thirty-three.
+
+Two things fall out that are worth more than the negative result.
+
+**The median over ten years is +9.66%.** Not per year — in total. An
+equal-weighted basket of the eligible IDX universe, held for a decade, has a
+median outcome of about one percent a year. A20's much better ten-year numbers
+were for the most liquid *decile*, a far narrower set; this is the whole
+tradeable board and it behaves nothing like it.
+
+**And `ann` stays negative even at ten years (−1.5%).** The geometric mean is
+below 1.0 while the median is above it, because enough names fall 90–99% that
+the left tail dominates the mean log. Time does not rescue an equal-weighted
+basket here; it just gives the losers longer to arrive.
+
+---
+
 ## 6. What I would actually hand you
 
 **The selection carries information.** The meta-model beats its label-shuffled
