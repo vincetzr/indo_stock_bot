@@ -1,0 +1,127 @@
+==============================================================================
+Q0 — THE LABELLER ON A MARKET WITH A KNOWN ANSWER
+Driftless walk, zero cost. Optional stopping fixes both columns: the
+conditional touch rate must be sl/(tp+sl) and the mean must be 0.00.
+
+  width    +tp    -sl  theory  MEASURED      z   t/o  bars   eff n  mean sym      z  mean real
+   0.05  0.050  0.050   0.500     0.496   1.40  0.0%     7   27410   -0.0004   1.40    -0.0032
+   0.05  0.025  0.100   0.800     0.793   2.70  0.0%     8   25791   -0.0009   2.70    -0.0020
+   0.05  0.100  0.025   0.200     0.204   1.55  0.0%     7   28512   +0.0005   1.55    -0.0042
+   0.10  0.100  0.100   0.500     0.493   1.13  0.0%    26    7501   -0.0013   1.13    -0.0040
+   0.10  0.050  0.200   0.800     0.794   1.19  0.0%    29    6620   -0.0015   1.19    -0.0025
+   0.10  0.200  0.050   0.200     0.197   0.71  0.0%    24    8071   -0.0008   0.71    -0.0053
+   0.20  0.200  0.200   0.500     0.494   0.53  0.0%   104    1869   -0.0025   0.53    -0.0049
+   0.20  0.100  0.400   0.800     0.798   0.17  0.2%   132    1473   -0.0012   0.24    -0.0020
+   0.20  0.400  0.100   0.200     0.195   0.61  0.0%    86    2267   -0.0025   0.61    -0.0069
+
+  Scored against EFFECTIVE n, not row count. Every cell is within 2.7 se on
+  the touch rate and 2.7 se on the mean, so the labeller reproduces the martingale.
+  instrument PASSES
+  THREE ERRORS IN THIS CHECK BEFORE IT PASSED, ALL IN THE TEST:
+   1. log increments of mean zero make the PRICE drift up by
+      exp(sigma^2 T/2) = +5.2%; the labeller measured that and was
+      blamed for it. Drift the logs by -sigma^2/2 instead.
+   2. b/(a+b) is a PRICE-space formula; symmetric price barriers are
+      asymmetric in log space (+0.276 against -0.382).
+   3. feeding close=high=low forced every touch a day late and a
+      whole daily move past the level. Simulating 20 intraday steps
+      gives a true extreme and the overshoot collapses.
+  The last of those is a SIMULATION artefact and is shown to be one
+  by convergence — at the tightest geometry the error runs 0.0422 ->
+  0.0330 -> 0.0135 -> 0.0114 -> 0.0033 as the intraday path is
+  refined 1 -> 5 -> 20 -> 80 -> 320 steps. Real bars carry the TRUE
+  intraday extreme, so on IDX the trigger is exact and this residual
+  does not exist at all.
+  ANY win rate is purchasable and buying it changes nothing: that is
+  the whole constraint the goal runs into, now measured not asserted.
+  the real-fill column is MORE negative than the symmetric one by 0.0027 on average: that gap is
+  the modelled cost of a stop that fills at the close instead of at its level.
+
+==============================================================================
+Q1/Q2/Q3/Q6 — THE ACHIEVABLE FRONTIER
+Swept over HORIZON as well as geometry. Fixing the horizon is the
+error A20 names as having project-wide blast radius: twelve studies
+here inherited 252 sessions because H16 picked it for an unrelated
+reason, and varying it inverted the answer.
+
+120 cells. Net of 0.56% fees plus each name's own half-spread. `ann` compounds the
+mean log at 252/bars, i.e. ASSUMES the trade repeats back-to-back all year, which
+flatters short horizons — H47 measured that overstating a rate ~3x.
+
+cell                    hor      arm        n    POS     MEAN   median      ann  bars   t/o  yrs>=4%  A?
+NO tp / sl 2s           252    trend  178,822  47.1%   +5.77%   -2.45%    -5.3%   249   97%      60%  no
+NO tp / sl 2s           252 all bars  303,029  46.5%   +5.47%   -2.96%    -5.6%   248   96%      65%  no
+tp 2s / sl 2s           252    trend  178,822  48.1%   +4.95%   -1.65%    -5.1%   233   83%      56%  no
+tp 2s / sl 2s           252 all bars  303,029  47.3%   +4.68%   -2.41%    -5.5%   234   83%      62%  no
+NO tp / sl 1s           252    trend  178,822  45.1%   +4.46%   -4.76%    -6.4%   222   74%      56%  no
+NO tp / sl 0.5s         252    trend  178,822  35.2%   +3.76%  -14.27%    -5.3%   159   43%      52%  no
+tp 2s / sl 1s           252    trend  178,822  46.1%   +3.61%   -3.96%    -6.4%   206   61%      56%  no
+NO tp / sl 1s           252 all bars  303,029  43.4%   +3.49%   -6.53%    -7.4%   218   72%      54%  no
+NO tp / sl 0.5s         252 all bars  303,029  34.0%   +3.24%  -14.62%    -5.9%   156   42%      50%  no
+tp 2s / sl 0.5s         252    trend  178,822  36.2%   +2.97%  -14.05%    -5.2%   146   32%      52%  no
+tp 1s / sl 2s           252    trend  178,822  52.6%   +2.78%   +3.00%    -6.2%   197   61%      52%  no
+tp 2s / sl 1s           252 all bars  303,029  44.2%   +2.75%   -5.92%    -7.5%   203   59%      54%  no
+tp 2s / sl 0.5s         252 all bars  303,029  34.7%   +2.55%  -14.46%    -5.9%   143   31%      50%  no
+tp 1s / sl 2s           252 all bars  303,029  51.6%   +2.50%   +1.82%    -6.7%   199   61%      50%  no
+NO tp / sl 2s           126    trend  189,045  47.1%   +2.44%   -1.72%    -7.4%   124   96%      58%  no
+NO tp / sl 2s           126 all bars  317,301  46.7%   +2.18%   -1.98%    -8.2%   123   95%      56%  no
+NO tp / sl 1s           126    trend  189,045  45.1%   +2.04%   -3.26%    -7.3%   111   74%      50%  no
+NO tp / sl 1s           126 all bars  317,301  44.5%   +1.93%   -3.82%    -7.6%   109   72%      56%  no
+tp 2s / sl 2s           126    trend  189,045  47.8%   +1.87%   -1.31%    -7.5%   117   83%      54%  no
+NO tp / sl 0.5s         126    trend  189,045  35.1%   +1.68%  -10.41%    -6.9%    80   43%      46%  no
+  ... and the WIN-RATE end of the same frontier:
+tp 0.25s / sl 2s        252 all bars  303,029  77.7%   -0.44%   +7.16%   -10.7%    92   21%      35%  no
+tp 0.25s / sl 2s        126 all bars  317,301  77.5%   -1.07%   +4.80%   -16.0%    46   20%      19%  no
+tp 0.25s / sl 2s        252    trend  178,822  77.1%   -0.68%   +7.02%   -11.0%    94   22%      20%  no
+tp 0.25s / sl 2s        126    trend  189,045  77.0%   -1.07%   +4.73%   -15.2%    47   21%      12%  no
+tp 0.25s / sl 2s         63 all bars  325,145  76.8%   -1.27%   +3.10%   -21.8%    24   20%       4%  no
+tp 0.25s / sl 2s         63    trend  193,424  76.5%   -1.16%   +3.08%   -19.9%    24   21%       0%  no
+tp 0.25s / sl 1s        126 all bars  317,301  75.5%   -1.15%   +4.75%   -16.5%    37    9%      11%  no
+tp 0.25s / sl 1s        252    trend  178,822  75.4%   -1.30%   +6.95%   -13.4%    78   11%      16%  no
+tp 0.25s / sl 1s        126    trend  189,045  75.4%   -1.21%   +4.69%   -16.2%    39   11%       8%  no
+tp 0.25s / sl 1s        252 all bars  303,029  75.2%   -1.30%   +7.05%   -14.1%    74   10%      23%  no
+
+  Q2 — cells reaching a positive rate >= 80%: 0 of 120; best positive rate anywhere 77.7%
+  Q1 — cells reaching mean >= +4% per trade: 5 of 120; best mean +5.77%
+       best positive rate among them 48.1% (tp 2s / sl 2s, h252, trend) vs the 80% target
+  Q3 — cells clearing BOTH: 0 of 120
+  Q6 — reading B: of the 5 cells at mean >= +4%, best share of calendar years also >= +4%: 65%
+
+  AND THE COLUMN THAT DECIDES IT: `ann` is NEGATIVE in every one of the 120 cells,
+  best -5.1%. A +5.77% average trade that runs 249 sessions with a
+  MEDIAN of -2.45% compounds at -5.3% a year. Arithmetic mean and compounded
+  growth disagree in sign, and a bot running one position at a time is paid
+  the second one.
+
+==============================================================================
+Q4/Q5 — META-LABELLING. Can a model raise the win rate at FIXED
+barrier geometry? That is the only honest way to move up the
+frontier: moving the barriers just buys win rate with mean.
+
+geometry          selection          arm        n     POS  target-first     MEAN   median      ann
+win-rate corner   all signals       real  157,176   77.1%         76.2%   -0.63%   +6.97%   -10.3%
+win-rate corner   model top 50%     real   81,959   79.1%         78.4%   -0.44%   +6.44%    -9.3%
+win-rate corner   model top 20%     real   34,119   80.3%         79.7%   -0.40%   +5.81%    -9.1%
+win-rate corner   model top 5%      real   10,388   80.1%         79.6%   -0.69%   +5.29%    -9.8%
+win-rate corner   all signals       NULL  157,176   77.1%         67.4%   -0.63%   +6.97%   -10.3%
+win-rate corner   model top 50%     NULL   81,959   76.6%         67.1%   -0.69%   +7.18%   -10.4%
+win-rate corner   model top 20%     NULL   34,119   76.9%         66.2%   -0.46%   +6.97%    -9.8%
+win-rate corner   model top 5%      NULL   10,388   77.1%         66.3%   -0.61%   +6.52%   -11.0%
+balanced          all signals       real  157,176   52.2%         35.8%   +2.57%   +2.44%    -5.9%
+balanced          model top 50%     real   81,959   54.9%         39.5%   +2.90%   +5.52%    -4.6%
+balanced          model top 20%     real   34,119   57.5%         42.1%   +3.32%   +8.13%    -3.5%
+balanced          model top 5%      real   10,388   58.7%         44.7%   +2.50%   +9.74%    -4.7%
+balanced          all signals       NULL  157,176   52.2%         31.8%   +2.57%   +2.44%    -5.9%
+balanced          model top 50%     NULL   81,958   50.9%         32.2%   +1.99%   +1.14%    -5.9%
+balanced          model top 20%     NULL   34,119   51.8%         32.0%   +2.42%   +2.34%    -5.4%
+balanced          model top 5%      NULL   10,387   53.1%         32.5%   +3.25%   +4.85%    -5.7%
+mean corner       all signals       real  157,176   46.8%          0.0%   +4.83%   -2.70%    -5.4%
+mean corner       model top 50%     real  157,176   46.8%          0.0%   +4.83%   -2.70%    -5.4%
+mean corner       all signals       NULL  157,176   46.8%          0.0%   +4.83%   -2.70%    -5.4%
+mean corner       model top 50%     NULL  157,176   46.8%          0.0%   +4.83%   -2.70%    -5.4%
+
+  Q4 — best positive rate the model reaches: 80.3% (target 80%); best mean +4.83% (target +4.00%)
+  Q4 — cells clearing BOTH: 0 of 10
+  Q5 — the LABEL-SHUFFLED null reaches 77.1% / +4.83%. The model must beat it or
+       the pipeline is manufacturing its own signal.
+  Q5 — best `ann` anywhere in the modelled table: -3.5%

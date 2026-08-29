@@ -2770,3 +2770,79 @@ orthogonal, and a high win rate is bought with the right tail.**
 0.05/295 = **0.00017**. W1 is an instrument check rather than a market claim,
 and W4's +9.6 points is reported as qualifying a negative result, not as a
 tradeable edge — it does not change the sign of rule-versus-hold anywhere.
+
+---
+
+## H50 — >+4% per trade at 80%+, built as a desk would build it (2026-08-29)
+
+**Registered Q0–Q6 in `scripts/quantbot.py` before any model was fit.** 891
+names, 2,848,482 bars; tradeable universe 355 names screened POINT-IN-TIME at
+Rp5bn/day trailing median and Rp500. Triple-barrier labelling on true intraday
+high/low, volatility-scaled barriers, meta-labelling by gradient boosting,
+purged AND embargoed walk-forward. Memo: `reports/quantbot.md`.
+
+**BOTH HALVES OF THE TARGET ARE INDIVIDUALLY REACHABLE AND NEITHER IS REACHABLE
+TOGETHER.** Mean per trade **+5.77%** (no take-profit, 2σ stop, 252-session
+clock); positive rate **80.3%** (tight target, far stop, model top quintile).
+**0 of 130 cells clear both.**
+
+**Q0 PASSES after failing four times, every failure in the TEST.** Driftless
+synthetic: measured touch rate within 2.7 se of b/(a+b) at every geometry,
+symmetric-fill mean within 0.0015 of zero, scored against EFFECTIVE n. The four
+errors: (1) log increments of mean zero make the PRICE drift +5.2% over 252
+bars and the labeller was blamed for measuring it; (2) b/(a+b) is a price-space
+formula and symmetric price barriers are asymmetric in log space; (3) feeding
+close=high=low detected every touch a day late — fixed by simulating 20 intraday
+steps, and shown to be a simulation artefact by convergence (0.0422 → 0.0033 as
+the path refines 1 → 320 steps); (4) a version that shrank the daily step made
+the error WORSE, because that also shrinks total volatility and introduces
+timeouts, which break the formula outright. **An instrument check is worth
+building only if you are willing to believe it when it fails.**
+
+**Q1 CONFIRMED.** 5 of 120 frontier cells reach mean ≥ +4%, exactly where
+predicted — no take-profit, wide stop, long clock, right tail intact.
+
+**Q2 FAILED at base rates.** Best positive rate anywhere **77.7%**, not 80% —
+and it fails because the **1.4% toll alone** pushes enough just-positive trades
+to just-negative.
+
+**Q3 CONFIRMED.** 0 of 120 base cells and 0 of 10 modelled cells clear both.
+
+**Q4 — META-LABELLING WORKS AND IS REAL.** Top model quintile reaches **80.3%
+positive**, and on the target-first label **79.7% against a label-shuffled null
+of 66.2%** — a 13-point lift the null does not produce. At the balanced geometry
+it lifts the mean +2.57% → +3.32% and the median +2.44% → +8.13%, both above
+null. **And at 80.3% positive the mean is −0.40% and the account compounds at
+−9.1%/yr.**
+
+**Q5 — the predicted null did not fire.** The pipeline is clean.
+
+**Q6 — reading B fails narrowly.** Of the five cells at mean ≥ +4%, the best
+share of calendar years also ≥ +4% is **65%** against the 80% target.
+
+**THE COLUMN THAT DECIDES IT: `ann` is NEGATIVE in every one of the 120 cells,
+best −5.1%.** A +5.77% average trade running 249 sessions with a MEDIAN of
+−2.45% compounds at −5.3%/yr. A18 established that an equal-weighted holder is
+paid the MEAN — that is about holding many names AT ONCE; a bot running
+positions sequentially is paid the mean log, and here the two disagree in SIGN.
+
+**THE BOOK, AND THE NON-MONOTONICITY THAT GAVE IT AWAY.** 8 slots read +12.88%,
+4 slots −0.38%, 16 slots +4.37% — a genuine edge cannot be strong at 8, absent
+at 16 and strong again at 32. Against 30 random-selection draws per slot count
+the model sits at the 30th / 97th / 40th / 100th percentile. Half-split: the
+model beats random in both halves at **2 of 4** slot counts and beats the
+**INDEX in both halves at 0 of 4**. In the late half it beats random at every
+slot count (100/100/97/97) and in the early half only at 32 — consistent with
+the expanding window giving later folds more training data. Index +13.39% early
+against +5.29% late, so every book beats it late and none beats it early: that
+is the index's regime, not the model's skill.
+
+**One arm was degenerate and is reported as such:** with no take-profit the
+label "hit target first" is identically zero, so the classifier had nothing to
+learn and returned the unranked sample while printing a row that looked like a
+model result. That arm's meta-label is now "did this trade end positive".
+
+**Trial count: 7 registered tests (Q0–Q6). The 120-cell frontier and 10-cell
+model table are a frontier MAP, not 130 hypotheses. Trials after H50: 302.**
+Bonferroni bar α = 0.05/302 = **0.00017**. No positive claim is made against it:
+Q1, Q2 and Q4 report reachability; Q3, Q6 and the book are negative.

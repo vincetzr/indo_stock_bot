@@ -1,0 +1,18 @@
+split at 2017-11
+
+ slots   half    MODEL  rand mean  rand sd  pctile    index  beats rand
+     4  early   +2.99%     +7.78%    7.42%     23%  +13.39%          no
+     4   late  +28.15%     +1.78%    6.94%    100%   +5.29%         yes
+      -> both halves positive vs random:      NO
+     8  early  +11.32%    +10.78%    5.98%     60%  +13.39%         yes
+     8   late  +19.52%     +2.83%    5.95%    100%   +5.29%         yes
+      -> both halves positive vs random:      YES
+    16  early   +8.29%    +10.46%    4.25%     30%  +13.39%          no
+    16   late  +12.10%     +4.06%    4.63%     97%   +5.29%         yes
+      -> both halves positive vs random:      NO
+    32  early  +12.69%     +7.93%    4.17%     90%  +13.39%         yes
+    32   late   +9.69%     +4.77%    2.56%     97%   +5.29%         yes
+      -> both halves positive vs random:      YES
+
+slot counts where the model beats random in BOTH halves: 2 of 4
+slot counts where the model beats the INDEX in both halves: 0 of 4

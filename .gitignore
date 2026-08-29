@@ -51,3 +51,5 @@ data/spine/cone.parquet
 # and Fibonacci scans are O(bars x pivots) over 774 names and every downstream
 # study (combos.py, the nulls) reuses the same table.
 data/spine/cost_ladder.parquet
+data/spine/quantbot.parquet
+data/spine/quantbot_wf.parquet

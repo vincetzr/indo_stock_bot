@@ -1,0 +1,13 @@
+index over the span, total-return basis: +9.92%/yr
+
+ slots  MODEL cagr  random: mean      sd      p5     p95  model pctile    reads as
+     4      -0.38%        +3.14%   5.94%  -6.13% +11.41%          30%       noise
+     8     +12.88%        +5.40%   4.93%  -3.08% +11.80%          97%      SIGNAL
+    16      +4.37%        +6.01%   3.31%  +2.32% +12.58%          40%       noise
+    32     +11.51%        +4.92%   2.66%  +1.60%  +9.26%         100%      SIGNAL
+
+The model book is ONE realisation; its own spread across seeds is in
+the `model` column's sd. If the model's CAGR sits inside the random
+arm's 5-95 band, the earlier 8-slot +12.88% was a draw, not a rule.
+
+model beats the index in 2 of 4 slot counts; random beats it in 0 of 4

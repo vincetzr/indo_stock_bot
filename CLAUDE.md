@@ -2505,3 +2505,89 @@ missing the one comparison that explains its own headline. A34 ran a matched
 random EXIT against every sell-off detector and then reported a rule-versus-hold
 number with no control at all, one section later, in the same memo. **Ask of
 every headline: what is the thing in between, and did I price it.**
+
+## A36. The desk build — both halves of the target reachable, never together
+
+Asked to stop holding back and build a trading bot the way quants at big firms
+do, with a goal: **>+4% average per trade, 80%+ of the time**. The right
+response was not to argue the arithmetic but to build the standard
+institutional construction and MAP the frontier. Memo `reports/quantbot.md`,
+logged H50.
+
+**WHAT WAS BUILT, AND NONE OF ITS THREE PIECES EXISTED HERE BEFORE.** Every one
+of the 49 prior hypotheses ranked names on a score and held a fixed horizon.
+H50 adds **triple-barrier labelling** on the true intraday high and low (every
+earlier study labelled on a fixed-horizon CLOSE return, which is a different
+and easier question than "does my order fill"), **volatility-scaled barriers**
+so "1.5σ" means the same thing across the cross-section, and **meta-labelling**
+— a gradient-boosted secondary model predicting whether each primary signal
+will hit its target, which is the technique that exists specifically to raise
+PRECISION, i.e. the win rate the goal asks about.
+
+**THE ANSWER: BOTH HALVES ARE INDIVIDUALLY REACHABLE AND NEITHER TOGETHER.**
+Mean per trade **+5.77%** (no take-profit, 2σ stop, 252-session clock).
+Positive rate **80.3%** (tight target, far stop, model top quintile). **0 of
+130 cells clear both**, and at 80.3% the mean is **−0.40%**.
+
+**Q0 PASSED AFTER FAILING FOUR TIMES AND EVERY FAILURE WAS THE TEST.** The
+check is whether the labeller reproduces the martingale on a driftless
+synthetic where p = b/(a+b) exactly. It printed "instrument FAILS" because
+(1) log increments of mean zero make the PRICE drift up by exp(σ²T/2) = +5.2%
+over 252 bars and the labeller was blamed for measuring it; (2) b/(a+b) is a
+PRICE-space formula and symmetric price barriers are asymmetric in log space
+(+0.276 against −0.382); (3) feeding close=high=low detected every touch a day
+late and a whole daily move past the level; (4) a version that shrank the daily
+step made the error WORSE, because shrinking the step at a fixed horizon also
+shrinks total volatility, so barriers stop being reachable and timeouts appear
+— and a timeout breaks the formula outright. **An instrument check is worth
+building only if you are willing to believe it when it fails.** The residual is
+shown to be simulation granularity by CONVERGENCE (0.0422 → 0.0033 as the
+intraday path refines 1 → 320 steps) rather than by loosening a tolerance, and
+real bars carry the true intraday extreme so it does not exist on IDX at all.
+
+**AND Q0 IS WHAT MAKES THE ANSWER SAYABLE.** At a target of +2.5% and a stop at
+−10% the measured win rate is **79.3%** and the measured expectation is
+**−0.0009** before costs. **Any win rate is purchasable — target near, stop far
+— and buying it is worth nothing**, because W and L move against p by exactly
+enough to cancel. That is the optional stopping theorem, and it is now measured
+in this repo rather than asserted.
+
+**META-LABELLING IS REAL, WHICH IS MORE THAN MOST THINGS HERE MANAGE.** The top
+model quintile reaches **79.7% on the target-first label against a
+label-shuffled null of 66.2%** — a thirteen-point lift the null does not
+produce. At the balanced geometry it lifts the mean +2.57% → +3.32% and the
+median +2.44% → +8.13%, both clearly above null. **It still does not get
+anywhere: the best `ann` in the entire modelled table is −3.5%.**
+
+**THE COLUMN THAT DECIDES EVERYTHING IS `ann`, AND IT IS NEGATIVE IN ALL 120
+FRONTIER CELLS.** A **+5.77% average trade** running 249 sessions with a
+**median of −2.45%** compounds at **−5.3% a year**. A18 established that an
+equal-weighted holder is paid the MEAN — but that is a statement about holding
+many names AT ONCE. **A bot running positions sequentially is paid the mean
+LOG, and here the two disagree in SIGN.** That distinction should be attached
+to every per-trade statistic this repo ever quotes again.
+
+**THE BOOK'S NON-MONOTONICITY GAVE IT AWAY BEFORE ANY NULL DID.** 8 slots read
++12.88%, 4 slots −0.38%, 16 slots +4.37%, 32 slots +11.51%. A genuine selection
+edge cannot be strong at 8, absent at 16 and strong again at 32 — the SHAPE was
+the tell, and it prompted the luck sweep (30 random draws per slot count:
+percentiles 30 / 97 / 40 / 100) and then the half-split. **The model beats
+random in both halves at 2 of 4 slot counts and beats the INDEX in both halves
+at 0 of 4.** It beats random at every slot count in the LATE half and only at
+32 in the early one, which the expanding window explains more simply than a
+regime story. And the index runs +13.39% early against +5.29% late, so every
+book beats it late and none early: that is the index's regime, not the model's
+skill.
+
+**A DEGENERATE ARM PRINTED A BELIEVABLE MODEL ROW.** With no take-profit there
+is no target to hit, so the meta-label "hit target first" is identically zero,
+the classifier had nothing to learn, and it returned the unranked sample under
+a "model top 50%" heading with numbers identical to "all signals" — visible
+only because the two rows matched to the decimal. **Two identical rows under
+different headings is a free bug detector, and it only works if both are
+printed.**
+
+**AND A SILENT SUCCESS THAT PRODUCED NOTHING.** A string edit to the runner
+dropped the `if __name__ == "__main__"` block, so the script defined `main()`,
+never called it, and exited 0 in under a second with an empty output file.
+Exit code 0 is not evidence that anything ran.

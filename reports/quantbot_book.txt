@@ -1,0 +1,19 @@
+165,185 candidate signals, base positive rate 47.9%
+157,176 out-of-sample signals 2007-01 -> 2025-08
+  all       n 157,176  pos  46.8%  mean  +4.83%  median  -2.70%  ann  -5.4%
+  top 50%   n  81,957  pos  47.6%  mean  +4.55%  median  -1.91%  ann  -5.5%
+  top 20%   n  34,119  pos  48.4%  mean  +5.08%  median  -1.38%  ann  -5.6%
+  top 5%    n  10,388  pos  48.6%  mean  +5.41%  median  -1.30%  ann  -6.8%
+
+THE BOOK.  index over the same span (total-return basis): +9.92%/yr
+book                  slots  trades  total x     CAGR  vs index
+model-ranked              1      20     0.24   -7.28%   -17.20%
+RANDOM control            1      20     0.17   -9.04%   -18.96%
+model-ranked              4      78     0.93   -0.38%   -10.30%
+RANDOM control            4      78     1.62   +2.63%    -7.29%
+model-ranked              8     154     9.54  +12.88%    +2.96%
+RANDOM control            8     154     0.70   -1.87%   -11.79%
+model-ranked             16     308     2.22   +4.37%    -5.55%
+RANDOM control           16     307     2.51   +5.06%    -4.86%
+model-ranked             32     598     7.59  +11.51%    +1.59%
+RANDOM control           32     598     3.54   +7.03%    -2.89%
