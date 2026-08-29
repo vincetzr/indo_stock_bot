@@ -2632,3 +2632,87 @@ the index returns only +6.83% here because IDX's 2003–2007 run is outside the
 window. Every score component was chosen because it worked in this sample.
 
 **Trials after H46: 286.** Bonferroni bar α = 0.05/286 = **0.00017**.
+
+---
+
+## H47 — can a sell-off detector cut the give-back without costing return? (2026-08-29)
+
+**Registered before any cell was scored**, in the `scripts/selloff.py` docstring.
+233 liquid names, 2000–2026, entry = HMA(55) rising AND price>EMA50>100>200,
+252-bar cap, net of 56 bp plus each name's fraksi-harga half-spread. Memo:
+`reports/selloff.md`.
+
+Prompted by the user's observation: *"the entry is usually great but it sells a
+bit late so the profit is not maximum — if I can detect a sell-off then I can
+sell mostly at the top."* Both halves of that are already measured (H39's entry
+benchmark, H37's give-back), and the fix as stated is unavailable for a
+structural reason: any rule firing on a decline is downstream of the decline,
+and firing before it is prediction, which H31 tested and failed.
+
+**S1 CONFIRMED.** Give-back falls monotonically with detector speed, 25.8%
+(trail 25%) → 4.7% (close < EMA20). Near-mechanical; not the finding.
+
+**S2 FAILED.** CAGR is NOT monotone in give-back — the best cells are in the
+MIDDLE (`3day −8%` +8.37%, `drop −6%` +8.22%), not at either end. H40's "tighter
+is worse on both axes" shape does not reproduce here; there is a real interior
+optimum.
+
+**S3 — THE PREDICTED NULL — FIRED, AND IT IS THE ANSWER.** Every one of the
+eleven real detectors gives back MORE of the peak than a random exit spending
+the same number of bars. Eleven of eleven under BOTH re-entry policies, 22 cells,
+no exceptions: `hull55 +1bar` 6.9% against 4.1%, `drop −4%` 7.3% against 2.8%,
+`trail 25%` 25.8% against 11.4%. A detector fires BECAUSE price fell, so it is
+conditioned on the drop having already happened. **Leaving sooner cuts the
+give-back; detecting the sell-off does not.** Replicates H37 on an entirely
+different construction.
+
+**S4 CONFIRMED.** No exit beats holding: best +8.37% against +13.06%. That is
+**169** exit configurations with none beating a hold — H17's 32 rules, H18's 58,
+H35/H38's 55 bracket and placement combinations, H40's 13 stops, H47's 11.
+
+**What the detectors DO earn:** under the fair re-entry policy they beat their
+own random control on RETURN in all eleven cells. They leave at better times
+than chance; they do not leave nearer the top.
+
+**THE CONTROL WAS RIGGED AND FIXING IT MOVED A NUMBER I WOULD HAVE QUOTED.** A
+first version required a fresh RISING EDGE of the setup to re-enter. A real
+detector fires on a drop that usually breaks the setup too, so it gets a fresh
+edge and rejoins the next leg — while the random arm sells mid-trend with the
+setup still live and is locked out until the trend dies and restarts. It was
+skipping the rest of every trend it sold into. Under the symmetric policy the
+control's CAGR rises 1–3 points in every cell (`3day −8%` +2.01% → +3.72%). Both
+policies are now run and printed. **A control that cannot play the same game as
+the treatment is a handicap, not a null** — and the give-back conclusion is
+quoted precisely because it survives both.
+
+**Trial count: 4 confirmatory trials (S1–S4).**
+
+---
+
+## H48 — the pure Hull-55 ribbon colour, every IDX name, full history (2026-08-29)
+
+**One confirmatory test, and it was owed.** I asserted the Hull suite loses to
+buy-and-hold; challenged, I found I had measured EMA34 breaks and labelled them
+the ribbon. On BBCA the actual HMA(55) colour returns −17.9% against a hold of
+−29.0% — it BEAT holding on the chart being eyeballed. I said I would re-run the
+pure colour rule board-wide and report it whichever way it came out.
+`scripts/hull_colour.py`, 891 names, 2,850,959 name-bars, 2000-03 → 2026-08.
+
+**The claim survives.** Rule −1.32%/yr against hold +6.42% board-wide, edge
+**−7.74%**, rule wins on **31.3%** of names. Liquid names (≥ Rp1bn/day): rule
++7.15% against +12.62%, edge −5.47%, wins on 36.9%. **Negative in both halves of
+every universe.** BBCA is one of the 36.9% — a real minority, which is exactly
+why one chart could not settle it in either direction.
+
+Mechanism, and it is the same wall: in the market 44% of the time, ~1.4% per
+round trip, ~71 round trips per name. Top turnover decile: names returned
++20.28%/yr, rule captured +8.10%.
+
+Split by turnover decile because H44's headline was withdrawn when that check
+(CLAUDE.md §7) showed the effect was non-synchronous pricing in thin names. The
+middle bucket's +0.96% full-sample edge is the only positive cell and it fails
+the half-split (−19.54% early, +2.13% late), so it is not evidence.
+
+**Trial count: 1 confirmatory trial. Trials after H48: 291.** Bonferroni bar
+α = 0.05/291 = **0.00017**. Both H47 and H48 are negative results and no
+positive claim is made against that bar.

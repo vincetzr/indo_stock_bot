@@ -1,0 +1,26 @@
+PURE hull55 colour rule — in when the ribbon is green, out when it is not.
+891 names with >= 400 bars, 2,850,959 name-bars, 2000-03 → 2026-08
+
+universe                     names  trades  in mkt    cost      RULE      HOLD      edge     win%
+every name                     891    71.2     44%   1.44%    -1.32%    +6.42%    -7.74%    31.3%
+liquid  >= Rp1bn/day           233    64.0     47%   1.23%    +7.15%   +12.62%    -5.47%    36.9%
+middle  Rp0.1-1bn/day          239    54.2     45%   1.54%    +4.16%    +3.19%    +0.96%    45.2%
+thin    < Rp0.1bn/day          419    84.9     43%   1.49%    -9.15%    +4.80%   -13.96%    20.3%
+
+turnover decile 1               90    91.3     38%   1.38%   -14.60%    +4.48%   -19.08%    14.4%
+turnover decile 2               89   103.6     44%   1.42%   -15.01%    +5.42%   -20.43%    10.1%
+turnover decile 3               89    88.6     44%   1.43%    -9.09%    +5.44%   -14.53%    18.0%
+turnover decile 4               89    74.0     44%   1.64%    -2.46%    +5.37%    -7.82%    30.3%
+turnover decile 5               89    62.0     44%   1.57%    +1.20%    +2.95%    -1.74%    37.1%
+turnover decile 6               89    48.6     45%   1.62%    +2.47%    +2.53%    -0.06%    43.8%
+turnover decile 7               89    59.2     45%   1.55%    +4.87%    +6.42%    -1.55%    42.7%
+turnover decile 8               89    43.3     44%   1.45%    +5.26%    +2.05%    +3.21%    49.4%
+turnover decile 9               89    59.3     46%   1.23%    +6.20%    +9.24%    -3.04%    42.7%
+turnover decile 10              89    81.9     49%   1.08%    +8.10%   +20.28%   -12.19%    24.7%
+
+HALF-SPLIT at 2013-06-30 — the only replication test this repo trusts (A18).
+universe                      names  RULE early  HOLD early     edge  names   RULE late   HOLD late     edge   both
+every name                      420      -2.70%     +15.71%  -18.41%    891      -1.61%      +4.79%   -6.40%     no
+liquid  >= Rp1bn/day             95     +12.95%     +21.54%   -8.59%    233      +5.05%      +9.84%   -4.79%     no
+middle  Rp0.1-1bn/day            68      +6.51%     +26.05%  -19.54%    239      +3.83%      +1.70%   +2.13%     no
+thin    < Rp0.1bn/day           257     -10.92%     +10.82%  -21.74%    419      -8.41%      +3.74%  -12.15%     no

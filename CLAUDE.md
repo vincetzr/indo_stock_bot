@@ -2388,3 +2388,64 @@ Both are true of one thing and only the second is a decision. A19 recorded the
 missing index comparison as the error that manufactured a result; this is the
 same comparison catching a second one, in the study that was supposed to be
 tuning the winner.
+
+## A34. Detecting the sell-off makes the give-back WORSE, and the Hull number I owed
+
+The user's observation was that the Hull entry is good and the exit is late, so
+detecting a sell-off should let them sell nearer the top. Both halves of the
+observation are correct and already measured — H39's benchmark column found the
+entry selects spans returning +9.9% to +11.2%/yr merely held against a panel
+median of +2.56%, and H37 measured the give-back at 10.9–12.5%. Memo
+`reports/selloff.md`, logged H47 and H48.
+
+**THE FIX AS STATED IS STRUCTURALLY UNAVAILABLE, and the reason is worth
+keeping.** Any rule that fires on a decline is DOWNSTREAM of the decline. Firing
+before it is prediction, which H31 tested directly: ZigZag pivot spacing has a
+CV of 2.246 against a block bootstrap's 1.340 — a cycle would make spacing more
+regular and the data makes it less. So the reachable question is not "can I sell
+at the top" but "for a given amount of give-back saved, what does it cost."
+
+**S3, THE PREDICTED NULL, FIRED AND IT IS THE WHOLE ANSWER.** Eleven detectors
+against a RANDOM exit drawn from each rule's own holding-period distribution —
+matched trading rate, no information. **Every single real detector gives back
+MORE of the peak than the coin flip of the same speed**: `hull55 +1bar` 6.9%
+against 4.1%, `drop −4%` 7.3% against 2.8%, `trail 25%` 25.8% against 11.4%.
+Eleven of eleven under both re-entry policies, 22 cells, no exceptions. A
+detector fires BECAUSE price fell, so it is conditioned on the drop having
+already happened. **Leaving sooner is what cuts the give-back; detecting the
+sell-off is not.** This replicates H37 on a completely different construction —
+there peak-detection framing, here portfolio framing, same sign.
+
+**S2 FAILED and gives a genuinely new shape.** CAGR is NOT monotone in
+give-back: the best cells are in the MIDDLE of the table (+8.37%, +8.22%), not
+at either end. H40's "a tighter trail lowers BOTH the win rate and the mean"
+does not generalise. **S4 confirmed** — nothing beats holding (+13.06%), now **169**
+exit configurations with none beating a hold: H17's 32, H18's 58, H35/H38's 55
+bracket and placement combinations, H40's 13, H47's 11.
+
+**THE CONTROL WAS RIGGED AND FIXING IT MOVED NUMBERS I WOULD HAVE QUOTED.** The
+first harness required a fresh RISING EDGE of the setup to re-enter. That
+quietly handicapped the random arm: a real detector fires on a drop that usually
+breaks the setup too, so it gets a fresh edge and rejoins the next leg, while the
+random arm sells mid-trend with the setup still live and is locked out until the
+whole trend dies and restarts — skipping the rest of every trend it sold into.
+Under the symmetric policy the control's CAGR rises 1–3 points in every cell.
+**A control that cannot play the same game as the treatment is a handicap, not a
+null.** Both policies are now printed, and the give-back conclusion is quoted
+because it survives both. This is a different failure from the seven times a
+null has decided a result here: the null was not mis-specified statistically, it
+was denied the treatment's own affordances.
+
+**AND THE BOARD-WIDE HULL NUMBER, WHICH WAS OWED.** I asserted the Hull suite
+loses to buy-and-hold; challenged with "really? are you high?", I found I had
+measured **EMA34 breaks and labelled them the ribbon**, and that on BBCA the
+actual HMA(55) colour returns −17.9% against a hold of −29.0% — it BEAT holding
+on the chart being eyeballed. The pure colour rule is now run on 891 names and
+2,850,959 name-bars: rule **−1.32%/yr against hold +6.42%**, edge **−7.74%**,
+winning on **31.3%** of names; on liquid names +7.15% against +12.62%, edge
+−5.47%, **negative in both halves of every universe**. **The claim survives, and
+the route to it was still wrong.** BBCA is one of the 36.9% of liquid names
+where the ribbon wins — a real minority, which is exactly why one chart could
+not settle it in either direction, and why "I checked the board" is the only
+form of that claim worth making. A right answer reached by measuring the wrong
+thing is not a right answer yet.

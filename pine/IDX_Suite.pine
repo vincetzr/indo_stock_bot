@@ -661,7 +661,7 @@ fgCol = chart.fg_color
 cellBg = color.new(chart.bg_color, 12)
 headBg = color.new(chart.fg_color, 82)
 
-var table P = table.new(f_pos(), 2, 41, border_width = 1)
+var table P = table.new(f_pos(), 2, 43, border_width = 1)
 
 f_row(int r, string k, string v, color c) =>
     table.cell(P, 0, r, k, text_size = f_size(), text_color = fgCol,
@@ -785,3 +785,11 @@ if showPanel and barstate.islast
           tradeable ? "YES - indicator edges tested here are ~ZERO"
            : "NO - thin/cheap; edges here are non-synchronous pricing",
           tradeable ? color.lime : color.red)
+    //  H47/H48 sit here rather than in a memo because this is where the
+    //  decision gets made. The first row is the one that stops a specific
+    //  mistake: bolting a sell-off detector onto this exit makes the give-back
+    //  WORSE than leaving at random at the same speed, in 11 cells out of 11.
+    f_row(41, "sell-off exits [H47]",
+          "11 of 11 give back MORE than random of same speed", color.orange)
+    f_row(42, "ribbon vs holding [H48]",
+          "-5.5%/yr on 233 liquid names, both halves", color.orange)
