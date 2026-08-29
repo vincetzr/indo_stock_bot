@@ -2716,3 +2716,57 @@ the half-split (−19.54% early, +2.13% late), so it is not evidence.
 **Trial count: 1 confirmatory trial. Trials after H48: 291.** Bonferroni bar
 α = 0.05/291 = **0.00017**. Both H47 and H48 are negative results and no
 positive claim is made against that bar.
+
+---
+
+## H49 — why the ribbon beats holding on only 31.3% of names (2026-08-29)
+
+**Registered W1–W4 in `scripts/winrate.py` before any cell was scored.** Run
+after the 31.3% was challenged on central-limit grounds: *"price can only go up
+or down, so it should be 50%."* Memo: `reports/selloff.md` §7.
+
+**The challenge conflated two statistics, and the naming was partly my fault.**
+Per-TRADE win rate (share of round trips ending positive) genuinely should be
+~50% for an uninformed rule. Per-NAME win rate (share of tickers where the rule
+beat owning the ticker) has no reason to be 50%: it pits 44% exposure and ~71
+tolls against 100% exposure and one toll.
+
+**W1 CONFIRMED — the harness reproduces the coin flip.** Driftless log random
+walk, zero cost, random timing at 44% exposure: per-trade **50.2%**, per-name
+**47.7%**, se 2.9%. A26's discipline (a detector that cannot find a cycle in a
+sine wave proves nothing by finding none) applied to a win-rate harness.
+
+**W2 FAILED.** I registered drift as the largest term. Adding IDX's own measured
+drift (+3.39%/yr median log) with no cost moves the per-name rate 47.7% →
+**50.3%** — nothing.
+
+**W3 IS THE WHOLE EXPLANATION.** Driftless market, nothing added but a 1.44%
+round trip: 47.7% → **28.3%**, against the observed 31.3%. **71 round trips ×
+1.44% = 102% of the position's value paid in tolls over the span.**
+
+**W4's PREDICTED NULL FAILED, IN THE DIRECTION THAT FAVOURS THE RIBBON — and
+this is the finding.** H48 compared rule to hold with NOTHING in between; the
+challenge exposed that gap. Reordering the ribbon's own green and red runs
+(exposure, trade count and run lengths preserved exactly, only the alignment
+with price destroyed) beats holding on **21.7%** of names against the real
+ribbon's **31.3%** — **+9.6 points, se 0.8%, ~12 se**; on liquid names 36.9%
+against 20.3%, **+16.6 points**. **The ribbon's timing carries real
+information.** It still loses to buy-and-hold in both halves of every universe —
+but it loses far less than chance does. H48 is qualified, not overturned: the
+indicator is not noise, its information is simply smaller than the toll. The
+thin bucket is the one place real and null coincide (20.3% vs 20.0%), consistent
+with H44's withdrawal — there is no timing information to have in names that
+barely trade.
+
+**And a sub-50% per-trade win rate is the rule working.** The matched-speed
+random exits win 40–51% and make LESS per trade; the real detectors win 24–47%
+and make MORE (`close < EMA20` 24.3%/+2.05% against 40.2%/+0.72%). Board-wide
+the ribbon's mean trade is **+3.54%** against a median of **−4.16%**. H40 saw
+the same trade-off from the other side: a take-profit lifts the win rate to
+46.6% and takes CAGR to −1.98%. **Win rate and profitability are close to
+orthogonal, and a high win rate is bought with the right tail.**
+
+**Trial count: 4 (W1–W4). Trials after H49: 295.** Bonferroni bar α =
+0.05/295 = **0.00017**. W1 is an instrument check rather than a market claim,
+and W4's +9.6 points is reported as qualifying a negative result, not as a
+tradeable edge — it does not change the sign of rule-versus-hold anywhere.

@@ -2449,3 +2449,59 @@ where the ribbon wins — a real minority, which is exactly why one chart could
 not settle it in either direction, and why "I checked the board" is the only
 form of that claim worth making. A right answer reached by measuring the wrong
 thing is not a right answer yet.
+
+## A35. The win rate that was challenged, and the control H48 did not contain
+
+A34's board-wide table reported the ribbon beating buy-and-hold on 31.3% of
+names. The user rejected it on central-limit grounds — *"price can only go up or
+down, so it should be 50%"* — and the right response to an intuition like that is
+a measurement, not an argument. Memo `reports/selloff.md` §7, logged H49.
+
+**THE OBJECTION WAS HALF RIGHT AND IT LANDED ON A REAL GAP.** Two statistics
+were both called "win", which was my sloppiness: per-TRADE (share of round trips
+ending positive) genuinely should be ~50% without information, and per-NAME
+(share of tickers where the rule beat owning the ticker) has no reason to be —
+it pits 44% exposure and ~71 tolls against 100% exposure and one toll.
+
+**W1 CONFIRMED — THE HARNESS REPRODUCES THE COIN FLIP.** Driftless log random
+walk, zero cost, random timing: per-trade **50.2%**, per-name **47.7%**, se
+2.9%. This is A26's sine-wave discipline applied to a win-rate harness, and it
+is what licenses believing the rest: a negative-sounding number about IDX is
+worthless until the instrument is shown to return the known answer on a known
+case.
+
+**W2 FAILED AND W3 IS THE WHOLE STORY.** I registered DRIFT as the largest term.
+Adding IDX's own measured drift with no cost moves the per-name rate 47.7% →
+**50.3%** — nothing. Adding nothing but a 1.44% round trip to the DRIFTLESS
+market takes it to **28.3%**, against the observed 31.3%. **71 round trips ×
+1.44% = 102% of the position's value paid in tolls over the span.** The rule
+pays for its own position twice over in fees and spread.
+
+**W4's PREDICTED NULL FAILED, IN THE DIRECTION THAT FAVOURS THE INDICATOR, AND
+THAT IS THE FINDING.** H48 compared rule to hold with **nothing in between** —
+a missing comparison, which A19 records as the error class that manufactures
+results. Reordering the ribbon's own green and red runs (exposure, trade count
+and run lengths preserved EXACTLY, only alignment with price destroyed) beats
+holding on **21.7%** of names against the real ribbon's **31.3%**: **+9.6
+points, se 0.8%, ~12 se**, and **+16.6 points** on liquid names. **The ribbon's
+timing carries real information.** H48 is QUALIFIED, NOT OVERTURNED — the rule
+still loses to buy-and-hold in both halves of every universe — but the reason is
+now measured: not that the indicator is noise, which it demonstrably is not, but
+that its information is smaller than the toll. The thin bucket is the one place
+real and null coincide (20.3% vs 20.0%), exactly consistent with H44's
+withdrawal.
+
+**AND A SUB-50% PER-TRADE WIN RATE IS THE RULE WORKING.** The matched-speed
+random exits win **40–51%** and make LESS per trade; the real detectors win
+**24–47%** and make MORE (`close < EMA20` 24.3%/+2.05% against 40.2%/+0.72%).
+Board-wide the ribbon's mean trade is **+3.54%** against a median of **−4.16%**.
+H40 measured the same trade-off from the other side: a take-profit lifts the win
+rate to 46.6% and takes CAGR to −1.98%. **Win rate and profitability are close
+to orthogonal, and a high win rate is bought with the right tail.**
+
+**THE LESSON, AND IT IS A19's FOR THE SECOND TIME.** A study can be
+permutation-nulled, half-split, cost-charged and decile-split and still be
+missing the one comparison that explains its own headline. A34 ran a matched
+random EXIT against every sell-off detector and then reported a rule-versus-hold
+number with no control at all, one section later, in the same memo. **Ask of
+every headline: what is the thing in between, and did I price it.**

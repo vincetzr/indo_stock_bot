@@ -1,0 +1,26 @@
+W1 — THE HARNESS ON A CASE WITH A KNOWN ANSWER.
+A driftless log random walk, zero cost, random timing at 44% exposure.
+Both win rates must come out at 50%. They are the arithmetically correct
+answer, and a harness that cannot reproduce them cannot be believed about IDX.
+
+market                                          per-NAME win  per-TRADE win  mean trade    median
+driftless, no cost  <- the coin flip                   47.7%          50.2%      +1.19%    +0.04%
+driftless, 1.44% toll                                  28.3%          44.3%      -0.25%    -1.40%
+
+  board's own median log drift +3.39%/yr, daily sd 3.85% — feeding those in:
+IDX drift and vol, no cost                             50.3%          50.9%      +2.26%    +0.28%
+IDX drift and vol, 1.44% toll  <- full ladder          27.3%          46.3%      +0.82%    -1.16%
+
+W4 — THE REAL RIBBON AGAINST ITS OWN RUN-SHUFFLED NULL, 20 draws.
+The null keeps every green run and every red run and only reorders them, so
+exposure, trade count and run lengths are identical and ONLY the alignment
+with price is destroyed.
+
+universe                       names    expo    BEATS HOLD         null    trade win        null    mean tr    med tr
+every name                       891     44%         31.3%        21.7%        26.9%       35.4%     +3.54%    -4.16%
+liquid  >= Rp1bn/day             233     47%         36.9%        20.3%        31.7%       41.3%     +5.01%    -3.77%
+middle  Rp0.1-1bn/day            239     45%         45.2%        26.1%        29.0%       36.2%     +4.22%    -3.90%
+thin    < Rp0.1bn/day            419     43%         20.3%        20.0%        23.2%       31.7%     +2.33%    -4.52%
+
+  real minus run-shuffled null, per-name beat rate: +9.6%  (se 0.8%)
+  trades per name 71, mean toll 1.44%, so the rule pays 102% of its capital in tolls over the span

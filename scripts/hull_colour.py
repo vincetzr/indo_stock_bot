@@ -49,16 +49,15 @@ FEE = 0.0056
 MID = pd.Timestamp("2013-06-30")
 
 
-def colour_campaign(p: np.ndarray, green: np.ndarray, cost: float):
-    """Compound the rule's log return over the name's whole span.
+def colour_trades(p: np.ndarray, green: np.ndarray, cost: float):
+    """Every round trip the rule takes, as (entry bar, exit bar, net return).
 
-    Returns (rule log total, hold log total, n round trips, bars in market).
+    Buy on the bar the ribbon turns green, sell on the first bar it is not.
+    The per-trade list is what makes a WIN RATE computable — and win rate and
+    profitability are close to orthogonal here, so both are needed.
     """
-    lg = 0.0
-    inb = 0
-    n_tr = 0
-    i = 1
-    n = len(p)
+    out = []
+    i, n = 1, len(p)
     while i < n:
         if not (green[i] and not green[i - 1]):
             i += 1
@@ -67,11 +66,20 @@ def colour_campaign(p: np.ndarray, green: np.ndarray, cost: float):
         while j < n and green[j]:
             j += 1
         j = min(j, n - 1)
-        lg += np.log(max(p[j] / p[i] - cost, 0.01) if p[i] > 0 else 0.01)
-        inb += j - i
-        n_tr += 1
+        out.append((i, j, (p[j] / p[i] - 1.0 - cost) if p[i] > 0 else -1.0))
         i = j + 1
-    return lg, np.log(max(p[-1] / p[0], 0.01)), n_tr, inb
+    return out
+
+
+def colour_campaign(p: np.ndarray, green: np.ndarray, cost: float):
+    """Compound the rule's log return over the name's whole span.
+
+    Returns (rule log total, hold log total, n round trips, bars in market).
+    """
+    tr = colour_trades(p, green, cost)
+    lg = float(sum(np.log(max(1.0 + r, 0.01)) for _, _, r in tr))
+    inb = int(sum(j - i for i, j, _ in tr))
+    return lg, float(np.log(max(p[-1] / p[0], 0.01))), len(tr), inb
 
 
 def main() -> int:

@@ -217,3 +217,105 @@ non-synchronous pricing in thin, stale names. Costs are fees plus a
 fraksi-harga half-spread and contain **no impact, suspension or auto-rejection
 term**; A23 measured all three biting on thin names, and all three run against
 the holder.
+
+---
+
+## 7. H49 — where the 31.3% actually comes from, and the control H48 was missing
+
+*Added 2026-08-29 after the number was challenged: "I refuse to believe it only
+wins 30-something percent. By the central limit theorem it should be 50%, since
+the price can only go up or down." `scripts/winrate.py`, pre-registration W1–W4
+in its docstring.*
+
+**Two different statistics were both called "win" and that is partly my fault.**
+The **per-trade** win rate is the share of round trips that ended positive. The
+**per-name** win rate is the share of tickers where the rule's CAGR beat owning
+the ticker over the same span. Only the first has any reason to be 50%; the
+second compares a rule that is in the market 44% of the time and pays ~71 tolls
+against one that is in 100% of the time and pays one.
+
+### W1 — the harness on a case with a known answer
+
+A26 established that a detector which cannot find a cycle in a pure sine wave
+proves nothing by finding none. Same discipline: before believing 31.3% about
+IDX, the machinery has to return **50%** on a driftless log random walk with no
+cost, where 50% is arithmetically correct.
+
+| synthetic market | per-name win | per-trade win | mean trade | median trade |
+|---|---|---|---|---|
+| driftless, no cost — **the coin flip** | **47.7%** | **50.2%** | +1.19% | +0.04% |
+| driftless, 1.44% toll | **28.3%** | 44.3% | −0.25% | −1.40% |
+| IDX's own drift and vol, no cost | **50.3%** | 50.9% | +2.26% | +0.28% |
+| IDX's own drift and vol, 1.44% toll | **27.3%** | 46.3% | +0.82% | −1.16% |
+
+**W1 CONFIRMED** — 47.7% and 50.2% against a standard error of 2.9%. The coin
+flip is exactly where it should be, so the harness can be believed about the
+rest.
+
+### W2 FAILED, and W3 is the whole explanation
+
+I registered **drift** as the largest term. It is not: adding IDX's own measured
+drift (+3.39%/yr median log) with no cost moves the per-name rate from 47.7% to
+**50.3%** — nothing. At 44% exposure the forgone drift over a span is small.
+
+**The toll is the entire effect.** The same driftless market with nothing added
+but 1.44% a round trip falls from 47.7% to **28.3%** — nineteen points, landing
+right beside the observed 31.3%. The arithmetic is blunt: **71 round trips ×
+1.44% = 102% of the position's value paid in fees and spread over the span.**
+The rule pays for its own position, twice over, in tolls.
+
+### W4's predicted null FAILED — in the direction that favours the ribbon
+
+H48 compared rule against hold with **nothing in between**, which the challenge
+correctly exposed. The null here reorders the ribbon's own green and red runs:
+exposure, trade count and run-length distribution preserved exactly, only the
+alignment with price destroyed.
+
+| universe | names | expo | **beats hold** | run-shuffled null | trade win | null |
+|---|---|---|---|---|---|---|
+| every name | 891 | 44% | **31.3%** | **21.7%** | 26.9% | 35.4% |
+| liquid ≥ Rp1bn/day | 233 | 47% | **36.9%** | **20.3%** | 31.7% | 41.3% |
+| middle | 239 | 45% | 45.2% | 26.1% | 29.0% | 36.2% |
+| thin | 419 | 43% | 20.3% | 20.0% | 23.2% | 31.7% |
+
+**Real minus null: +9.6 points, se 0.8% — about twelve standard errors. On
+liquid names, +16.6 points.**
+
+I predicted the two would be about equal. They are not, and the failure is
+informative: **the ribbon's timing carries real information.** Applied at random
+with the identical trading rate and exposure, the same rule beats holding on
+21.7% of names; aligned to the actual Hull, 31.3%. It still loses to holding —
+but it loses by far less than chance does, and on the liquid names it is nearly
+twice as good as random timing.
+
+This **qualifies H48 without overturning it.** "The ribbon loses to buy-and-hold"
+stands, on the board and in both halves. What was missing is why: not because
+the indicator is noise — it demonstrably is not — but because the information it
+carries is smaller than 102% of capital in tolls. Note also that the thin bucket
+is the one place where real and null coincide (20.3% against 20.0%), which is
+consistent with H44's withdrawal: there is no timing information to have in
+names that barely trade.
+
+### And the per-trade win rate below 50% is the rule working, not failing
+
+The matched-speed random exits from §2 win **40–51%** of the time — the coin
+flip again — and make **less** per trade. The real detectors win less and make
+more:
+
+| exit | real win | real mean | random win | random mean |
+|---|---|---|---|---|
+| close < EMA20 | **24.3%** | **+2.05%** | 40.2% | +0.72% |
+| hull55 +1 bar | **36.2%** | **+4.27%** | 46.2% | +2.29% |
+| trail 15% | **40.1%** | **+10.18%** | 49.4% | +8.12% |
+
+A trend rule cuts losers early and lets winners run, so it converts what would
+have been recoveries into small realised losses and pays for that with a fat
+right tail. Board-wide the ribbon's mean trade is **+3.54%** while its median is
+**−4.16%**. H40 measured the trade-off directly from the other side: adding a
+take-profit lifts the win rate to 46.6% and takes the CAGR to **−1.98%**.
+**Win rate and profitability are close to orthogonal, and a high win rate is
+bought with the right tail.**
+
+**Trials after H49: 295.** W1 is an instrument check, not a market claim; W4's
++9.6 points is the one positive result here and it is reported as qualifying a
+negative, not as a strategy.
