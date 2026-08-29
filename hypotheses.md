@@ -2589,3 +2589,46 @@ score shuffle) agreed with each other and both were wrong about what mattered.
 **The user's hunch scores 0 for 4 at a tradeable threshold.**
 
 **Trials after H44: 280.** Bonferroni bar α = 0.05/280 = **0.00018**.
+
+---
+
+## H46 — the best allocation the research supports, priced against the index (2026-08-29)
+
+Asked to build "the most comprehensive algorithm that works best for trading".
+No such thing exists in this data (158 exit configurations, none beat holding),
+so this builds the only thing left: a SELECTION and an ALLOCATION with NO EXITS,
+against buying the index. Universe from H44's gate, score from H26+H27+H44's
+survivors, quarterly from H43, no stops from A18. 247 names, 59 quarterly
+rebalances, 2010-12 → 2026-04. Memo: `reports/allocator.md`.
+
+**PRE-REGISTERED:** G1 the 100% sleeve does not beat the index. G2 therefore the
+best blend is at/near 0%. G3 PREDICTED NULL — random selection from the same
+universe must be strictly worse at every weight. G4 the sleeve beats random by a
+positive but SMALLER margin than the gap to the index.
+
+**G3 CONFIRMED AND IT IS THE LARGEST SUCH MARGIN IN THE PROJECT.** The same
+machine selecting at RANDOM returns **−2.03%**/yr; the real score returns
+**+6.96%**. **+9.00% a year of pure selection** — the biggest gap between a rule
+and its own random control anywhere here. The signal is real.
+
+**G1 CONFIRMED.** 100% sleeve +6.96% against the index's +6.83% — a tie.
+
+**AND IT CONVERTS TO NOTHING.** Annualised mean difference vs index, per-quarter,
+**t = +0.13 at EVERY sleeve weight**; 95% moving-block CI at the best blend
+**[−4.71%, +5.41%]**. Half-split of the 100% sleeve: early **−0.61%**, late
+**+0.82%** — NOT BOTH.
+
+**G2 FAILED, AND THE FAILURE IS ARITHMETIC RATHER THAN ALPHA.** The best blend
+is 60%, not 0% — but volatility falls 18.1% → 16.0%, and the CAGR edge
+(+1.08%) exceeds the arithmetic edge (+0.60%) by ~0.48%, of which σ²/2 accounts
+for ~0.36%. **Mixing two imperfectly-correlated assets raises the geometric mean
+at zero arithmetic edge.** That is portfolio arithmetic available from any two
+assets, not stock selection. G4 confirmed in the sharpest possible form: +9.00%
+over random, +0.14% over the index.
+
+**THE GATE THAT MAKES IT HONEST ALSO SHRINKS IT.** Only 3–11 names cleared
+Rp10bn/day before 2004, so the panel starts 2010-12, the book is 8 names, and
+the index returns only +6.83% here because IDX's 2003–2007 run is outside the
+window. Every score component was chosen because it worked in this sample.
+
+**Trials after H46: 286.** Bonferroni bar α = 0.05/286 = **0.00017**.
