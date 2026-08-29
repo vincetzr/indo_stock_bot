@@ -46,3 +46,8 @@ data/spine/horizon_sweep.parquet
 # And the H32 first-passage table, rebuilt by scripts/time_price.py cone in
 # about ten minutes from the panel. 35MB of reproducible integers.
 data/spine/cone.parquet
+# Derived cache: a pure function of price_panel.parquet + indicator_panel.parquet,
+# rebuilt by `python3 scripts/cost_ladder.py`. Cached only because the swing-high
+# and Fibonacci scans are O(bars x pivots) over 774 names and every downstream
+# study (combos.py, the nulls) reuses the same table.
+data/spine/cost_ladder.parquet
