@@ -197,9 +197,18 @@ RULES = ("ema_cross", "ema_stack", "stoch_oversold", "stoch_strong",
 
 
 # ============================================================== the harness ===
-def build(step: int = STEP) -> pd.DataFrame:
+CACHE = os.path.join("data", "spine", "cost_ladder.parquet")
+
+
+def build(step: int = STEP, cache: bool = True) -> pd.DataFrame:
     """One row per (rebalance period, ticker): every score, and the forward
-    return over the period, realised at the last print if the name dies."""
+    return over the period, realised at the last print if the name dies.
+
+    Cached because the swing-high and Fibonacci scans are O(bars x pivots) per
+    ticker over 774 names, and every downstream study reuses the same table.
+    """
+    if cache and step == STEP and os.path.exists(CACHE):
+        return pd.read_parquet(CACHE)
     P = pd.read_parquet(PANEL)
     P = P[P["adj_close"] > 0].sort_values(["ticker", "date"])
     I = pd.read_parquet(IND)[["date", "ticker", "ema20", "ema30", "ema50",
@@ -249,7 +258,10 @@ def build(step: int = STEP) -> pd.DataFrame:
     D["rand"] = ((pd.util.hash_pandas_object(
         D["ticker"] + D["date"].astype(str), index=False).to_numpy()
         % 100000) / 100000.0)
-    return D.sort_values(["date", "ticker"]).reset_index(drop=True)
+    D = D.sort_values(["date", "ticker"]).reset_index(drop=True)
+    if cache and step == STEP:
+        D.to_parquet(CACHE, index=False)
+    return D
 
 
 def walk(D: pd.DataFrame, rule: str, toll_bps: float,
