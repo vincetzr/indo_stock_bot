@@ -2922,3 +2922,56 @@ with real costs.
 the goal cell is the argmax of a search. Trials after H51: 306.** Bonferroni bar
 α = 0.05/306 = **0.00016**. Effective n at a ten-year horizon is roughly two
 non-overlapping decades per name across 143 names, far below the row count.
+
+---
+
+## H52 — beat the index by a mile: the size-penalty route, and it is backwards (2026-08-30)
+
+**Registered B1–B4 in `scripts/beatindex.py` before any arm was run.** Quarterly
+rebalance, cost on weight-space turnover, index total-return over each arm's own
+window. Memo: `reports/beatindex.md`.
+
+**THE IDEA.** H43 measured the strength+calm screen beating a random basket from
+its own universe by **+12.78%/yr gross** — the largest selection margin in this
+project — and tying the index. A19 measured why an equal-weighted IDX basket
+should trail a cap-weighted index. Hypothesis: alpha ≈ +12.8%, penalty ≈ −12.5%,
+they cancel; stop paying the penalty and the alpha survives.
+
+**B1 FAILED MONOTONICALLY.** Narrowing to the large-cap end makes it WORSE at
+every step: vs index −0.57% (all) → −4.85% (top 150) → −7.56% (top 100) →
+−8.46% (top 60) → −10.53% (top 40).
+
+**B2 FAILED.** Size-weighting loses to equal-weighting at every tier.
+
+**B3 — THE PREDICTED NULL — FAILED, AND IT IS THE FINDING.** The screen's gross
+edge over its own random control was predicted to be invariant to the tier. It
+COLLAPSES: **+12.9% → +8.4% → +5.2% → +3.4% → +0.7%.** **The alpha is not being
+spent paying a size penalty; the alpha IS a size effect.** Strength+calm works
+among small and mid names and does essentially nothing among the largest forty.
+Moving upmarket removes the penalty and the alpha together, and the alpha goes
+faster.
+
+**B4 CONFIRMED. 0 of 15 arms beat the index.** Best +10.58% against +11.15%.
+
+**THE ARITHMETIC IS NOW FULLY DETERMINED.** Random equal-weighted basket
+**+2.72%**; index **+11.15%**, a structural advantage of **~8.4 points**; screen
+adds **+12.9% gross, ~10.9% net** of its 2.02%/yr toll — and lands **half a
+point short**. That is why every study of this screen returns a tie: its edge is
+almost exactly the size of the handicap it runs under, and the only lever that
+removes the handicap removes the edge faster.
+
+**THE BUG THAT NEARLY BECAME THE HEADLINE.** The first run reported **+17.63%
+vs +11.15%, a +6.48% edge, 15 of 15 arms beating the index.** `rebalance.py`
+measures the same screen at the same frequency at +11.67%, and two studies of
+one screen disagreeing is the signal that one is wrong. Run side by side on
+identical inputs the picks were **identical on 78 of 105 bars**; the gap came
+entirely from **9 quarters where the universe held 20–40 names and the
+"portfolio" was one to three stocks**, landing in 2003–04 and compounding
+through a 26-year path. **The tell was that the RANDOM control moved by the same
+six points — a selection effect cannot lift the control.** `MIN_UNIV = 40` and
+`MIN_BASKET = 5` now make a degenerate basket impossible.
+
+**Trial count: 4 (B1–B4). Trials after H52: 310.** Bonferroni bar
+α = 0.05/310 = **0.00016**. Every result is negative; nothing is claimed against
+it. Size is proxied by trailing turnover because no point-in-time share count
+exists here (A25), and a turnover-weighted portfolio is not a cap-weighted one.

@@ -2671,3 +2671,49 @@ inside the function written to price A19's comparison, and caught only because
 an index CAGR of +18.94% for Indonesia looked too high to be true. **Two tests
 now pin the span; the sanity check that caught it was a benchmark that did not
 match the country it claimed to measure.**
+
+## A38. The screen's alpha IS the size effect, and one-name baskets nearly proved otherwise
+
+Told the point is to beat the index by a mile — which is the right target and
+the one A37 had just recommended. The best-motivated remaining route was the
+repo's own unjoined-up pair: H43's screen beats a random basket from its own
+universe by **+12.78%/yr gross**, the largest selection margin in this project,
+and ties the index; A19 measured why an equal-weighted IDX basket structurally
+trails a cap-weighted one. Hypothesis: the alpha is being spent paying a size
+penalty, so stop paying it. Memo `reports/beatindex.md`, logged H52.
+
+**IT IS BACKWARDS, AND B3's PREDICTED NULL IS WHAT SHOWED IT.** The screen's
+gross edge over its own random control was predicted to be INVARIANT to the
+universe tier. It collapses instead: **+12.9% (all) → +8.4% (top 150) → +5.2%
+(top 100) → +3.4% (top 60) → +0.7% (top 40).** **The alpha is not a victim of
+the size penalty; the alpha IS a size effect.** Strength-plus-calm works among
+small and mid names and does essentially nothing among the largest forty, so
+moving upmarket removes the penalty and the edge together — and the edge goes
+faster. B1 and B2 failed monotonically alongside it; **0 of 15 arms beat the
+index.**
+
+**AND THE ARITHMETIC IS NOW CLOSED.** Random equal-weighted basket **+2.72%**,
+index **+11.15%** — a structural handicap of **~8.4 points** — screen adds
+**+12.9% gross / ~10.9% net**, lands **half a point short**. Every study of this
+screen has returned a tie because **its edge is almost exactly the size of the
+handicap it runs under**, and the one lever that removes the handicap removes
+the edge faster.
+
+**A ONE-NAME PORTFOLIO NEARLY BECAME THE HEADLINE.** The first run reported
+**+17.63% against the index's +11.15%, positive in both halves, 15 of 15 arms
+winning.** `rebalance.py` measures the same screen at the same frequency at
++11.67%, and **two studies of one screen disagreeing is the signal that one is
+wrong** — so they were run side by side on identical inputs. The picks were
+**identical on 78 of 105 rebalance bars**. The entire six-point gap came from
+**nine quarters where the eligible universe held 20–40 names and the
+"portfolio" was one to three stocks**, landing at the start of IDX's biggest
+bull run and compounding through a 26-year path. **The tell was that the RANDOM
+CONTROL MOVED BY THE SAME SIX POINTS — a selection effect cannot lift the
+control, so a shift in both arms is an accounting artefact by construction.**
+That diagnostic is cheap, general, and should be the first thing checked
+whenever a treatment improves: *did the control move too?*
+
+`MIN_UNIV = 40` and `MIN_BASKET = 5` now make a degenerate basket impossible,
+and `TIERS` is asserted never to cut below the universe floor. A19 records the
+smallest-cell trap twice; this is the third, and the first where it produced a
+POSITIVE headline rather than a negative one.

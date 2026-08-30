@@ -1,0 +1,26 @@
+H52 — the screen inside a size-restricted universe, 63-session rebalance,
+cost on weight-space turnover, index on a total-return basis over each arm's own window.
+
+  universe   weight  names   turn  cost/yr     CAGR    INDEX  vs index   random  GROSS edge    early     late
+       all    equal     11    77%    2.02%  +10.58%  +11.15%    -0.57%   +2.72%      +7.36%   +9.66%  +11.72%
+       all  sqrt_tv     11    76%    2.01%   +7.51%  +11.15%    -3.64%   +1.93%      +5.01%   +8.00%   +7.17%
+       all       tv     11    77%    2.03%   +6.42%  +11.15%    -4.73%   +1.46%      +4.38%   +5.94%   +7.03%
+   top 150    equal      9    78%    1.93%   +6.30%  +11.15%    -4.85%   +0.57%      +5.24%   +9.66%   +3.18%
+   top 150  sqrt_tv      9    77%    1.92%   +4.90%  +11.15%    -6.26%   +0.29%      +4.08%   +8.00%   +1.99%
+   top 150       tv      9    77%    1.92%   +4.03%  +11.15%    -7.13%   -0.26%      +3.75%   +5.94%   +2.23%
+   top 100    equal      7    79%    1.55%   +3.60%  +11.15%    -7.56%   -1.08%      +4.31%   +8.56%   -1.05%
+   top 100  sqrt_tv      7    76%    1.48%   +3.37%  +11.15%    -7.79%   -1.25%      +4.17%   +7.42%   -0.45%
+   top 100       tv      7    75%    1.46%   +3.08%  +11.15%    -8.07%   -1.68%      +4.28%   +5.77%   +0.53%
+    top 60    equal      5    84%    0.67%   +2.70%  +11.15%    -8.46%   -0.12%      +2.69%   +8.46%   -2.69%
+    top 60  sqrt_tv      5    81%    0.65%   +1.81%  +11.15%    -9.34%   +0.02%      +1.64%   +6.31%   -2.45%
+    top 60       tv      5    80%    0.64%   +1.05%  +11.15%   -10.10%   -0.02%      +0.89%   +4.41%   -2.17%
+    top 40    equal      5    75%    0.05%   +0.62%  +11.15%   -10.53%   -0.06%      +0.68%   +1.49%   -0.22%
+    top 40  sqrt_tv      5    75%    0.05%   +0.26%  +11.15%   -10.90%   +0.11%      +0.14%   +0.70%   -0.18%
+    top 40       tv      5    75%    0.05%   -0.21%  +11.15%   -11.37%   +0.21%      -0.43%   -0.28%   -0.15%
+
+  B1 — narrowing the universe: vs-index runs all -0.57%, top 150 -4.85%, top 100 -7.56%, top 60 -8.46%, top 40 -10.53%
+  B2 — best weighting at the best tier: equal, vs index -0.57%
+  B3 — gross edge over random by tier (equal weight): all +12.9%, 150 +8.4%, 100 +5.2%, 60 +3.4%, 40 +0.7%
+  B4 — best arm overall: all / equal, CAGR +10.58% against the index at +11.15% = -0.57%
+       and its half-split: early +9.66%, late +11.72%
+  arms beating the index at all: 0 of 15
