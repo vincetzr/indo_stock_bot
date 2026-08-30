@@ -120,6 +120,49 @@ reframed.
 
 ---
 
+## 4b. Raising the bar to ≥+5%, and where profit actually peaks
+
+*Added after the target was raised from +4% to +5% per trade.*
+
+**Already cleared: 12 cells** of the 14 clear ≥80% positive AND ≥+5% mean. The
+increment removed two cells and changed nothing else.
+
+So the more useful question was asked instead — **what is the MAXIMUM mean
+available subject to ≥80% positive**, which answers +5% and every future
+increment at once. Extending the target grid to +100% at the ten-year clock:
+
+| target | positive | mean | median | hold yr | ann | vs index |
+|---|---|---|---|---|---|---|
+| **+35%** | **81.3%** | **+14.61%** | +33.99% | 3.30 | −2.3% | **−27.84%** |
+| +40% | 79.3% | +16.64% | +38.97% | 3.64 | −2.1% | — (fails 80%) |
+| +50% | 75.7% | +20.39% | +48.97% | 4.24 | −2.0% | — |
+| +100% | 63.8% | +35.38% | +98.79% | 6.21 | −1.9% | — |
+
+**The peak is +35%: 81.3% positive and +14.61% mean per trade.** At +40% the
+positive rate falls to 79.3% and the constraint binds. So the goal would still
+clear if the profit bar were set anywhere up to **+14%**.
+
+**And every disqualification survives the tightening unchanged**, which is the
+point:
+
+| arm at the +35% peak | positive | mean | ann | vs index |
+|---|---|---|---|---|
+| trend filter | 81.3% | +14.61% | −2.3% | −27.84% |
+| **every bar, no selection** | **80.7%** | **+14.03%** | −2.7% | −28.61% |
+| random 20% subsample ×3 | 80.6–80.7% | +13.92–13.99% | −2.6 to −2.9% | −28.5% |
+
+Random selection still clears. The index over each trade's own window still
+returns **+42.46%** against the trade's +14.61%. It still compounds negatively.
+**8.67% of trades still lose 80% or more**, and the losers still average −69%.
+
+**The binding constraint was never the profit threshold.** Moving it from +4% to
++5% — or to +14% — cannot exclude a strategy that a coin flip also achieves and
+that trails the index by 28 points, because neither *selection* nor *the
+alternative* appears anywhere in a target made of a win rate and a per-trade
+mean.
+
+---
+
 ## 5. What this actually establishes
 
 The goal as stated is satisfiable and I have satisfied it. What the exercise

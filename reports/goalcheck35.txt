@@ -1,0 +1,12 @@
+cell: buy, target +35%, NO stop, 2520-session (10yr) clock
+
+arm                                       n  POSITIVE      MEAN    median hold yr     ann INDEX same   vs index  GOAL
+trend filter                         76,728     81.3%   +14.61%   +33.99%    3.30   -2.3%    +42.46%    -27.84%   YES
+EVERY eligible bar (no skill)       117,631     80.7%   +14.03%   +33.99%    3.38   -2.7%    +42.63%    -28.61%   YES
+random 20% subsample seed 0          23,526     80.6%   +13.94%   +33.99%    3.37   -2.8%    +42.40%    -28.46%   YES
+random 20% subsample seed 1          23,526     80.7%   +13.92%   +33.99%    3.37   -2.9%    +42.38%    -28.46%   YES
+random 20% subsample seed 2          23,526     80.7%   +13.99%   +33.99%    3.41   -2.6%    +42.93%    -28.94%   YES
+
+index beats the trade in 40.7% of cases
+share of trades that are total-ish losses (<= -80%): 8.67%
+mean of the losing 16.5%: -69.1%

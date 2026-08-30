@@ -17,7 +17,7 @@ from quantbot import CACHE, FEE, MIN_RP
 from paint_suite import tick_of
 from goalsearch import touch_times
 
-HOR, TP = 2520, 0.30
+HOR, TP = 2520, 0.35
 D = pd.read_parquet(CACHE)
 keep = D.groupby("ticker")["rp60"].max()
 names = set(keep[keep >= MIN_RP].index)
