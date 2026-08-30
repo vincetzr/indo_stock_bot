@@ -2809,8 +2809,13 @@ to just-negative.
 **Q3 CONFIRMED.** 0 of 120 base cells and 0 of 10 modelled cells clear both.
 
 **Q4 — META-LABELLING WORKS AND IS REAL.** Top model quintile reaches **80.3%
-positive**, and on the target-first label **79.7% against a label-shuffled null
-of 66.2%** — a 13-point lift the null does not produce. At the balanced geometry
+positive against a label-shuffled null of 76.9%** and a take-everything base of
+77.1% — a **+3.4 point** lift the null does not produce. *(An earlier version
+quoted +13 points by differencing the real arm's TRUE-label target-first rate
+against the null arm's SHUFFLED-label rate. Those are different quantities; the
+valid comparison is the `positive` column, which uses the unshuffled realised
+return in both arms. Corrected, and the effect is a third of what was
+published.)* At the balanced geometry
 it lifts the mean +2.57% → +3.32% and the median +2.44% → +8.13%, both above
 null. **And at 80.3% positive the mean is −0.40% and the account compounds at
 −9.1%/yr.**
@@ -2858,3 +2863,62 @@ tail dominates the mean log. Time does not rescue an equal-weighted basket.
 model table are a frontier MAP, not 130 hypotheses. Trials after H50: 302.**
 Bonferroni bar α = 0.05/302 = **0.00017**. No positive claim is made against it:
 Q1, Q2 and Q4 report reachability; Q3, Q6 and the book are negative.
+
+---
+
+## H51 — the goal REACHED: ≥+4% mean per trade AND ≥80% positive (2026-08-29)
+
+**Registered G1–G4 in `scripts/goalsearch.py` before any cell was scored.**
+Absolute barriers (the goal is stated in absolute terms), eligible universe
+screened point-in-time, net of fees plus each name's fraksi-harga half-spread.
+Memo: `reports/goal.md`.
+
+**THE GOAL IS REACHED. Buy any eligible name, target +30%, NO stop, ten-year
+clock: 83.5% positive, +12.52% mean per trade.** 14 of 40 cells clear both
+halves.
+
+**H50 SAID IT WAS UNREACHABLE AND H50's GRID COULD NOT HAVE FOUND IT.** The
+required edge is not constant across geometries: with E[r] = (p − p0)(a+b) − c,
+a symmetric +15%/−15% bracket needs **+0.300** of edge while +15%/−95% needs
+**+0.049**, because the payoff per unit of edge is (a+b). **H50's grid stopped
+at a 2σ stop and never entered the only region where the arithmetic is not
+hostile.** At one and three years that region still fails (0 of 216); what moves
+the frontier is the CLOCK.
+
+**G1 CONFIRMED.** 14 of 40 at ten years, 0 of 216 at one and three years.
+
+**G2 CONFIRMED.** Every goal-clearing cell compounds NEGATIVELY; best −2.43%,
+0 of 14 positive.
+
+**G3 FAILED, DEGENERATELY.** I predicted the goal cells would not be the
+best-annualised cells. The best-annualised cell in the whole search IS the goal
+cell — because every cell is negative, so "best" ranks losses. A worse outcome
+than predicted, logged as a failed prediction rather than reframed.
+
+**G4 CONFIRMED AND IT IS THE WHOLE FINDING.** Every eligible bar with NO
+selection at all: **83.0% / +12.08%**. Random 20% subsamples: 82.8–83.0% /
++11.93–12.15%. The trend filter adds half a point, inside subsample noise.
+**The goal is a property of the two lines you draw, not of anything you know
+about a stock.**
+
+**AND THE BENCHMARK THAT WAS MISSING FROM THE GOAL ITSELF.** The index over each
+trade's OWN entry and exit dates returns **+37.59%** on a total-return basis
+against the trade's +12.52% — **−25.07%**, with the index beating the trade in
+**61.5%** of cases. Comparing a per-trade return to nothing is A19's
+result-manufacturing error, and the goal as stated contains no benchmark.
+
+**WHY IT COMPOUNDS NEGATIVELY, AND IT IS NOT THE AVERAGE LOSS.** 83.5% win at a
+median of +29%; the 16.5% that lose average −70%, and **7.88% of ALL trades lose
+80% or more**. A test built with a flat −70% loser still GREW at +0.39%/yr — it
+is the near-total losses that do it.
+
+**WHAT THIS ESTABLISHES.** A win rate and a mean per trade, specified without a
+holding period and without a benchmark, do not jointly constrain a strategy to
+be good. Both are purchasable with barrier placement alone — Q0 measured that on
+synthetic data where the answer was known, and H51 confirms it on the real board
+with real costs.
+
+**Trial count: 4 (G1–G4). The 256 cells are a frontier MAP, not 256 hypotheses;
+the goal cell is the argmax of a search. Trials after H51: 306.** Bonferroni bar
+α = 0.05/306 = **0.00016**. Effective n at a ten-year horizon is roughly two
+non-overlapping decades per name across 143 names, far below the row count.

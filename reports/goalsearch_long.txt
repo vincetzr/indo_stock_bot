@@ -1,0 +1,32 @@
+40 cells over horizons [1260, 2520]. Absolute barriers, net of fees plus each name's half-spread.
+
+cell                        hor    arm        n  POSITIVE     MEAN   median  hold yr     ann      p10  GOAL
+tp +30% / sl none          2520  trend   76,728     83.5%  +12.52%  +28.99%     2.94   -2.4%   -68.7%   YES
+tp +30% / sl none          2520    all  117,631     83.0%  +12.08%  +29.01%     3.01   -2.8%   -69.0%   YES
+tp +25% / sl none          2520  trend   76,728     85.7%  +10.33%  +24.01%     2.58   -2.6%   -61.2%   YES
+tp +25% / sl none          2520    all  117,631     85.3%   +9.97%  +24.01%     2.64   -3.0%   -61.6%   YES
+tp +30% / sl -80%          2520  trend   76,728     81.1%   +9.74%  +28.98%     2.19   -3.1%   -81.2%   YES
+tp +20% / sl none          2520  trend   76,728     88.2%   +8.07%  +19.02%     2.19   -2.9%   -48.1%   YES
+tp +25% / sl -80%          2520  trend   76,728     83.5%   +7.81%  +23.99%     1.91   -3.4%   -81.1%   YES
+tp +20% / sl none          2520    all  117,631     87.8%   +7.78%  +19.02%     2.22   -3.3%   -48.0%   YES
+tp +25% / sl -80%          2520    all  117,631     82.3%   +6.61%  +23.99%     1.90   -4.5%   -81.2%   YES
+tp +20% / sl -80%          2520  trend   76,728     86.1%   +5.92%  +18.99%     1.61   -3.7%   -81.0%   YES
+tp +15% / sl none          2520  trend   76,728     90.7%   +5.61%  +14.02%     1.77   -3.4%   +13.4%   YES
+tp +15% / sl none          2520    all  117,631     90.3%   +5.50%  +14.02%     1.78   -3.7%   +12.4%   YES
+tp +20% / sl -80%          2520    all  117,631     85.0%   +4.87%  +19.01%     1.59   -4.9%   -81.1%   YES
+tp +20% / sl none          1260  trend  125,652     80.8%   +4.36%  +18.96%     1.65   -4.9%   -56.2%   YES
+tp +30% / sl -80%          2520    all  117,631     79.8%   +8.37%  +28.98%     2.20   -4.1%   -81.3%      
+tp +30% / sl none          1260  trend  125,652     74.5%   +7.24%  +28.93%     2.16   -4.4%   -64.6%      
+tp +30% / sl none          1260    all  204,088     73.7%   +6.64%  +28.93%     2.18   -4.7%   -65.4%      
+tp +30% / sl -80%          1260  trend  125,652     73.4%   +5.87%  +28.93%     1.94   -4.4%   -77.7%      
+tp +25% / sl none          1260  trend  125,652     77.4%   +5.81%  +23.94%     1.92   -4.7%   -61.3%      
+tp +25% / sl none          1260    all  204,088     76.8%   +5.25%  +23.95%     1.93   -5.1%   -62.6%      
+tp +30% / sl -80%          1260    all  204,088     72.5%   +4.87%  +28.93%     1.93   -5.3%   -80.9%      
+tp +25% / sl -80%          1260  trend  125,652     76.4%   +4.63%  +23.94%     1.72   -4.6%   -71.6%      
+tp +20% / sl none          1260    all  204,088     80.3%   +3.89%  +18.97%     1.65   -5.5%   -58.1%      
+tp +15% / sl -80%          2520  trend   76,728     88.7%   +3.87%  +14.01%     1.29   -4.3%   -56.2%      
+
+  G1 — cells clearing BOTH >=80% positive and >=+4% mean: **14 of 40**
+  G2 — of those, best annualised growth -2.43% (tp +30% / sl none, h2520, trend); 0 of 14 are positive
+       mean holding period among goal cells: 2.14 years; worst-decile trade -56.6%
+  G3 — best annualised cell overall is tp +30% / sl none h2520 at -2.43%, and it DOES clear the goal

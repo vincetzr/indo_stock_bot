@@ -53,3 +53,4 @@ data/spine/cone.parquet
 data/spine/cost_ladder.parquet
 data/spine/quantbot.parquet
 data/spine/quantbot_wf.parquet
+data/spine/goalcell.parquet

@@ -2553,9 +2553,13 @@ enough to cancel. That is the optional stopping theorem, and it is now measured
 in this repo rather than asserted.
 
 **META-LABELLING IS REAL, WHICH IS MORE THAN MOST THINGS HERE MANAGE.** The top
-model quintile reaches **79.7% on the target-first label against a
-label-shuffled null of 66.2%** — a thirteen-point lift the null does not
-produce. At the balanced geometry it lifts the mean +2.57% → +3.32% and the
+model quintile reaches **80.3% positive against a label-shuffled null of 76.9%**
+— a **+3.4 point** lift the null does not produce. **A first version claimed
++13 points** by differencing the real arm's TRUE-label rate against the null
+arm's SHUFFLED-label rate; those are different quantities, and the valid
+comparison is the column computed from the unshuffled realised return in both
+arms. **Two columns sharing a heading are not thereby comparable, and which arm
+a statistic came from has to be checked before it is differenced.** At the balanced geometry it lifts the mean +2.57% → +3.32% and the
 median +2.44% → +8.13%, both clearly above null. **It still does not get
 anywhere: the best `ann` in the entire modelled table is −3.5%.**
 
@@ -2591,3 +2595,57 @@ printed.**
 dropped the `if __name__ == "__main__"` block, so the script defined `main()`,
 never called it, and exited 0 in under a second with an empty output file.
 Exit code 0 is not evidence that anything ran.
+
+## A37. The goal reached, and reaching it showed the goal selected for nothing
+
+Told to make ">=+4% mean per trade AND >=80% positive" the goal and not stop
+until it was reached. It is reached. Memo `reports/goal.md`, logged H51.
+
+**H50 SAID IT WAS UNREACHABLE AND H50's GRID COULD NOT HAVE FOUND IT.** The
+required edge is NOT constant across barrier geometries. With
+E[r] = (p − p0)(a + b) − c and p0 = b/(a + b), a symmetric +15%/−15% bracket
+needs **+0.300** of edge while +15%/−95% needs **+0.049** — because the payoff
+per unit of edge is (a + b) and a far stop makes that large. **H50's grid
+stopped at a 2σ stop and never entered the one region where the arithmetic is
+not hostile.** Declaring a goal unreachable from a grid that never covered the
+cheapest corner of the space is the A12 shape again, in its most expensive
+form yet: not a missing source or a missing comparison, but a **missing region
+of the search itself**, in a study that had just cited A20 for exactly this.
+
+**THE ANSWER: buy any eligible name, target +30%, NO stop, ten-year clock —
+83.5% positive, +12.52% mean per trade.** 14 of 40 cells clear both halves at
+ten years, 0 of 216 at one and three years. **What moves the frontier is the
+CLOCK, not the selection.**
+
+**G4 CONFIRMED AND IT IS THE WHOLE FINDING.** Every eligible bar with NO
+selection at all reads **83.0% / +12.08%**; random 20% subsamples read
+82.8–83.0% / +11.93–12.15%. The trend filter adds half a point, inside
+subsample noise. **The goal is a property of the two lines you draw, not of
+anything you know about a stock** — the optional stopping theorem that Q0
+measured on synthetic data, now visible on the real board.
+
+**THE BENCHMARK THE GOAL ITSELF DID NOT CONTAIN.** The index over each trade's
+OWN entry and exit dates returns **+37.59%** total-return against the trade's
++12.52% — **−25.07%**, and the index beats the trade in **61.5%** of cases. A
+goal phrased as a win rate and a per-trade mean has no benchmark in it, so it
+can be satisfied by something that loses to the alternative by 25 points.
+
+**AND IT COMPOUNDS AT −2.43%, WHICH IS NOT THE AVERAGE LOSS DOING IT.** 83.5%
+win at a median of +29%; the 16.5% that lose average −70% and **7.88% of all
+trades lose 80% or more**. A synthetic test built with a flat −70% loser still
+GREW at +0.39%/yr — only the near-total losses turn the geometric mean negative.
+
+**G3 FAILED DEGENERATELY.** I predicted the goal-clearing cells would not be the
+best-annualised cells. The best-annualised cell in the whole search IS the goal
+cell, because every cell is negative and "best" ranks losses. Logged as a failed
+prediction rather than reframed.
+
+**THE GENERALISATION, AND IT IS THE MOST USEFUL THING IN THIS APPENDIX.** A win
+rate and a mean per trade, specified **without a holding period and without a
+benchmark**, do not jointly constrain a strategy to be good. Both halves are
+purchasable with barrier placement alone. The three things that WOULD constrain
+it — annualised growth above the index, positive in both halves, and a
+random-selection control beaten — remain unsatisfied by any configuration in 306
+trials. **Any future target should be stated in those terms, because a target
+that can be met by drawing two lines on a chart of a randomly chosen stock is
+not a target.**

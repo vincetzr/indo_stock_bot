@@ -169,10 +169,9 @@ opposite ways.
 | balanced | model top 20% | NULL | 34,119 | 51.8% | 32.0% | +2.42% | +2.34% | −5.4% |
 
 **Q4 — the model is real and it clears your 80%.** At the win-rate corner the
-top model quintile reaches **80.3% positive**. On the target-first label it
-reaches **79.7% against a label-shuffled null of 66.2%** — a thirteen-point lift
-that the null does not produce, so this is not the pipeline manufacturing its
-own signal. At the balanced geometry it lifts the mean from +2.57% to +3.32% and
+top model quintile reaches **80.3% positive against a label-shuffled null of
+76.9%** and a take-everything base of 77.1% — a **+3.4 point** lift the null does
+not produce, so this is not the pipeline manufacturing its own signal. At the balanced geometry it lifts the mean from +2.57% to +3.32% and
 the median from +2.44% to +8.13%, again clearly above its null.
 
 **Q5 — the predicted null did not fire.** Good: the machinery is clean.
@@ -232,6 +231,28 @@ folds train on less data — and it fits better than a regime story.
 Note also the index columns: **+13.39% early, +5.29% late.** Every book beats
 the index late and none beats it early. That is the index's own regime, not the
 model's skill.
+
+---
+
+
+### CORRECTION — the "thirteen-point lift" was an invalid comparison
+
+An earlier version of this memo said the model reached **79.7% target-first
+against a label-shuffled null of 66.2%, a thirteen-point lift**. That comparison
+is not valid and the number should not be used.
+
+In the null arm the labels are the SHUFFLED ones, so the null's `target-first`
+column is the mean of a permuted label and its base rate is not the real base
+rate. Comparing the real arm's true-label 79.7% against the null arm's
+shuffled-label 66.2% compares two different quantities.
+
+**The valid comparison is the `positive` column**, which is computed from the
+UNSHUFFLED realised return in both arms: **80.3% for the model against 76.9%
+for the null, and 77.1% for taking every signal. A +3.4 point lift, not +13.**
+The model is still real and still beats its null — by a third of what I
+published. The lesson is the one A19 keeps recording in a new costume: two
+columns that share a heading are not thereby comparable, and the arm a statistic
+comes from has to be checked before it is differenced.
 
 ---
 
