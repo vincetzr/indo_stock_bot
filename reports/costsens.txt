@@ -1,0 +1,12 @@
+H52's best arm (full universe, equal weight, quarterly) at each cost model.
+The index is a ZERO-cost, zero-turnover benchmark in every row.
+
+cost model                            cost/yr     CAGR    INDEX  vs index   random  GROSS edge
+fees only, PERFECT passive fills        1.02%  +11.71%  +11.15%    +0.55%   +4.22%      +7.33%
+fees + HALF a tick (patient)            1.52%  +11.14%  +11.15%    -0.01%   +3.49%      +7.33%
+fees + a FULL tick (my default)         2.02%  +10.58%  +11.15%    -0.57%   +2.76%      +7.33%
+institutional fees + half tick          0.78%  +11.98%  +11.15%    +0.82%   +4.44%      +7.33%
+
+  moving from a full tick to zero spread is worth -1.13% a year,
+  and takes the screen from -0.57% to +0.55% against the index.
+  arms beating the index: 2 of 4

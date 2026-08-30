@@ -102,6 +102,52 @@ twenty-six-year CAGR.**
 
 ---
 
+## 4b. The cost model was two things quoted as one, and separating them flips the sign
+
+*Added after the figure was challenged: "Wdym 1.4%? I pay 0.5%."*
+
+**The challenge was right, and we agree on the number.** The 1.4% blended two
+quantities that are not the same kind of thing:
+
+| | | |
+|---|---|---|
+| **A** | commission + sell tax, round trip | **0.56%** — the published Mandiri schedule, not negotiable, and exactly the "0.5%" quoted |
+| **B** | one fraksi-harga tick | **0.25–1.00%** depending on price — the bid-ask spread, which never appears on a contract note |
+
+Charging a **full** tick assumes liquidity is TAKEN on both sides of every
+trade. That is an execution assumption wearing a fee's clothing, and reporting
+it blended made a modelling choice look like a broker's schedule.
+
+`fee` and `spread_mult` are now explicit arguments to `run()`. The sensitivity,
+on H52's best arm:
+
+| cost model | cost/yr | CAGR | index | **vs index** | gross edge over random |
+|---|---|---|---|---|---|
+| fees only, perfect passive fills | 1.02% | +11.71% | +11.15% | **+0.55%** | +7.33% |
+| fees + **half** a tick (patient) | 1.52% | +11.14% | +11.15% | **−0.01%** | +7.33% |
+| fees + a full tick (the default above) | 2.02% | +10.58% | +11.15% | −0.57% | +7.33% |
+| institutional fees + half tick | 0.78% | +11.98% | +11.15% | +0.82% | +7.33% |
+
+**The sign of the headline flips**, from −0.57% to +0.55%. It does not become a
+mile: +0.55%/yr is a tie, well inside draw-to-draw noise, on a book carrying
+concentration the index does not. The realistic middle row is **−0.01%** —
+exactly flat.
+
+**Three things this establishes.**
+
+The **gross edge over random is +7.33% in every row**, as it must be: cost hits
+both arms equally, so none of this touches whether the selection is real. It is.
+
+**Execution is worth ~1.1%/yr**, which is larger than most effects measured
+anywhere in this project — and unlike the alpha it is entirely under the
+holder's control. The fewer round trips, the less any of it matters.
+
+And the general lesson: **a blended cost figure hides which part is a fact and
+which part is an assumption.** Every future result here quotes the fee and the
+spread multiplier separately.
+
+---
+
 ## 5. Where this leaves "beat the index by a mile"
 
 It does not get there, and this was the best-motivated remaining route. The

@@ -147,3 +147,67 @@ def test_the_tiers_never_cut_below_the_universe_floor():
     """A tier tighter than MIN_UNIV would silently produce an all-cash arm and
     report it as a strategy."""
     assert min(t for t in TIERS if t is not None) >= MIN_UNIV
+
+
+# ============================================ THE COST MODEL IS TWO THINGS ====
+def _tiny_panel(n_names=200, n_dates=40, seed=0):
+    """200 names, not 60. The cell is ~5% of the universe (two quantile cuts),
+    so a 60-name panel yields a 3-name basket and `MIN_BASKET` correctly refuses
+    to trade it — leaving every cost column NaN. The guard working is not a
+    fixture that can test cost."""
+    rng = np.random.default_rng(seed)
+    dates = pd.bdate_range("2010-01-01", periods=n_dates, freq="21D")
+    rows = []
+    for i in range(n_names):
+        p = np.exp(np.cumsum(rng.normal(0.002, 0.05, n_dates))) * 1500
+        rows.append(pd.DataFrame({
+            "date": dates, "ticker": f"T{i:03d}", "adj_close": p, "close": p,
+            "elig": True, "tv": np.exp(rng.normal(24, 1.0)),
+            "hi52": rng.normal(-0.1, 0.1, n_dates),
+            "vol60": rng.uniform(0.01, 0.05, n_dates)}))
+    return pd.concat(rows, ignore_index=True)
+
+
+def test_fee_and_spread_are_separate_knobs_not_one_blended_constant():
+    """The user pays 0.56% in commission and tax. The fraksi-harga tick is an
+    EXECUTION assumption on top — a full tick means taking liquidity on both
+    sides, zero means every fill is passive. Quoting the two blended as "1.4%"
+    hides an assumption inside what looks like a broker's schedule, which is
+    exactly the confusion this parameterisation exists to prevent."""
+    from beatindex import run
+    from rebalance import Prices
+    P = _tiny_panel()
+    PX = Prices(P)
+    dates = np.sort(P["date"].unique())
+    cheap = run(P, PX, dates, 2, 0, None, "equal", fee=0.0056, spread_mult=0.0)
+    dear = run(P, PX, dates, 2, 0, None, "equal", fee=0.0056, spread_mult=1.0)
+    assert cheap and dear
+    assert cheap["cost_yr"] < dear["cost_yr"]
+    assert cheap["cagr"] > dear["cagr"]
+
+
+def test_zero_cost_is_reachable_and_equals_the_gross_path():
+    """With no fee and no spread the net path must coincide with the gross one;
+    if it does not, cost is leaking in somewhere unaccounted."""
+    from beatindex import run
+    from rebalance import Prices
+    P = _tiny_panel(seed=2)
+    r = run(P, Prices(P), np.sort(P["date"].unique()), 2, 0, None, "equal",
+            fee=0.0, spread_mult=0.0)
+    assert r["cost_yr"] == pytest.approx(0.0, abs=1e-12)
+    assert r["cagr"] == pytest.approx(r["gross"], rel=1e-9)
+
+
+def test_the_cost_model_does_not_change_the_picks():
+    """Cost is charged AFTER selection, so a cheaper assumption must not quietly
+    alter which names are held — otherwise a cost sensitivity would be
+    confounded with a selection change."""
+    from beatindex import run
+    from rebalance import Prices
+    P = _tiny_panel(seed=5)
+    PX = Prices(P)
+    dates = np.sort(P["date"].unique())
+    a = run(P, PX, dates, 2, 0, None, "equal", fee=0.0, spread_mult=0.0)
+    b = run(P, PX, dates, 2, 0, None, "equal", fee=0.02, spread_mult=1.0)
+    assert a["gross"] == pytest.approx(b["gross"], rel=1e-9)
+    assert a["turnover"] == pytest.approx(b["turnover"], rel=1e-9)

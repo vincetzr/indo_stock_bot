@@ -2717,3 +2717,20 @@ whenever a treatment improves: *did the control move too?*
 and `TIERS` is asserted never to cut below the universe floor. A19 records the
 smallest-cell trap twice; this is the third, and the first where it produced a
 POSITIVE headline rather than a negative one.
+
+**A38 addendum — the cost figure was two things quoted as one.** Challenged with
+"Wdym 1.4%? I pay 0.5%", and the challenge was right. The blended number mixed
+**commission + sell tax (0.56%, the published schedule, exactly the 0.5%
+quoted)** with **one fraksi-harga tick (0.25–1.00%)**, which is the bid-ask
+spread and appears on no contract note. Charging a FULL tick assumes liquidity
+is TAKEN on both sides of every trade — an execution assumption wearing a fee's
+clothing. `fee` and `spread_mult` are now explicit arguments to
+`beatindex.run()`. **The sensitivity flips the sign of H52's headline**: fees
+only +0.55% vs index, fees + half a tick −0.01%, fees + full tick −0.57%. It
+does not become a mile — the realistic middle row is flat — and the **gross edge
+over random is +7.33% in every row**, since cost hits both arms equally, so none
+of it touches whether the selection is real. **Execution is worth ~1.1%/yr,
+larger than most effects measured in this project and, unlike the alpha,
+entirely under the holder's control.** The general lesson: a blended cost figure
+hides which part is a fact and which part is an assumption, so every result here
+now quotes the fee and the spread multiplier separately.

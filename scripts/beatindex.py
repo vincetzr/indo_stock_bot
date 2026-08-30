@@ -155,8 +155,20 @@ def weights(sub: pd.DataFrame, mode: str) -> np.ndarray:
 
 
 def run(P: pd.DataFrame, PX: Prices, dates: np.ndarray, freq: int, offset: int,
-        tier, wmode: str, seed: int | None = None) -> Dict:
-    """One equity path. Cost is charged on TURNOVER, in weight space."""
+        tier, wmode: str, seed: int | None = None, fee: float = COST,
+        spread_mult: float = 1.0) -> Dict:
+    """One equity path. Cost is charged on TURNOVER, in weight space.
+
+    THE COST HAS TWO PARTS AND THEY ARE NOT THE SAME KIND OF THING.
+    `fee` is commission plus the sell tax — a published schedule, 0.56% round
+    trip on the user's broker, and not negotiable. `spread_mult` scales the
+    fraksi-harga tick: 1.0 means buy at the ask and sell at the bid, i.e. TAKE
+    liquidity on both sides; 0.0 means every fill is passive and earns the
+    spread rather than paying it. The truth is in between and depends on how the
+    order is worked, so it is a PARAMETER and not a constant. Quoting the two
+    blended as "1.4%" — as I did — hides an execution assumption inside what
+    looks like a fee.
+    """
     rng = np.random.default_rng(seed) if seed is not None else None
     marks = dates[offset::freq]
     if len(marks) < 6:
@@ -182,9 +194,9 @@ def run(P: pd.DataFrame, PX: Prices, dates: np.ndarray, freq: int, offset: int,
         keys = set(cur) | set(prev)
         turn = 0.5 * sum(abs(cur.get(k, 0.0) - prev.get(k, 0.0)) for k in keys)
         px_a = {tk: PX.at(tk, a) for tk in tks}
-        toll = [COST + tick_of(v) / v for v in px_a.values()
+        toll = [fee + spread_mult * tick_of(v) / v for v in px_a.values()
                 if np.isfinite(v) and v > 0]
-        toll = float(np.mean(toll)) if toll else COST
+        toll = float(np.mean(toll)) if toll else fee
         eq *= (1.0 - turn * toll)
         turns.append(turn)
         costs.append(turn * toll)
