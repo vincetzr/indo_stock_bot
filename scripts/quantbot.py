@@ -830,9 +830,18 @@ def book(W: pd.DataFrame, slots: int = 8, rank: str = "p",
             seen.add(row["ticker"])
             taken += 1
             log_by_date.setdefault(pd.Timestamp(free_at[k]), []).append(r)
-    span = (pd.Timestamp(dates[-1]) - pd.Timestamp(dates[0])).days / 365.25
+    #  THE SPAN RUNS TO THE LAST EXIT, NOT THE LAST ENTRY. A position opened on
+    #  the final entry date keeps compounding for its whole holding period, so
+    #  measuring the equity over the ENTRY span credits years of growth to a
+    #  window that does not contain them — and at a 3.4-year mean hold that
+    #  overstates the rate badly. A19 records comparing quantities measured over
+    #  different windows as the error class that manufactures results, and this
+    #  is the same one: the benchmark must be priced over THIS span too.
+    last_exit = pd.Timestamp(max(free_at.max(), dates[-1]))
+    span = (last_exit - pd.Timestamp(dates[0])).days / 365.25
     tot = float(np.mean(equity))
     return {"slots": slots, "trades": taken, "span": span,
+            "start": pd.Timestamp(dates[0]), "end": last_exit,
             "total": tot, "cagr": tot ** (1.0 / max(span, 1e-9)) - 1.0,
             "per_slot": [float(e) for e in equity]}
 

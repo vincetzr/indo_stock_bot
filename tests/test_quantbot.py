@@ -307,3 +307,28 @@ def test_a_total_loss_cannot_drive_slot_equity_negative():
     W["ret"] = -1.8
     b = book(W, slots=2)
     assert np.isfinite(b["cagr"]) and b["total"] >= 0.0
+
+
+def test_the_book_span_runs_to_the_last_exit_not_the_last_entry():
+    """A19's error class, committed in this file and fixed. A position opened on
+    the final entry date keeps compounding for its whole holding period; ending
+    the span at the last ENTRY credits that growth to a window that does not
+    contain it, and then prices the benchmark over the same wrong window. It
+    moved the measured index from +18.94% to +14.92%."""
+    from quantbot import book
+    W = _wf(n_names=10, n_dates=20)
+    W["bars"] = 500
+    b = book(W, slots=2)
+    last_entry = pd.Timestamp(W["date"].max())
+    assert b["end"] > last_entry
+    assert b["span"] > (last_entry - pd.Timestamp(W["date"].min())).days / 365.25
+
+
+def test_a_longer_hold_lengthens_the_span_at_the_same_entry_dates():
+    """The direct consequence: two rules entering on identical dates but holding
+    for different lengths must NOT be annualised over the same span."""
+    from quantbot import book
+    W = _wf(n_names=10, n_dates=20)
+    short = book(W.assign(bars=20), slots=2)["span"]
+    long_ = book(W.assign(bars=600), slots=2)["span"]
+    assert long_ > short + 1.0

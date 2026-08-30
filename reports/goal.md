@@ -163,6 +163,57 @@ mean.
 
 ---
 
+## 4c. Does it work, and what is the CAGR
+
+*The two questions that decide it. `scripts/goalcheck.py`, `reports/goal_cagr.txt`.*
+
+**No, it does not work.** The CAGR depends on how you hold it, so both are
+measured:
+
+| | CAGR | Rp 100 juta after 10 years |
+|---|---|---|
+| one position at a time | **−2.71%** | Rp 76 juta |
+| best book (4 slots, equal-weighted) | **+13.34%** | Rp 350 juta |
+| **the index, same 23.2-year span** | **+14.92%** | **Rp 402 juta** |
+
+| slots | trades | CAGR | vs index | sd across 12 draws |
+|---|---|---|---|---|
+| 1 | 4 | +12.32% | −2.61% | 11.60% |
+| 2 | 10 | +10.88% | −4.05% | 7.36% |
+| **4** | 30 | **+13.34%** | −1.58% | 5.42% |
+| 8 | 75 | +11.93% | −3.00% | 2.76% |
+| 16 | 137 | +9.76% | −5.17% | 1.57% |
+| 32 | 206 | +6.72% | −8.21% | 1.70% |
+
+**0 of 6 slot counts beat the index.**
+
+The single-position figure is the honest one for a bot that holds one name at a
+time; a diversified book recovers most of the volatility drag, which is why
++13.34% and −2.71% are both true of the same rule. Neither reaches the index.
+
+**And the best book is a tie inside noise, which is not a rescue.** At 4 slots
+the spread across twelve random draws is **5.42%** — wider than the 1.58% gap to
+the index — and the book takes **30 trades in 23 years**, so there is almost no
+independent information in the comparison. A19's phrasing applies: a tie against
+the cheap alternative is a loss for the expensive one, because the expensive one
+also carries single-name concentration and an 8.67% chance per trade of losing
+80%.
+
+### A window mismatch in my own code, found while computing this
+
+The first version of this table put the index at **+18.94%** and the book at
++18.39%. Both were wrong. `book()` measured its span from the first entry to the
+**last entry**, while the equity kept compounding through the final position's
+3.4-year holding period — so years of growth were credited to a window that did
+not contain them, and the index was then priced over that same wrong window.
+
+Fixed to run first entry → **last exit** (23.2 years), which is A19's error
+class exactly: comparing quantities measured over different windows. The
+correction moved the index from +18.94% to +14.92% and the 8-slot book from
++18.39% to +11.93%. **Every number in this section is the corrected one.**
+
+---
+
 ## 5. What this actually establishes
 
 The goal as stated is satisfiable and I have satisfied it. What the exercise

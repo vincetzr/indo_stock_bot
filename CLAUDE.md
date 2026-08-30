@@ -2649,3 +2649,25 @@ random-selection control beaten — remain unsatisfied by any configuration in 3
 trials. **Any future target should be stated in those terms, because a target
 that can be met by drawing two lines on a chart of a randomly chosen stock is
 not a target.**
+
+**A37 addendum — does it work, and the window mismatch found while answering.**
+No. Single position compounded **−2.71%/yr**; best equal-weighted book (4 slots)
+**+13.34%**; index over the same 23.2-year span **+14.92%**. **0 of 6 slot
+counts beat the index.** Rp 100 juta over ten years: Rp 76 juta held one at a
+time, Rp 350 juta as the best book, **Rp 402 juta in the index.** The two CAGRs
+are both true of the same rule — diversification recovers most of the volatility
+drag — and neither reaches the index. The best book is a **tie inside noise**:
+the spread across twelve random draws at 4 slots is **5.42%**, wider than the
+1.58% gap, on **30 trades in 23 years**.
+
+**AND `book()` MEASURED ITS SPAN TO THE LAST ENTRY, NOT THE LAST EXIT.** A
+position opened on the final entry date keeps compounding through its whole
+3.4-year holding period, so years of growth were credited to a window that did
+not contain them — and the benchmark was then priced over that same wrong
+window. It put the index at **+18.94%** and the 8-slot book at **+18.39%**;
+corrected to first-entry → last-exit they are **+14.92%** and **+11.93%**. A19's
+error class — comparing quantities measured over different windows — committed
+inside the function written to price A19's comparison, and caught only because
+an index CAGR of +18.94% for Indonesia looked too high to be true. **Two tests
+now pin the span; the sanity check that caught it was a benchmark that did not
+match the country it claimed to measure.**

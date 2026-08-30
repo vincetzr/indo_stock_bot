@@ -1,0 +1,24 @@
+cell: target +35%, no stop, 10-year clock. 117,631 trades, 139 names
+  positive 80.7%   mean per trade +14.03%   median +33.99%   mean hold 3.38 yr
+
+SINGLE POSITION, compounded: -2.71%/yr
+INDEX over the BOOK's own span (2000-12 -> 2024-03, 23.2 yr, total-return basis): +14.92%/yr
+  (measured to the last EXIT, not the last entry: a position opened on
+   the final entry date compounds for another 3.4 years, and crediting
+   that to the entry window overstated the rate by ~8 points.)
+
+book                    slots  trades  total x     CAGR  vs index
+equal-weighted              1       4     0.30  +12.32%    -2.61%   (sd across 12 draws 11.60%)
+equal-weighted              2      10     0.86  +10.88%    -4.05%   (sd across 12 draws 7.36%)
+equal-weighted              4      30     4.25  +13.34%    -1.58%   (sd across 12 draws 5.42%)
+equal-weighted              8      75    47.01  +11.93%    -3.00%   (sd across 12 draws 2.76%)
+equal-weighted             16     137     8.81   +9.76%    -5.17%   (sd across 12 draws 1.57%)
+equal-weighted             32     206     4.07   +6.72%    -8.21%   (sd across 12 draws 1.70%)
+
+best book: +13.34%/yr at 4 slots, against the index at +14.92%
+books beating the index: 0 of 6
+
+Rp 100 juta over 10 years:
+  best book          Rp   349.9 juta
+  single position    Rp    76.0 juta
+  the index          Rp   401.9 juta
