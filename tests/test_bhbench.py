@@ -292,3 +292,83 @@ def test_cagr_and_half_split_are_arithmetically_right():
 def test_the_standing_cost_constants_are_the_users_actual_schedule():
     assert bhbench.FEE == pytest.approx(0.0056)
     assert 0.0 <= bhbench.SPREAD_MULT <= 1.0
+
+
+# ============================================== THE CASH DRAG AND THE PHASE ====
+def test_a_mark_the_strategy_cannot_act_on_holds_the_book_not_cash():
+    """THE BUG THE FLEET FOUND, AND IT WAS WORTH MORE THAN ANY EFFECT MEASURED.
+
+    Every `continue` in the walk used to append the unchanged equity, so a
+    strategy earned ZERO across a skipped mark while all three buy-and-hold
+    benchmarks kept compounding through it. On the real panel at freq=252 that
+    was 9 of 27 marks, including windows the IHSG ran +90.6% and +95.5% — a
+    handicap of 1.8 to 6.7 points a year applied to the strategy and nothing
+    else. Refusing to BUY a degenerate cross-section is right; SELLING a book
+    you already own because the screen went quiet is not.
+    """
+    P = _panel(n_names=60, n_dates=500, drift=0.002)
+    B = _FakeBench(P)
+    #  A selector that trades once and then refuses, forcing every later mark
+    #  down the `len(picks) < MIN_BASKET` branch.
+    state = {"n": 0}
+
+    def once(day):
+        state["n"] += 1
+        return _all(day) if state["n"] == 1 else []
+
+    r = B.walk(once, freq=21)
+    assert r, "the one-trade strategy should still produce a path"
+    #  With a strong upward drift the book must GROW after its single purchase.
+    #  Under the old behaviour eq froze at the first mark's value.
+    assert r["eq"] > 1.5, r["eq"]
+    #  And it should land close to simply holding that basket, because that is
+    #  exactly what it did.
+    bh = B.hold_basket(r["first_basket"], r["start"], r["end"])
+    assert abs(r["cagr"] - bh) < 0.02, (r["cagr"], bh)
+
+
+def test_carrying_a_book_drifts_its_weights_rather_than_rebalancing_free():
+    """`prev` is what the next turnover is charged against. Handing back the
+    pre-drift weights would give the strategy a free reset to equal every time
+    it skipped a mark."""
+    P = _panel(n_names=60, n_dates=300)
+    B = _FakeBench(P)
+    a, b = B.dates[100], B.dates[121]
+    prev = {t: 1.0 / 3 for t in list(P["ticker"].unique())[:3]}
+    eq, gross, nxt = B._carry(prev, a, b, 1.0, 1.0)
+    assert set(nxt) == set(prev)
+    assert abs(sum(nxt.values()) - 1.0) < 1e-12
+    #  The names did not all move identically, so the weights must have moved.
+    assert max(abs(nxt[t] - 1.0 / 3) for t in nxt) > 1e-6
+
+
+def test_pass_requires_a_majority_of_rebalance_phases_not_offset_zero():
+    """THREE STRATEGIES PASSED THIS HARNESS AT OFFSET 0 AND NOWHERE ELSE.
+
+    `marks` starts at `dates[offset]`, and offset 0 is the panel's first bar for
+    no reason but that it is first — A20's lesson (a parameter fixed by
+    convenience, inherited by every study) committed inside the harness. A PASS
+    is now a majority of phases and the headline is their median.
+    """
+    P = _panel(n_names=60, n_dates=600)
+    B = _FakeBench(P)
+    v = B.evaluate(_all, "own everything", freq=63, draws=2, phases=4)
+    assert v["ok"]
+    assert v["phases"] >= 3
+    assert "cagr_med" in v and "cagr_lo" in v and "cagr_hi" in v
+    assert v["cagr_lo"] <= v["cagr_med"] <= v["cagr_hi"]
+    assert v["PASS"] == (v["phases_pass"] * 2 > v["phases"])
+    #  Distinct calendars must give distinct paths, or the phases are a no-op.
+    assert len(set(np.round(v["phase_cagrs"], 6))) > 1
+
+
+def test_the_random_control_runs_on_the_same_calendar_as_the_strategy():
+    """A first version omitted `offset` from the control's walk, so at every
+    phase but zero the control was measured over a different window from the
+    strategy it exists to control for — A19's error class, inside the control
+    written to prevent it."""
+    import inspect
+    src = inspect.getsource(Bench._verdict)
+    i = src.index("np.random.default_rng")
+    assert "offset=offset" in src[max(0, i - 300):i], (
+        "the control's walk must be given the same offset as the strategy's")

@@ -176,6 +176,47 @@ class Bench:
         #  ONE round trip, not zero: even a buy-and-hold is bought and sold.
         return _cagr(float(np.mean(rets)) + 1.0 - float(np.mean(tolls)), y)
 
+    def _carry(self, prev: Dict[str, float], a, b, eq: float, gross: float):
+        """A mark the strategy cannot act on: HOLD THE EXISTING BOOK.
+
+        THE BUG THIS FIXES WAS WORTH MORE THAN ANY EFFECT THE HARNESS MEASURED.
+        The first version appended the unchanged equity and moved on, so a
+        strategy earned ZERO across every skipped mark while all three
+        buy-and-hold benchmarks kept compounding. At freq=252 that was 9 of 27
+        marks, including windows in which the IHSG ran +90.6%, +45.2% and
+        +95.5% — a systematic handicap of 1.8 to 6.7 points a year, applied to
+        the strategy and to nothing else.
+
+        The guard was meant to stop a DEGENERATE NEW BASKET (H52's one-name
+        book). Refusing to BUY a thin cross-section is right; liquidating a book
+        you already hold because the screen went quiet is not something any
+        holder would do, and it is not what the benchmark does either.
+        """
+        if not prev:
+            return eq, gross, prev
+        tks, rets, ws = [], [], []
+        for t, w in prev.items():
+            p0 = self.PX.at(t, a)
+            if not np.isfinite(p0) or p0 <= 0:
+                continue
+            p1 = self.PX.exit_price(t, b)
+            if not np.isfinite(p1) or p1 <= 0:
+                continue
+            tks.append(t)
+            rets.append(p1 / p0 - 1.0)
+            ws.append(w)
+        if not rets:
+            return eq, gross, prev
+        ws = np.array(ws) / np.sum(ws)
+        rets = np.array(rets)
+        r = float(np.dot(ws, rets))
+        #  THE WEIGHTS DRIFT, and `prev` is what the next turnover is measured
+        #  against. Returning the pre-drift weights would charge the strategy
+        #  for a rebalance it had already been given for free.
+        gw = ws * (1.0 + rets)
+        gw = gw / gw.sum()
+        return eq * (1.0 + r), gross * (1.0 + r), dict(zip(tks, gw.tolist()))
+
     # -------------------------------------------------------------- the walk
     def walk(self, select: Callable, freq: int = 63, offset: int = 0,
              rng: np.random.Generator | None = None) -> Dict:
@@ -200,10 +241,12 @@ class Bench:
         for a, b in zip(marks[:-1], marks[1:]):
             day = by_date.get(a)
             if day is None:
+                eq, gross, prev = self._carry(prev, a, b, eq, gross)
                 curve.append((b, eq))
                 continue
             day = day[day["elig"]]
             if len(day) < MIN_UNIV:
+                eq, gross, prev = self._carry(prev, a, b, eq, gross)
                 curve.append((b, eq))
                 continue
             if rng is not None:
@@ -215,6 +258,7 @@ class Bench:
             picks = [(t, float(w)) for t, w in (picks or [])
                      if np.isfinite(w) and w > 0]
             if len(picks) < MIN_BASKET:
+                eq, gross, prev = self._carry(prev, a, b, eq, gross)
                 curve.append((b, eq))
                 continue
             tot = sum(w for _, w in picks)
@@ -268,10 +312,48 @@ class Bench:
 
     # ----------------------------------------------------------- the verdict
     def evaluate(self, select: Callable, label: str, freq: int = 63,
-                 draws: int = 6) -> Dict:
-        r = self.walk(select, freq=freq)
+                 draws: int = 6, phases: int = 6) -> Dict:
+        """Verdict across `phases` rebalance calendars, not one.
+
+        THE REBALANCE PHASE IS A FREE PARAMETER NOBODY CHOSE. `marks` starts at
+        `dates[offset]`, and offset 0 is the panel's first bar for no reason but
+        that it is first. Three separate strategies passed this harness at
+        offset 0 and failed at every other offset tested — the PASS was a
+        property of the START DATE, which is A20's lesson (a parameter fixed by
+        convenience and inherited by every study) applied to the harness itself.
+
+        So a PASS now requires a MAJORITY of phases, and the headline CAGR is
+        the MEDIAN across them. The spread across phases is reported because it
+        is the honest error bar on every number here: if a strategy's CAGR moves
+        four points depending on which Tuesday you start, no single run of it
+        means anything.
+        """
+        offs = [int(round(i * freq / max(phases, 1))) for i in range(phases)]
+        runs = [self._verdict(select, label, freq, o, draws) for o in offs]
+        ok = [v for v in runs if v.get("ok")]
+        if not ok:
+            return runs[0] if runs else {"label": label, "ok": False,
+                                         "why": "no phase produced a path"}
+        med = float(np.median([v["cagr"] for v in ok]))
+        base = min(ok, key=lambda v: abs(v["cagr"] - med))
+        out = dict(base)
+        npass = sum(bool(v["PASS"]) for v in ok)
+        out.update({
+            "phases": len(ok), "phases_pass": npass,
+            "cagr_med": med,
+            "cagr_lo": float(np.min([v["cagr"] for v in ok])),
+            "cagr_hi": float(np.max([v["cagr"] for v in ok])),
+            "phase_cagrs": [v["cagr"] for v in ok],
+            "pass_offset0": bool(runs[0].get("PASS")) if runs else False,
+            "PASS": bool(npass * 2 > len(ok)),
+        })
+        return out
+
+    def _verdict(self, select: Callable, label: str, freq: int, offset: int,
+                 draws: int) -> Dict:
+        r = self.walk(select, freq=freq, offset=offset)
         if not r:
-            return {"label": label, "ok": False,
+            return {"label": label, "ok": False, "offset": offset,
                     "why": "no valid equity path (too few rebalances or "
                            "baskets below the floor)"}
         a0, b1 = r["start"], r["end"]
@@ -279,8 +361,12 @@ class Bench:
         bh_index = self.index_cagr(a0, b1)
         bh_universe = self.hold_basket(uni0, a0, b1)
         bh_picks = self.hold_basket(r["first_basket"], a0, b1)
-        ctl = [self.walk(select, freq=freq, rng=np.random.default_rng(s))
-               for s in range(draws)]
+        #  THE CONTROL MUST RUN ON THE SAME CALENDAR. A first version omitted
+        #  `offset` here, so at every phase but zero the random arm was measured
+        #  over a different window from the strategy it is the control for --
+        #  A19's error class, inside the control written to prevent it.
+        ctl = [self.walk(select, freq=freq, offset=offset,
+                         rng=np.random.default_rng(s)) for s in range(draws)]
         ctl = [c for c in ctl if c]
         rand = float(np.mean([c["cagr"] for c in ctl])) if ctl else np.nan
         rand_sd = (float(np.std([c["cagr"] for c in ctl], ddof=1))
@@ -299,7 +385,7 @@ class Bench:
                   ("picks", bh_picks))}
         both = {k: (r["early"] > bench_e[k] and r["late"] > bench_l[k])
                 for k in bench_e}
-        return {"label": label, "ok": True, "freq": freq,
+        return {"label": label, "ok": True, "freq": freq, "offset": offset,
                 "cagr": r["cagr"], "gross": r["gross"], "years": r["years"],
                 "start": str(pd.Timestamp(a0).date()),
                 "end": str(pd.Timestamp(b1).date()),
@@ -333,5 +419,13 @@ def report(v: Dict) -> str:
     L.append(f"  {'random control':<18}{v['random']:+8.2%}   "
              f"beats={'YES' if v['beats_random'] else 'no':<3} "
              f"(sd {v['random_sd']:.2%})")
+    if "phases" in v:
+        #  The phase spread is the honest error bar. A strategy whose CAGR moves
+        #  four points depending on which bar the calendar starts on has not
+        #  measured anything, however good the median looks.
+        L.append(f"  {'phase spread':<18}{v['cagr_lo']:+8.2%} .. "
+                 f"{v['cagr_hi']:+.2%}  (median {v['cagr_med']:+.2%}, "
+                 f"{v['phases_pass']}/{v['phases']} phases pass"
+                 f"{', offset-0 only' if v['pass_offset0'] and v['phases_pass'] == 1 else ''})")
     L.append(f"  ==> {'PASS' if v['PASS'] else 'FAIL'}")
     return "\n".join(L)
