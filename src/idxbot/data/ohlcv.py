@@ -129,6 +129,51 @@ class YahooOHLCV:
         )
         df["adj_close"] = adj_close if adj_close is not None else df["close"]
 
+        #  TODAY'S SETTLED CLOSE ARRIVES IN `meta`, NOT IN THE ARRAY, AND THIS
+        #  REPO THREW IT AWAY FOR MONTHS.
+        #  Yahoo backfills the daily `close` array some hours after an exchange
+        #  closes, but `meta.regularMarketPrice` carries the settled price
+        #  within minutes of it. Measured on 2026-09-03 at 17:43 UTC -- nine
+        #  hours after the 08:50 UTC Jakarta close -- the array still held None
+        #  for the day while meta had ADRO at 2,740 against the previous
+        #  session's 2,650. `dropna(subset=["close"])` then deleted the row, so
+        #  every EOD signal this repo produced was one full session stale on the
+        #  evening it was meant to be acted on. A12's shape again: a true
+        #  statement about one FIELD ("the close array has no bar today") read
+        #  as a fact about the world ("today's price is not available").
+        #
+        #  THE SETTLED-CLOSE TEST IS THE WHOLE SAFETY OF THIS. An intraday quote
+        #  must never enter a daily bar. `currentTradingPeriod.regular` is the
+        #  NEXT session once the current one ends, so requiring its start to be
+        #  strictly after `regularMarketTime` proves the session that produced
+        #  the price is finished. That is exchange-supplied and needs no
+        #  hardcoded 15:50 WIB and no holiday calendar.
+        meta = result.get("meta") or {}
+        px = meta.get("regularMarketPrice")
+        mt = meta.get("regularMarketTime")
+        reg = ((meta.get("currentTradingPeriod") or {}).get("regular") or {})
+        start = reg.get("start")
+        if (px and mt and start and start > mt and len(df)
+                and pd.isna(df["close"].iloc[-1])):
+            day = (pd.to_datetime([mt], unit="s", utc=True)
+                   .tz_convert("Asia/Jakarta").tz_localize(None).normalize()[0])
+            if df["date"].iloc[-1] == day:
+                i = df.index[-1]
+                df.loc[i, "close"] = float(px)
+                #  adj_close == close on the newest bar by construction: no
+                #  corporate action after it has been applied yet.
+                df.loc[i, "adj_close"] = float(px)
+                for src_key, col in (("regularMarketDayHigh", "high"),
+                                     ("regularMarketDayLow", "low"),
+                                     ("regularMarketVolume", "volume")):
+                    if meta.get(src_key) is not None:
+                        df.loc[i, col] = float(meta[src_key])
+                #  `open` is NOT in meta and is NEVER invented here. In
+                #  practice Yahoo nulls only `close` on the settling bar and
+                #  the open is already present in the array; where it is not,
+                #  it stays NaN so a candle shows a gap rather than a
+                #  fabricated body.
+
         df = df.dropna(subset=["close"])
         # Suspended sessions come back as zero-volume flat bars; they distort
         # volume statistics and Wyckoff volume tests, so drop them.
