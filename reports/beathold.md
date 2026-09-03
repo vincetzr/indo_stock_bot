@@ -32,6 +32,14 @@ drawn from its own universe on its own calendar by 8 to 14 points a year.
 A fleet of strategy designs was run against the first version of `bhbench.py`
 and three of them "passed". All three passes were properties of the harness.
 
+*What is re-run here is the FAMILIES, not the fleet's scripts.* Each design is
+re-implemented compactly in `beathold.py` so that all 21 arms share one
+selector protocol, one cost model and one verdict — the fleet's scripts each
+carried their own harness variations, and comparing across them would repeat the
+same error this section is about. The originals are kept under
+`scripts/strat_*.py` as the record of what was tried; their numbers are
+superseded.
+
 **CASH DRAG.** Every `continue` in `walk()` appended the unchanged equity, so a
 mark the strategy could not act on earned it **zero** while all three
 buy-and-hold benchmarks compounded through that window. Refusing to *buy* a
