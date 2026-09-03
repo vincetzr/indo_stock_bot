@@ -3145,3 +3145,70 @@ the third time: ask what the thing in between is, and whether it was priced.
 α = 0.05/332 = **0.00015**. Every result is negative or is a measurement rather
 than a claim. The holdout was spent at H16. The hourly panel spans 3.03 years,
 which for a confluence claim is roughly 3 independent macro observations.
+
+---
+
+## H56 — a stop and a take-profit on THIS basket, and S1 failed (2026-09-03)
+
+*`scripts/stoptest.py`, output `reports/stoptest.txt`. Prompted by the user:
+"how can you trade without sl and tp?" Portfolio accounting, exits checked EVERY
+SESSION between quarterly selections, 6 rebalance calendars, fills at the close.
+Pre-registration S1-S4 in the module docstring.*
+
+**THE CHALLENGE WAS RIGHT AND MY FRAMING WAS WRONG.** I described the H54 rule
+as having "no stop". It has one — the keep-band exit is ~12% below the 52-week
+high — but it is evaluated QUARTERLY, so a name can fall 40% in month one and
+still be held in month three. And every exit study I cited (H17, H18, H35, H38,
+H40, H47 — 169 configurations) was run on a DIFFERENT entry rule. Citing them at
+a question about this basket is an argument, not a measurement.
+
+**S1 FAILED. A hard stop DOES cut portfolio drawdown here, in both halves.**
+
+| arm | maxDD | DD early | DD late | CAGR early / late | worst 1 name |
+|---|---|---|---|---|---|
+| BASE, quarterly band only | −42.0% | −37.2% | −39.9% | 10.83% / 11.43% | **−91%** |
+| + stop 10% | −30.7% | −27.1% | −23.4% | 8.92% / 11.42% | −30% |
+| + stop 15% | −34.1% | −25.7% | −25.6% | 10.35% / 13.03% | −30% |
+| + stop 20% | −36.3% | −26.9% | −29.4% | 9.87% / 11.82% | −41% |
+| + stop 25% | −39.3% | −30.7% | −32.3% | 9.94% / 11.71% | −43% |
+| + stop 30% | −40.0% | −31.2% | −34.9% | 9.47% / 11.24% | −44% |
+
+Every level cuts drawdown in BOTH halves; the whole family reads 10.03% to
+11.77% CAGR against the base's 10.24%, so it is not a tuned parameter.
+
+**BUT S4 HOLDS ON RETURN: no stop beats the base in both halves.** Every one is
+worse early and better late — A18's signature of regime noise, not skill. **So
+the stop is a RISK decision that costs approximately nothing, and that is the
+only basis on which it ships.** `STOP = 0.20` is the middle of the family and
+deliberately NOT the argmax (−15% read best on both axes and is the peak of a
+five-point sweep).
+
+**WHY H20 SAID THE OPPOSITE AND BOTH ARE RIGHT.** H20 measured `stop 25%`
+producing the worst portfolio drawdown in its table (−68.7%) on the H16
+multiplier screen — a lottery-ticket selector whose premise WAS a fat left tail
+bought for a fat right one (A15). This rule is selected on strength+calm where
+P(a name halves) is 4.1%; the left tail is not the premise, so cutting it is
+cheap. **A result about exits is a result about the ENTRY it was measured on.**
+
+**S2 FAILED, AND BADLY — the honest form of the objection.** Checking the keep
+band DAILY instead of quarterly takes CAGR from **10.24% to 2.37%** (24.1 exits
+a year against 16.3), because the band is a CROSS-SECTIONAL PERCENTILE that
+moves every day, so a daily check sells on the board's noise rather than the
+name's decline. The band is a quarterly instrument; the hard stop is what covers
+the gap between reviews.
+
+**S3 — THE PREDICTED NULL — CONFIRMED, MONOTONICALLY.** Take-profit at
++20% / +30% / +50% reads **6.36% / 7.83% / 8.77%** CAGR against 10.24% with
+none. The tighter the target the worse the result: it truncates the right tail
+that pays for everything.
+
+**AND THE A36 BUG WAS RECOMMITTED WHILE WRITING THIS.** A string edit to
+`scripts/rules.py` sliced off its `if __name__ == "__main__"` block, so the
+script defined `main()`, never called it, and printed nothing while exiting 0 —
+the exact failure A36 records, by its own author, in the same session that
+quoted it. A test now asserts the file ends in `main()`.
+
+**Trial count: 4 (S1-S4) plus a 5-cell registered stop sweep and a 3-cell
+take-profit sweep = 6. Trials after H56: 338.** Bonferroni bar 0.00015. Nothing
+is claimed against it: the stop is adopted on a risk statistic that moves in
+both halves in every variant, not on a return claim.

@@ -311,12 +311,37 @@ def test_the_rule_card_says_the_level_is_not_a_resting_stop():
            "NOT a resting stop" in doc
 
 
-def test_no_stop_or_take_profit_is_wired_into_the_rule_card():
-    """169 exit configurations across H17/H18/H35/H38/H40/H47, none beating a
-    hold; H20 withdrew H17's and H18's headlines on portfolio accounting. A
-    stop appearing here later would be a change this repo has measured and
-    rejected six ways, so the absence is asserted rather than assumed."""
+def test_the_hard_stop_is_shipped_and_no_take_profit_is():
+    """H56's S1 was registered as "a stop will not cut PORTFOLIO drawdown" and
+    FAILED: every level -10% to -30% cut it, in both halves, at no measurable
+    cost in return. So the stop ships. S3's predicted null CONFIRMED
+    monotonically (+20/+30/+50 targets read 6.36/7.83/8.77 against 10.24), so
+    no take-profit does. Asserting both directions stops either drifting."""
     src = open(rules.__file__).read()
-    body = src.split('"""', 2)[2]          # everything after the docstring
-    for token in ("trail", "stop_loss", "take_profit", "stop_px", "tp_px"):
+    body = src.split('"""', 2)[2]
+    assert "STOP" in body and "stop_px" in body
+    for token in ("take_profit", "tp_px", "target_px"):
         assert token not in body, token
+    #  The level must sit inside the family that was actually measured, and
+    #  must not be the sweep's argmax (-15%, which read best on both axes).
+    assert 0.10 <= rules.STOP <= 0.30
+    assert rules.STOP != 0.15
+
+
+def test_the_stop_and_the_band_are_described_as_different_instruments():
+    """One is a resting order from your own fill; the other is a quarterly
+    percentile of the board that moves and is NOT a resting order. Conflating
+    them gives the reader a different rule from the measured one."""
+    src = open(rules.__file__).read()
+    assert "RESTING ORDER" in src
+    assert "NOT a resting order" in src
+
+
+def test_rules_actually_runs_its_main():
+    """A36: a string edit once dropped an `if __name__` block, so the script
+    defined main(), never called it, and exited 0 in under a second with an
+    empty output file. Exit code 0 is not evidence that anything ran — and
+    this exact bug was recommitted while writing the fix above."""
+    src = open(rules.__file__).read()
+    assert src.rstrip().endswith("main()")
+    assert '__name__ == "__main__"' in src
