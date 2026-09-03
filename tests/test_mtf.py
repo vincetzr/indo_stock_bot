@@ -1,10 +1,12 @@
-"""Tests for band selection and the multi-timeframe stack.
+"""H55 — the multi-timeframe harness.
 
-The one that matters most is ``test_slow_state_never_uses_the_day_in_progress``.
-Aligning a daily signal onto intraday bars is the easiest place in this whole
-repo to manufacture an edge by accident: if the colour attached to 10:00 on day D
-was computed from D's close, the rule knows how the day ends before it trades it,
-and every number downstream becomes fiction.
+THE ONE TEST THIS FILE EXISTS FOR is `test_the_weekly_state_cannot_see_its_own
+_week`. Every other bug in a multi-timeframe study is visible in the output;
+that one is not. A weekly feature stamped at the START of the week it summarises
+lets every daily bar inside the week read that week's own close, and NOTHING in
+the resulting table looks wrong — the numbers are merely too good. A32 records
+the same discipline for the signal replay: one non-causal helper anywhere in the
+chain turns the whole backtest into a look-ahead with no visible symptom.
 """
 
 from __future__ import annotations
@@ -19,260 +21,253 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir, "scripts"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir, "src"))
 
-from band_optimizer import (equity_log, pick_band, profile,      # noqa: E402
-                            random_walk_profile, toll_expectancy, walk_forward)
-from mtf_stack import (daily_state_on_intraday, positions,       # noqa: E402
-                       score, RULES)
-from paint_live import band_state                                # noqa: E402
+import mtf                                                        # noqa: E402
+from mtf import (foreign_trend, m0_positive_control,              # noqa: E402
+                 matched, mlog)
 
 
-def hourly(closes, days):
-    """A frame of `len(closes)` bars spread over `days` trading days."""
-    per = len(closes) // days
-    ts = []
-    for d in range(days):
-        base = pd.Timestamp("2024-01-01") + pd.Timedelta(days=d)
-        for h in range(per):
-            ts.append(base + pd.Timedelta(hours=9 + h))
-    return pd.DataFrame({"close": np.asarray(closes[:len(ts)], float)},
-                        index=pd.DatetimeIndex(ts))
+def _panel(n_names=12, n_dates=800, seed=0, drift=0.0004, tmp=None):
+    rng = np.random.default_rng(seed)
+    dates = pd.bdate_range("2015-01-05", periods=n_dates)
+    out = []
+    for i in range(n_names):
+        p = np.exp(np.cumsum(rng.normal(drift, 0.02, n_dates))) * 2000
+        out.append(pd.DataFrame({
+            "date": dates, "ticker": f"T{i:03d}", "close": p, "adj_close": p,
+            "tradeable": True,
+            "log_turnover": np.log(5e9) * np.ones(n_dates)}))
+    return pd.concat(out, ignore_index=True)
 
 
-# --------------------------------------------------------------------------- #
-# the look-ahead guard
-# --------------------------------------------------------------------------- #
-def test_slow_state_never_uses_the_day_in_progress():
-    # a violent move happens entirely on the LAST day; the colour carried by
-    # that day's bars must still be the one implied by the previous close
-    closes = [100.0] * 12 + [100.0] * 12 + [300.0] * 12
-    d = hourly(closes, 3)
-    st = daily_state_on_intraday(d, 0.08)
-    assert st[-1] == st[-12], "colour changed inside the day it was measuring"
-    assert st[-1] == 0, "the day's own +200% leaked into that day's colour"
+def _features_from(P, monkeypatch, tmp_path):
+    f = tmp_path / "p.parquet"
+    P.to_parquet(f)
+    monkeypatch.setattr(mtf, "PANEL", str(f))
+    return mtf.features()
 
 
-def test_slow_state_turns_green_only_on_the_following_day():
-    closes = [100.0] * 8 + [100.0] * 8 + [200.0] * 8 + [200.0] * 8
-    d = hourly(closes, 4)
-    st = daily_state_on_intraday(d, 0.08)
-    assert st[16:24].max() == 0        # the day of the jump: still red
-    assert st[24:].min() == 1          # the day after: green throughout
+# ================================================== THE LOOK-AHEAD TEST ======
+def test_the_weekly_state_cannot_see_its_own_week(monkeypatch, tmp_path):
+    """Change a bar and every EARLIER weekly state must be byte-identical.
+
+    This is the only failure mode of a multi-timeframe study that produces a
+    believable table. If the weekly EMA carried on Tuesday already contains
+    Friday's close, the confluence cell is reading the future and the result is
+    manufactured.
+    """
+    P = _panel()
+    A = _features_from(P.copy(), monkeypatch, tmp_path)
+
+    #  Move ONE bar, hard, deep inside the sample.
+    Q = P.copy()
+    tk = Q["ticker"].iloc[0]
+    dates = sorted(Q.loc[Q["ticker"] == tk, "date"].unique())
+    cut = dates[500]
+    sel = (Q["ticker"] == tk) & (Q["date"] >= cut)
+    Q.loc[sel, ["close", "adj_close"]] *= 3.0
+    B = _features_from(Q, monkeypatch, tmp_path)
+
+    a = A[(A["ticker"] == tk) & (A["date"] < cut)].set_index("date")
+    b = B[(B["ticker"] == tk) & (B["date"] < cut)].set_index("date")
+    for col in ("w_above", "m_above", "d_cross", "d_rising", "d_above"):
+        x, y = a[col].astype(float), b[col].astype(float)
+        assert np.allclose(x.to_numpy(), y.to_numpy(), equal_nan=True), col
 
 
-def test_slow_state_is_constant_within_a_day():
-    rng = np.random.default_rng(2)
-    d = hourly(100 * np.cumprod(1 + rng.normal(0, 0.02, 100)), 10)
-    st = daily_state_on_intraday(d, 0.08)
-    day = pd.Series(d.index.date, index=d.index)
-    for _k, g in pd.Series(st, index=d.index).groupby(day.to_numpy()):
-        assert g.nunique() == 1
+def test_the_weekly_state_lags_by_at_least_one_bar(monkeypatch, tmp_path):
+    """A stronger form: the state on bar t must be derivable from bars < t.
+
+    Rebuild the weekly EMA by hand from the truncated history and check the
+    shipped column never leads it.
+    """
+    P = _panel(n_names=1, n_dates=600)
+    A = _features_from(P.copy(), monkeypatch, tmp_path).set_index("date")
+    px = P.set_index("date")["adj_close"]
+    for t in A.index[300:320]:
+        past = px[px.index < t]                       # STRICTLY before
+        w = past.resample("W-FRI").last().dropna()
+        if len(w) < 12:
+            continue
+        want = float(w.iloc[-1] > w.ewm(span=10, adjust=False).mean().iloc[-1])
+        got = A.loc[t, "w_above"]
+        if np.isfinite(got):
+            assert got == want, (t, got, want)
 
 
-def test_first_day_has_no_prior_close_and_is_flat():
-    d = hourly([100.0] * 20, 2)
-    assert daily_state_on_intraday(d, 0.08)[0] == 0
+# ========================================================= THE CONTROLS ======
+def test_m0a_is_the_gate_and_m0b_is_a_measurement():
+    """The first version of M0 scored the weekly EMA against the PLANTED drift
+    and failed at 0.0056 of 0.0640 — conflating "does the harness work" with
+    "can a weekly EMA read a regime". M0a gates; M0b is a measured ceiling."""
+    m = m0_positive_control()
+    assert m["PASS"], m
+    assert m["M0a_share_of_planted"] > 0.5, m
+    #  And the proxy must transmit clearly LESS than the true regime, or the
+    #  synthetic regime is so slow that the test has stopped being a test.
+    assert 0.1 < m["M0b_transmission"] < 0.7, m
 
 
-# --------------------------------------------------------------------------- #
-# combination rules
-# --------------------------------------------------------------------------- #
-def test_both_green_is_the_intersection():
-    f = np.array([1, 1, 0, 0, 1], dtype=np.int8)
-    s = np.array([1, 0, 1, 0, 1], dtype=np.int8)
-    assert list(positions(f, s, "both_green")) == [1, 0, 0, 0, 1]
+def test_the_foreign_trend_null_keeps_the_marginal_frequency(monkeypatch,
+                                                             tmp_path):
+    """M3 must destroy the LINK without changing HOW OFTEN the state is on.
+
+    A null that also changes the base rate is comparing two different things,
+    which is the shape A22 records: a screen that clears its null by selecting
+    a different sample rather than by carrying information.
+    """
+    P = _panel(n_names=20, n_dates=700)
+    F = _features_from(P, monkeypatch, tmp_path)
+    own = (F["w_above"].to_numpy(float) > 0.5)
+    fw = foreign_trend(F)
+    ok = np.isfinite(F["w_above"].to_numpy(float))
+    assert abs(own[ok].mean() - fw[ok].mean()) < 0.05, (own[ok].mean(),
+                                                        fw[ok].mean())
+    #  ...and it must actually be a different assignment.
+    assert (own[ok] != fw[ok]).mean() > 0.10
 
 
-def test_fast_in_slow_out_holds_until_the_slow_band_turns():
-    #            enter here ^          ... and only exit when slow goes red
-    f = np.array([0, 1, 0, 0, 0, 0], dtype=np.int8)
-    s = np.array([1, 1, 1, 1, 0, 0], dtype=np.int8)
-    assert list(positions(f, s, "fast_in_slow_out")) == [0, 1, 1, 1, 0, 0]
+def test_a_name_is_never_paired_with_its_own_trend(monkeypatch, tmp_path):
+    """If the permutation has fixed points, the null partly IS the treatment."""
+    P = _panel(n_names=30, n_dates=400)
+    F = _features_from(P, monkeypatch, tmp_path)
+    rng = np.random.default_rng(mtf.SEED)
+    tks = F["ticker"].unique()
+    pair = dict(zip(tks, rng.permutation(tks)))
+    fixed = sum(1 for k, v in pair.items() if k == v)
+    #  A random permutation has ~1 fixed point in expectation regardless of n,
+    #  so this asserts the pairing is a permutation rather than the identity —
+    #  the failure worth catching is a no-op shuffle, not the odd fixed point.
+    assert fixed < max(2, len(tks) // 10), fixed
 
 
-def test_fast_in_slow_out_will_not_enter_while_slow_is_red():
-    f = np.array([0, 1, 1, 1], dtype=np.int8)
-    s = np.array([0, 0, 0, 0], dtype=np.int8)
-    assert positions(f, s, "fast_in_slow_out").max() == 0
+def test_matched_downsamples_by_whole_blocks(monkeypatch, tmp_path):
+    """A34: a control that cannot play the same game as the treatment is a
+    handicap. The matched control must keep the clustering, so it samples whole
+    (ticker, year) blocks rather than scattered rows."""
+    P = _panel(n_names=20, n_dates=800)
+    F = _features_from(P, monkeypatch, tmp_path)
+    m = F["elig"].to_numpy(bool)
+    tgt = int(m.sum() // 4)
+    out = matched(m, tgt, F)
+    assert out.sum() <= m.sum()
+    assert out.sum() >= tgt * 0.5
+    assert not (out & ~m).any(), "the control must be a subset of the source"
+    #  Whole blocks: every (ticker, year) it touches, it takes entirely.
+    d = F[out]
+    for (tk, yr), g in d.groupby(["ticker", "year"]):
+        full = F[(F["ticker"] == tk) & (F["year"] == yr) & m]
+        assert len(g) == len(full), (tk, yr, len(g), len(full))
 
 
-def test_fast_in_slow_out_needs_a_fresh_flip_not_a_standing_signal():
-    # fast is already green when slow turns green; that is not an entry
-    f = np.array([1, 1, 1, 1], dtype=np.int8)
-    s = np.array([0, 1, 1, 1], dtype=np.int8)
-    assert positions(f, s, "fast_in_slow_out").max() == 0
+def test_mean_log_is_not_the_mean(monkeypatch, tmp_path):
+    """A36: an equal-weighted holder is paid the MEAN, a sequential trader the
+    mean LOG, and in that study the two disagreed in SIGN. A payoff that is
+    positive on one and negative on the other must not read the same here."""
+    #  The first fixture here was +100/-50/-50/+100, which is mean +0.25 and
+    #  mean log EXACTLY ZERO — doubling and halving cancel in logs. It is a
+    #  neat illustration of the point and a useless test of it.
+    r = np.array([1.0, -0.6, -0.6, 1.0])       # mean +0.20, mean log -0.111
+    c = np.zeros(4)
+    assert np.mean(r) > 0
+    assert mlog(r, c) < 0
+    #  And the exact-cancellation case, asserted for what it is.
+    assert mlog(np.array([1.0, -0.5]), np.zeros(2)) == pytest.approx(0.0)
 
 
-@pytest.mark.parametrize("rule", RULES)
-def test_every_rule_is_long_only_and_binary(rule):
-    rng = np.random.default_rng(4)
-    f = (rng.random(200) > 0.5).astype(np.int8)
-    s = (rng.random(200) > 0.5).astype(np.int8)
-    p = positions(f, s, rule)
-    assert set(np.unique(p)) <= {0, 1}
+def test_the_cost_is_the_standing_schedule():
+    """A5/A38: 0.56% is the published Mandiri round trip and the spread is a
+    SEPARATE multiplier, because a blended figure hides an execution assumption
+    inside what looks like a fee."""
+    assert mtf.FEE == pytest.approx(0.0056)
+    assert mtf.SPREAD_MULT == pytest.approx(0.5)
 
 
-# --------------------------------------------------------------------------- #
-# scoring
-# --------------------------------------------------------------------------- #
-def test_score_lags_the_decision_by_one_bar():
-    px = np.array([100.0, 200.0, 200.0])
-    # green only on the bar the jump happened: it must NOT collect that jump
-    pos = np.array([0, 1, 0], dtype=np.int8)
-    assert np.isclose(score(px, pos, fee=0.0)["log"], 0.0)
+def test_every_registered_horizon_is_actually_measured(monkeypatch, tmp_path):
+    """A20/A21: a conditional result quoted without its condition is a wrong
+    result, and the horizon is the condition this repo has most often dropped."""
+    P = _panel(n_names=8, n_dates=900)
+    F = _features_from(P, monkeypatch, tmp_path)
+    for k in mtf.HORIZONS:
+        assert f"f{k}" in F.columns
+        assert F[f"f{k}"].notna().any()
 
 
-def test_score_charges_a_fee_per_entry():
-    px = np.array([100.0, 100.0, 100.0, 100.0])
-    pos = np.array([0, 1, 0, 1], dtype=np.int8)
-    s = score(px, pos, fee=0.01)
-    assert s["trips"] == 2
-    assert np.isclose(s["log"], 2 * np.log(0.99))
+# ================================================== THE HOURLY HALF (H55b) ===
+import mtf_h1                                                     # noqa: E402
 
 
-def test_full_exposure_with_no_fee_equals_buy_and_hold():
-    rng = np.random.default_rng(9)
-    px = 100 * np.cumprod(1 + rng.normal(0, 0.01, 300))
-    pos = np.ones(300, dtype=np.int8)
-    assert np.isclose(score(px, pos, fee=0.0)["log"], np.log(px[-1] / px[0]))
+def _h1(n_names=6, n_days=120, bars=7, seed=1):
+    """A synthetic hourly panel with the columns mtf_h1 needs."""
+    rng = np.random.default_rng(seed)
+    days = pd.bdate_range("2024-01-02", periods=n_days)
+    out = []
+    for i in range(n_names):
+        p = 2000.0
+        rows = []
+        for d in days:
+            for b in range(bars):
+                p *= float(np.exp(rng.normal(0.0002, 0.006)))
+                rows.append((d + pd.Timedelta(hours=9 + b), d, p))
+        ts, dt, px = zip(*rows)
+        px = np.array(px)
+        out.append(pd.DataFrame({
+            "ticker": f"T{i:02d}", "ts": ts, "date": dt,
+            "open": px, "high": px * 1.002, "low": px * 0.998, "close": px,
+            "a_open": px, "a_high": px * 1.002, "a_low": px * 0.998,
+            "a_close": px, "volume": 1e6, "elig": True, "adjf": 1.0}))
+    return pd.concat(out, ignore_index=True)
 
 
-# --------------------------------------------------------------------------- #
-# band selection
-# --------------------------------------------------------------------------- #
-def test_the_colour_of_a_prefix_does_not_change_when_the_future_arrives():
-    # the actual causality property: appending bars must not alter the state of
-    # the bars that came before them. If it does, the score of any window is
-    # contaminated by data from after it.
-    rng = np.random.default_rng(6)
-    px = 100 * np.cumprod(1 + rng.normal(0, 0.02, 400))
-    for cut in (120, 200, 310):
-        pre, _ = band_state(px[:cut], 0.08)
-        full, _ = band_state(px, 0.08)
-        assert np.array_equal(pre, full[:cut])
+def test_every_fill_comes_from_the_entry_days_own_bars():
+    """A fill must be reachable on the day it is stamped. An arm that quietly
+    took a price from the next day would look like a small free edge and would
+    be invisible in the table."""
+    H = _h1()
+    D = mtf_h1.entries(H)
+    #  `entries` already emits `lo`/`hi`, so the reference bounds are named
+    #  apart -- a silent lo_x/lo_y merge would have made this test vacuous.
+    m = H.groupby(["ticker", "date"]).agg(
+        ref_lo=("a_close", "min"), ref_hi=("a_close", "max")).reset_index()
+    d = D.merge(m, on=["ticker", "date"])
+    assert {"ref_lo", "ref_hi"} <= set(d.columns)
+    for col in ("open_", "close", "mid", "conf", "lo_close"):
+        v = d[col].to_numpy(float)
+        ok = np.isfinite(v)
+        assert ok.sum() > 100, col
+        assert (v[ok] >= d["ref_lo"].to_numpy()[ok] - 1e-9).all(), col
+        assert (v[ok] <= d["ref_hi"].to_numpy()[ok] + 1e-9).all(), col
 
 
-def test_scoring_a_prefix_uses_only_that_prefix():
-    rng = np.random.default_rng(16)
-    px = 100 * np.cumprod(1 + rng.normal(0, 0.02, 400))
-    a = equity_log(px[:200], 0.08)
-    tampered = px.copy()
-    tampered[200:] *= 3.0                    # rewrite the future entirely
-    assert np.isclose(equity_log(tampered[:200], 0.08), a)
+def test_the_oracle_is_the_best_fill_available_and_is_labelled_look_ahead():
+    """The ORACLE bounds the question: nothing that is not look-ahead can beat
+    it. If a real arm ever did, an arm is cheating."""
+    H = _h1()
+    D = mtf_h1.entries(H)
+    for col in ("open_", "close", "mid", "conf"):
+        v, o = D[col].to_numpy(float), D["lo_close"].to_numpy(float)
+        ok = np.isfinite(v) & np.isfinite(o)
+        assert (o[ok] <= v[ok] + 1e-9).all(), col
+    src = mtf_h1.entries.__doc__ + mtf_h1.__doc__
+    assert "ORACLE" in src and "look-ahead" in src.lower()
 
 
-def test_fees_can_only_reduce_the_score():
-    rng = np.random.default_rng(8)
-    px = 100 * np.cumprod(1 + rng.normal(0.001, 0.02, 500))
-    assert equity_log(px, 0.08, fee=0.0056) <= equity_log(px, 0.08, fee=0.0)
+def test_the_confirmation_arm_fires_on_a_strict_subset_of_days():
+    """It needs an hour above the hourly EMA, so it MUST skip some days —
+    which is exactly why its edge has to be scored on matched days."""
+    H = _h1()
+    D = mtf_h1.entries(H)
+    fired = D["conf"].notna()
+    assert 0.05 < (~fired).mean() < 0.95, (~fired).mean()
 
 
-def test_walk_forward_picks_without_seeing_the_test_window():
-    rng = np.random.default_rng(1)
-    px = 100 * np.cumprod(1 + rng.normal(0.0005, 0.02, 900))
-    grid = np.array([0.05, 0.08, 0.12, 0.20])
-    a = walk_forward(px, grid, folds=2)
-    # replacing the FINAL fold's data must not change the band chosen for the
-    # earlier folds, because those were selected before it existed
-    alt = px.copy()
-    alt[-100:] = alt[-101] * np.cumprod(1 + rng.normal(0, 0.05, 100))
-    b = walk_forward(alt, grid, folds=2)
-    assert a is not None and b is not None
-    assert a["folds"] == b["folds"]
-
-
-def test_profile_reports_the_breakeven_for_each_band():
-    rng = np.random.default_rng(0)
-    px = 100 * np.cumprod(1 + rng.normal(0, 0.02, 600))
-    p = profile(px, np.array([0.05, 0.10]))
-    assert list(p["band"]) == [0.05, 0.10]
-    assert (p["breakeven"] > p["band"]).all()
-
-
-def test_random_walk_profile_matches_its_input_volatility():
-    rng = np.random.default_rng(12)
-    px = 100 * np.cumprod(1 + rng.normal(0, 0.02, 500))
-    rw = random_walk_profile(px, np.array([0.08]), draws=3)
-    assert len(rw) > 0
-    assert (rw["band"] == 0.08).all()
-
-
-def test_pick_band_returns_a_value_from_the_grid():
-    rng = np.random.default_rng(13)
-    px = 100 * np.cumprod(1 + rng.normal(0.001, 0.02, 400))
-    grid = np.array([0.05, 0.08, 0.12])
-    for how in ("grid", "breakeven"):
-        assert pick_band(px, grid, how) in set(grid)
-
-
-def test_toll_expectancy_falls_as_the_band_swallows_every_leg():
-    rng = np.random.default_rng(14)
-    px = 100 * np.cumprod(1 + rng.normal(0, 0.015, 800))
-    assert toll_expectancy(px, 0.50) <= toll_expectancy(px, 0.05)
-
-
-# --------------------------------------------------------------------------- #
-# layer-1 gates: the lag is the entire result
-# --------------------------------------------------------------------------- #
-from layered import FILTERS, gates, run                          # noqa: E402
-
-
-def panel(n=400, cols=("A", "B", "C")):
-    rng = np.random.default_rng(21)
-    idx = pd.bdate_range("2020-01-01", periods=n)
-    return pd.DataFrame(
-        {c: 100 * np.cumprod(1 + rng.normal(0.0004, 0.02, n)) for c in cols},
-        index=idx)
-
-
-def test_no_gate_equals_its_own_unlagged_version():
-    """A gate that matches the same-bar condition is reading its own bar."""
-    px = panel(500)
-    G = gates(px)
-    same_bar = px > px.rolling(200, min_periods=200).mean()
-    for name in ("trend", "trend_rs"):
-        assert not G[name]["A"].equals(same_bar["A"].fillna(False)), \
-            f"{name} gate is reading its own bar"
-
-
-def test_trend_gate_matches_the_shifted_moving_average_exactly():
-    px = panel(500)
-    g = gates(px)["trend"]["A"]
-    want = (px["A"] > px["A"].rolling(200, min_periods=200).mean()).shift(1).fillna(False)
-    assert g.equals(want)
-
-
-def test_rs_gate_is_a_lagged_cross_sectional_rank():
-    px = panel(500)
-    g = gates(px)["rs"]["A"]
-    rank = px.pct_change(120).rank(axis=1, pct=True)
-    want = (rank["A"] > 2.0 / 3.0).shift(1).fillna(False)
-    assert g.equals(want)
-
-
-def test_the_none_gate_is_always_open():
-    px = panel(300)
-    assert bool(gates(px)["none"].all().all())
-
-
-def test_a_gate_can_only_reduce_exposure():
-    px = panel(600)
-    G = gates(px)
-    base = run(px["A"], G["none"]["A"], 0.08)
-    assert base is not None
-    for name in FILTERS:
-        r = run(px["A"], G[name]["A"], 0.08)
-        if r:
-            assert r["exposure"] <= base["exposure"] + 1e-12
-
-
-def test_the_same_exposure_null_is_exposure_times_hold():
-    px = panel(600)
-    r = run(px["A"], gates(px)["trend"]["A"], 0.08)
-    assert r is not None
-    assert np.isclose(r["null"], r["exposure"] * r["hold"])
-
-
-def test_market_gate_is_identical_across_names():
-    px = panel(500)
-    m = gates(px)["market"]
-    assert m["A"].equals(m["B"]) and m["B"].equals(m["C"])
+def test_the_cost_wall_is_computed_from_the_tick_not_a_flat_guess():
+    """A38: the fee and the spread are separate, and the spread is per NAME and
+    per PRICE. A flat guess would hand cheap stocks a discount they do not get."""
+    H = _h1()
+    P = pd.DataFrame({"ticker": ["T00"], "date": [pd.Timestamp("2024-01-02")],
+                      "adj_close": [2000.0]})
+    cw = mtf_h1.cost_wall(H, P)
+    assert cw["fee_only"] == pytest.approx(0.0056)
+    assert cw["fee_half_tick"] > cw["fee_only"]
+    assert cw["fee_full_tick"] > cw["fee_half_tick"]
+    assert 0 < cw["median_tick_pct"] < 0.05

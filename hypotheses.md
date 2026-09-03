@@ -3074,3 +3074,74 @@ number here, and two of the ten current picks trade under Rp 2bn a day.
 
 **Trial count: 8 (D1–D4 plus a 4-cell registered sweep). Trials after H54: 323.**
 Bonferroni bar α = 0.05/323 = **0.00015**. Nothing is claimed against it.
+
+---
+
+## H55 — multiple timeframes: the data existed, the confluence does not (2026-09-03)
+
+*`scripts/mtf.py` (daily/weekly/monthly, 2,860,181 bars, 919 names, 2000-2026),
+`scripts/mtf_h1.py` + `scripts/build_h1_panel.py` (hourly, 3,114,456 bars, 766
+names, 2023-07-25 to 2026-08-07). Memo `reports/mtf.md`. Pre-registration
+M0-M5 and H1a-H1c in the module docstrings, written before any cell was scored.*
+
+**THE HOURLY DATA HAD BEEN IN THE REPO ALL ALONG AND NO HYPOTHESIS H1-H54 HAD
+USED IT.** 1,004 files under `data/cache/intraday/`, of which 778 are 1h bars
+over three years. Every study in this project had been on daily bars. Verified
+joinable before use: the last hourly close matches the daily panel's RAW close
+**exactly on 99.54%** of 65,415 name-days and its `adj_close` on 51.75%, so the
+bars are unadjusted and the panel's own factor is applied to every price.
+
+**THE COST WALL CLOSES INTRADAY TRADING BY SUBTRACTION.** Median |1h return|
+**0.546%**; round trip **0.560% in fees alone (1.02x a median hourly move)** and
+**0.900% with half a fraksi tick (1.65x)**. Only **32.0%** of hourly bars move
+further than one round trip; **36.9%** have zero return and **30.2%** have no
+range at all.
+
+**M0 FAILED AS FIRST WRITTEN AND THE FAILURE WAS THE CHECK.** It scored the
+weekly EMA proxy against the planted per-bar drift, conflating "does the harness
+work" with "can a weekly EMA read a regime". Decomposed: **M0a** the harness
+recovers **+0.1325 of a planted +0.1920 (69%)** from the true regime — the gate,
+and it passes; **M0b** the weekly EMA transmits only **0.27** of what the true
+regime carries (0.22 to 0.40 as the regime slows). M0b is not a gate but a
+**MEASURED CEILING**: a higher-timeframe EMA state carries about a third of
+whatever regime information exists, before any of it meets a cost. A36's Q0
+pattern; the resolution is to decompose, never to relax (CLAUDE.md section 2).
+
+**M2 CONFIRMED.** The 2x2 separates and the HIGHER timeframe is the larger term
+as predicted: at 60 sessions HTF-only −0.0233, LTF-only −0.0293, neither
+−0.0478, both −0.0053 (mean log net of cost).
+
+**M3 — THE PREDICTED NULL — FIRED, AND IT IS THE FINDING.** Pairing each name
+with a **different, randomly chosen company's** weekly trend, marginal frequency
+held fixed, reproduces the effect: mean **+3.31% against confluence's +3.34%**.
+Against the clustered permutation null (whole (ticker, year) blocks reassigned),
+confluence sits at **z = +0.40** and the foreign-trend null at **z = +0.39**.
+The registered bar was 2 null-sd above the foreign trend; the gap is 0.01. What
+"multi-timeframe confluence" measures is that everything trends together in a
+bull market. M1 therefore fails on the condition that matters.
+
+**M5.** Paired per entry against the IHSG on a total-return basis, confluence
+beats the index on **40.3%** of entries at one year while having a higher mean
+(+13.89% vs +9.72%) — a right-tail effect, not a typical one — and the
+foreign-trend null reads an identical 40.2%. (The unpaired excess column
+flatters the null because it fires on different dates: A19's error class inside
+my own comparison table, which is why the paired rate is what is quoted.)
+
+**H1b — THE ORACLE BOUNDS THE INTRADAY QUESTION IN ONE MEASUREMENT.** Buying at
+the day's lowest hourly close with perfect hindsight is worth **+0.0115 of log,
+flat across 5/20/60 sessions** — **0.022 / 0.018 / 0.011 of one standard
+deviation** of the outcome it is trying to improve. Nothing that is not
+look-ahead can beat it, so the route closes without testing a hundred rules.
+
+**H1a's PREDICTED NULL HOLDS, AND THE NAIVE READING WAS WRONG IN THE FLATTERING
+DIRECTION.** The hourly-EMA confirmation arm fires on **24% fewer days**, so at
+its natural size it mixes "which hour" with "which day". Matched to exactly the
+days it fired, the two terms have **OPPOSITE SIGNS**: FILL edge **−0.0009 /
+−0.0009 / −0.0010** and DAY-SELECTION edge **+0.0012 / +0.0016 / +0.0036**.
+Waiting for confirmation makes the fill worse at every horizon. A35's lesson for
+the third time: ask what the thing in between is, and whether it was priced.
+
+**Trial count: 9 (M0-M5, H1a-H1c). Trials after H55: 332.** Bonferroni bar
+α = 0.05/332 = **0.00015**. Every result is negative or is a measurement rather
+than a claim. The holdout was spent at H16. The hourly panel spans 3.03 years,
+which for a confluence claim is roughly 3 independent macro observations.
