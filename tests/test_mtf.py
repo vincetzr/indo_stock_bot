@@ -271,3 +271,52 @@ def test_the_cost_wall_is_computed_from_the_tick_not_a_flat_guess():
     assert cw["fee_half_tick"] > cw["fee_only"]
     assert cw["fee_full_tick"] > cw["fee_half_tick"]
     assert 0 < cw["median_tick_pct"] < 0.05
+
+
+# ============================================ THE RULE CARD (scripts/rules) ==
+import rules                                                      # noqa: E402
+
+
+def test_the_keep_band_is_wider_than_the_entry_band():
+    """THE BUFFER IS THE WHOLE POINT of the sticky variant. If the keep band
+    were not wider than the entry band the rule would sell a name the day it
+    slipped out of the top decile and buy it back when it returned, which is
+    churn driven by rank noise around a cut rather than by deterioration —
+    H54 measured the unbuffered version as clearly worse (+4.14% against
+    +6.50% over the index) at higher turnover (75% against 56%)."""
+    assert rules.KEEP_HI < rules.ENTRY_HI
+    assert rules.KEEP_VOL > rules.ENTRY_VOL
+
+
+def test_the_sell_level_is_derived_from_the_hi52_identity():
+    """`hi52 = close / 252-day max`, so a hi52 threshold IS a price and the
+    sell level must be the 52-week high times that threshold — not a fixed
+    percentage drawdown, which is what a reader would otherwise assume."""
+    close, hi52, thresh = 2670.0, 0.988889, 0.8762
+    high = close / hi52
+    sell = high * thresh
+    assert high == pytest.approx(2700.0, abs=1.0)
+    assert sell == pytest.approx(2366.0, abs=2.0)
+    #  And the implied room is NOT a constant -50% or -25% stop.
+    assert -0.15 < sell / close - 1.0 < -0.05
+
+
+def test_the_rule_card_says_the_level_is_not_a_resting_stop():
+    """The thresholds are cross-sectional percentiles, so the level moves with
+    the board and a name can be sold without falling a rupiah. A reader who
+    parks it as a broker stop has a different rule from the measured one, so
+    the file has to say so."""
+    doc = rules.__doc__ + open(rules.__file__).read()
+    assert "not a stop you leave resting" in doc.lower() or \
+           "NOT a resting stop" in doc
+
+
+def test_no_stop_or_take_profit_is_wired_into_the_rule_card():
+    """169 exit configurations across H17/H18/H35/H38/H40/H47, none beating a
+    hold; H20 withdrew H17's and H18's headlines on portfolio accounting. A
+    stop appearing here later would be a change this repo has measured and
+    rejected six ways, so the absence is asserted rather than assumed."""
+    src = open(rules.__file__).read()
+    body = src.split('"""', 2)[2]          # everything after the docstring
+    for token in ("trail", "stop_loss", "take_profit", "stop_px", "tp_px"):
+        assert token not in body, token
