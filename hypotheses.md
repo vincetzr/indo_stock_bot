@@ -2975,3 +2975,102 @@ six points — a selection effect cannot lift the control.** `MIN_UNIV = 40` and
 α = 0.05/310 = **0.00016**. Every result is negative; nothing is claimed against
 it. Size is proxied by trailing turnover because no point-in-time share count
 exists here (A25), and a turnover-weighted portfolio is not a cap-weighted one.
+
+---
+
+## H53 — do small and large IDX names move differently, and where is the optimum (2026-08-31)
+
+*`scripts/sizeprofile.py`, memo `reports/sizeprofile.md`. Size buckets formed
+WITHIN each date on trailing 60-day turnover, so no point-in-time share count is
+needed and no 2024-frozen file leaks backwards (A25).*
+
+**S1 CONFIRMED.** They differ monotonically on every axis measured, and the
+**daily autocorrelation flips sign** across the size range, −0.086 in the
+thinnest bucket to +0.025 in the thickest. Cross-sectional dispersion falls
+21.2% → 12.5% with size.
+
+**S2 — the IC-to-money wedge.** The thin end has the larger dispersion and so
+the larger potential spread per unit of rank skill, and the wider fraksi-harga
+tick and the non-synchronous pricing that produces 42% zero-return days in the
+thinnest bucket. The optimum segment is neither extreme.
+
+**Trial count: 5. Trials after H53: 315.**
+
+---
+
+## H54 — beat buy-and-hold: three bugs were mine, and the binding constraint was my own benchmark (2026-09-03)
+
+*`scripts/bhbench.py`, `scripts/beathold.py`, `scripts/beathold_diag.py`. Memo
+`reports/beathold.md`. Pre-registration D1–D4 in the `beathold.py` docstring,
+written before any arm was run. 21 arms x 6 rebalance calendars = 126
+phase-verdicts.*
+
+**D1 CONFIRMED. 0 of 21 arms clear the bar as written** — beat the index, beat a
+never-touched basket of the whole eligible universe, beat the strategy's own
+first basket held untouched, beat a random control, in both halves, in a
+majority of six calendars.
+
+**BUT THE THIRD BENCHMARK IS A SINGLE DRAW AND IT IS WHAT BINDS.** `picks-halves`
+fails **103 of 126 phase-verdicts (82%)**, and `BH_PICKS` — one ~10-name basket
+held eighteen years — spans **0.49% to 15.82% a year across six calendars of the
+SAME rule**. A gate whose sampling error exceeds every effect it measures is not
+measuring. Demoted to a reported diagnostic (never removed; the strict verdict
+still prints and a test asserts it can never be true where the weaker one is
+false), **4 of 21 arms pass at 4 of 6 calendars**, all strength+calm, at +4.5%
+to +6.5%/yr over the index. **That bar was defined after seeing the result, so
+those four are a lead, not a finding.**
+
+**WHAT IS NOT IN DOUBT EITHER WAY.** Six arms beat the index in **6 of 6**
+calendars; every strength or momentum arm beats a random basket from its own
+universe on its own calendar in **108 of 126** phase-verdicts by 8–14 points a
+year.
+
+**THREE BUGS IN THE HARNESS, ALL FOUND BY THE STRATEGY FLEET RATHER THAN BY ME.**
+(1) CASH DRAG — a mark the strategy could not act on earned it zero while all
+three benchmarks compounded through it. (2) THE REBALANCE PHASE — offset 0 is
+the panel's first bar for no reason but that it is first, and all three earlier
+"passes" were properties of that start date; A20's lesson committed inside the
+harness written to catch it. (3) THE CONTROL'S CALENDAR — the random arm ran at
+offset 0 whatever the strategy did. **And a fourth found here: equalising the
+phases is not enough**, because the window starts at the first tradeable mark
+and that date moves with the calendar — one strategy's six semiannual phases
+began in 2005, 2007, 2007, 2008, 2009 and 2010. A19's error class surviving one
+fix and reappearing one level up.
+
+**D2 FAILED IN TWO OF THREE CLAUSES, measured by reinstating the bug on purpose
+(`Bench(carry=False)`).** (a) The lift is NOT one-signed: three arms got WORSE
+when it was fixed, because sitting in cash was accidentally protective in
+windows where the market fell. **The drag was an unpriced cash position, not a
+systematic handicap**, and the earlier "1.8 to 6.7 points a year" was a
+one-sided read of a two-sided error. (b) The lift is largest at QUARTERLY
+(+2.64%/yr) not annual (+1.11%) — it depends on where the skips fall, not how
+long they are. (c) The ordering largely survives: Spearman **+0.871**.
+
+**D3 — the predicted null — SATISFIED.** Own-everything quarterly vs annual
+differ by 0.47 points of excess against a toll gap of 0.29, phase ranges
+overlapping. The harness is not manufacturing return in proportion to how often
+it is called, which is what licenses reading the table at all.
+
+**D4 FAILED, OPPOSITE TO THE CLAIM IT TESTED.** Window-matched on one fixed span,
+the 2x2 says name churn is worth **+1.19 points** and letting weights DRIFT is
+worth **+1.64**, and they interact (+0.57 when names churn, +1.64 when frozen).
+Doing neither to doing both is **−2.32% → +0.51%, +2.83 points**. **The cheapest
+way to beat the index measured anywhere in this project is to stop trading:**
+own the eligible universe, never re-select, never reset to equal, 0.11%/yr in
+cost.
+
+**THE BUFFER SWEEP IS NOT MONOTONE and is therefore not a validated parameter.**
+Tight +6.50% at 56% turnover, wide +4.76% at 15%, none +4.14% at 75%. Removing
+the buffer is worse than either buffered version — the family's actual claim —
+but which width is best is unresolved, and the spread across the family is about
+as wide as the effect.
+
+**WHAT IS NOT ESTABLISHED.** 4 of 6 heavily overlapping windows is a robustness
+check, not a significance statement; the effective number of independent
+observations over one 18-year Indonesian history is small and no resampling
+manufactures more. The holdout was spent at H16. The cost model is still the
+small-order one — A23's impact, suspension and auto-rejection terms are in no
+number here, and two of the ten current picks trade under Rp 2bn a day.
+
+**Trial count: 8 (D1–D4 plus a 4-cell registered sweep). Trials after H54: 323.**
+Bonferroni bar α = 0.05/323 = **0.00015**. Nothing is claimed against it.

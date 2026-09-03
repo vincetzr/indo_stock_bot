@@ -136,12 +136,17 @@ def half_cagr(curve: Sequence[Tuple]) -> Tuple[float, float]:
 
 class Bench:
     def __init__(self, P: pd.DataFrame, fee: float = FEE,
-                 spread_mult: float = SPREAD_MULT):
+                 spread_mult: float = SPREAD_MULT, carry: bool = True):
+        #  `carry=False` reinstates the CASH-DRAG BUG on purpose, so its cost
+        #  can be measured rather than asserted. It is not a mode anyone should
+        #  run a strategy in.
+        self.carry = carry
         self.P = P
         self.PX = Prices(P)
         self.dates = np.sort(P["date"].unique())
         self.fee = fee
         self.spread_mult = spread_mult
+        self._bd: Dict[Tuple[int, int], Dict] = {}   # (freq, offset) -> marks
         J = pd.read_csv(INDEX, parse_dates=["date"]).sort_values("date")
         self.J = J.set_index("date")["close"]
 
@@ -192,7 +197,7 @@ class Bench:
         you already hold because the screen went quiet is not something any
         holder would do, and it is not what the benchmark does either.
         """
-        if not prev:
+        if not prev or not self.carry:
             return eq, gross, prev
         tks, rets, ws = [], [], []
         for t, w in prev.items():
@@ -219,12 +224,27 @@ class Bench:
 
     # -------------------------------------------------------------- the walk
     def walk(self, select: Callable, freq: int = 63, offset: int = 0,
-             rng: np.random.Generator | None = None) -> Dict:
+             rng: np.random.Generator | None = None,
+             lo=None, hi=None) -> Dict:
         marks = self.dates[offset::freq]
+        if lo is not None:
+            marks = marks[marks >= lo]
+        if hi is not None:
+            marks = marks[marks <= hi]
         if len(marks) < 8:
             return {}
-        by_date = {d: g for d, g in
-                   self.P[self.P["date"].isin(marks)].groupby("date")}
+        #  A STATEFUL SELECTOR MUST NOT LEAK ACROSS WALKS. `evaluate` runs one
+        #  walk per phase plus `draws` control walks with the SAME callable, so
+        #  a rule that remembers what it holds would carry the previous walk's
+        #  book into the next one and quietly report a path nobody could trade.
+        if hasattr(select, "reset"):
+            select.reset()
+        key = (int(freq), int(offset))
+        by_date = self._bd.get(key)
+        if by_date is None:
+            by_date = {d: g for d, g in
+                       self.P[self.P["date"].isin(marks)].groupby("date")}
+            self._bd[key] = by_date
         eq, gross = 1.0, 1.0
         prev: Dict[str, float] = {}
         curve, turns, costs, sizes = [], [], [], []
@@ -312,7 +332,7 @@ class Bench:
 
     # ----------------------------------------------------------- the verdict
     def evaluate(self, select: Callable, label: str, freq: int = 63,
-                 draws: int = 6, phases: int = 6) -> Dict:
+                 draws: int = 6, phases: int = 6, lo=None, hi=None) -> Dict:
         """Verdict across `phases` rebalance calendars, not one.
 
         THE REBALANCE PHASE IS A FREE PARAMETER NOBODY CHOSE. `marks` starts at
@@ -329,7 +349,32 @@ class Bench:
         means anything.
         """
         offs = [int(round(i * freq / max(phases, 1))) for i in range(phases)]
-        runs = [self._verdict(select, label, freq, o, draws) for o in offs]
+        #  PASS 1 discovers where each calendar can actually start. PASS 2 runs
+        #  them all over the COMMON window.
+        #
+        #  THE PHASES WERE NOT COMPARABLE AND THE COUNT WAS THEREFORE NOT A
+        #  REPLICATION TEST. The window starts at the first mark that yields a
+        #  tradeable basket, and that date moves with the calendar: on the real
+        #  panel one strategy's six semiannual phases began in 2005, 2007,
+        #  2007, 2008, 2009 and 2010, spanning 15.9 to 21.2 years. A phase that
+        #  catches the 2005-07 boom is not a replication of one that does not,
+        #  so "4 of 6 phases" was counting six different experiments. This is
+        #  A19's error class -- comparing quantities measured over different
+        #  windows -- surviving one fix and reappearing one level up.
+        #  An explicit window overrides the scout: comparing two DIFFERENT
+        #  strategies needs one window fixed across both, which the scout (which
+        #  only equalises the phases of one strategy) does not give.
+        fixed = lo is not None or hi is not None
+        scout = [] if fixed else [self.walk(select, freq=freq, offset=o)
+                                  for o in offs]
+        got = [s for s in scout if s]
+        if len(got) > 1:
+            lo = max(s["start"] for s in got)
+            hi = min(s["end"] for s in got)
+            if not (pd.Timestamp(hi) - pd.Timestamp(lo)).days > 365 * 5:
+                lo = hi = None      # too little left in common: don't clip
+        runs = [self._verdict(select, label, freq, o, draws, lo, hi)
+                for o in offs]
         ok = [v for v in runs if v.get("ok")]
         if not ok:
             return runs[0] if runs else {"label": label, "ok": False,
@@ -340,18 +385,39 @@ class Bench:
         npass = sum(bool(v["PASS"]) for v in ok)
         out.update({
             "phases": len(ok), "phases_pass": npass,
+            #  Keep every phase's verdict, not just the count. A "2 of 6" is
+            #  only readable once you can see WHICH benchmark each losing phase
+            #  lost to -- and whether the phases even span the same window,
+            #  since the first tradeable mark moves with the calendar.
+            "phase_rows": [{k: x for k, x in v.items()
+                            if k not in ("curve", "phase_rows")} for v in ok],
+            "span_lo": str(pd.Timestamp(lo).date()) if lo is not None else "",
+            "span_hi": str(pd.Timestamp(hi).date()) if hi is not None else "",
+            "beats_index_n": sum(bool(v["beats_index"]) for v in ok),
+            #  THE ONLY CROSS-ROW COMPARABLE NUMBER IN THE TABLE. Each arm's
+            #  window starts at its own first tradeable mark, so one row's index
+            #  reads +7.21% and another's +11.31% over the same panel. Raw CAGRs
+            #  across rows compare different decades; excess over each arm's OWN
+            #  index does not.
+            "excess_med": float(np.median([v["cagr"] - v["bh_index"]
+                                           for v in ok])),
+            "excess_lo": float(np.min([v["cagr"] - v["bh_index"] for v in ok])),
+            "excess_hi": float(np.max([v["cagr"] - v["bh_index"] for v in ok])),
             "cagr_med": med,
             "cagr_lo": float(np.min([v["cagr"] for v in ok])),
             "cagr_hi": float(np.max([v["cagr"] for v in ok])),
             "phase_cagrs": [v["cagr"] for v in ok],
             "pass_offset0": bool(runs[0].get("PASS")) if runs else False,
+            "phases_pass_div": sum(bool(v["PASS_DIV"]) for v in ok),
             "PASS": bool(npass * 2 > len(ok)),
+            "PASS_DIV": bool(sum(bool(v["PASS_DIV"]) for v in ok) * 2
+                             > len(ok)),
         })
         return out
 
     def _verdict(self, select: Callable, label: str, freq: int, offset: int,
-                 draws: int) -> Dict:
-        r = self.walk(select, freq=freq, offset=offset)
+                 draws: int, lo=None, hi=None) -> Dict:
+        r = self.walk(select, freq=freq, offset=offset, lo=lo, hi=hi)
         if not r:
             return {"label": label, "ok": False, "offset": offset,
                     "why": "no valid equity path (too few rebalances or "
@@ -365,7 +431,7 @@ class Bench:
         #  `offset` here, so at every phase but zero the random arm was measured
         #  over a different window from the strategy it is the control for --
         #  A19's error class, inside the control written to prevent it.
-        ctl = [self.walk(select, freq=freq, offset=offset,
+        ctl = [self.walk(select, freq=freq, offset=offset, lo=lo, hi=hi,
                          rng=np.random.default_rng(s)) for s in range(draws)]
         ctl = [c for c in ctl if c]
         rand = float(np.mean([c["cagr"] for c in ctl])) if ctl else np.nan
@@ -400,7 +466,23 @@ class Bench:
                 "both_halves_universe": both["universe"],
                 "both_halves_picks": both["picks"],
                 "PASS": bool(all(beats.values()) and all(both.values())
-                             and r["cagr"] > rand)}
+                             and r["cagr"] > rand),
+                #  THE SAME TEST WITHOUT BH_PICKS, because BH_PICKS IS A SINGLE
+                #  DRAW. It is one ~10-name basket held for eighteen years, and
+                #  across six calendars of the SAME rule it spans 0.49% to
+                #  15.82% a year -- a 15-point spread produced by moving the
+                #  start date a few weeks. Requiring a strategy to beat that in
+                #  BOTH HALVES failed 82% of all phase-verdicts and is the
+                #  binding constraint in this harness. A gate whose sampling
+                #  error exceeds every effect it is measuring is not measuring.
+                #  BH_PICKS stays REPORTED -- a rule that loses to holding its
+                #  own picks is telling you the trading adds nothing, and that
+                #  is the whole ADRO question -- but it is a diagnostic, not a
+                #  gate. THIS WEAKER BAR WAS DEFINED AFTER SEEING THAT RESULT
+                #  and anything passing only it is a lead, not a finding.
+                "PASS_DIV": bool(beats["index"] and beats["universe"]
+                                 and both["index"] and both["universe"]
+                                 and r["cagr"] > rand)}
 
 
 def report(v: Dict) -> str:
@@ -427,5 +509,21 @@ def report(v: Dict) -> str:
                  f"{v['cagr_hi']:+.2%}  (median {v['cagr_med']:+.2%}, "
                  f"{v['phases_pass']}/{v['phases']} phases pass"
                  f"{', offset-0 only' if v['pass_offset0'] and v['phases_pass'] == 1 else ''})")
-    L.append(f"  ==> {'PASS' if v['PASS'] else 'FAIL'}")
+    for p in v.get("phase_rows", []):
+        why = [n for n, k in (("index", "beats_index"),
+                              ("univ", "beats_universe"),
+                              ("picks", "beats_picks"),
+                              ("rand", "beats_random"))
+               if not p[k]]
+        why += [n + "-halves" for n, k in (("index", "both_halves_index"),
+                                           ("univ", "both_halves_universe"),
+                                           ("picks", "both_halves_picks"))
+                if not p[k]]
+        L.append(f"     off {p.get('offset', 0):>4}  {p['start']}  "
+                 f"{p['cagr']:+7.2%}  vs idx {p['bh_index']:+7.2%}  "
+                 f"{'PASS' if p['PASS'] else 'lost to ' + ','.join(why)}")
+    L.append(f"  ==> {'PASS' if v['PASS'] else 'FAIL'}"
+             f"   (diversified bar, BH_PICKS reported not gated: "
+             f"{'PASS' if v.get('PASS_DIV') else 'FAIL'}"
+             f" {v.get('phases_pass_div', 0)}/{v.get('phases', 0)})")
     return "\n".join(L)

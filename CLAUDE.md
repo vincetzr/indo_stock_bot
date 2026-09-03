@@ -2734,3 +2734,90 @@ larger than most effects measured in this project and, unlike the alpha,
 entirely under the holder's control.** The general lesson: a blended cost figure
 hides which part is a fact and which part is an assumption, so every result here
 now quotes the fee and the spread multiplier separately.
+
+## A39. Three bugs in the harness, and the gate that was a single draw
+
+A38 closed with the screen half a point short of the index. The user then set
+the goal plainly — *"beat buy and hold. if need be forget everything and start
+over"* — so H54 fixed three benchmarks a holder could actually take (the index,
+a never-touched basket of the whole eligible universe, and the strategy's own
+first basket held untouched) plus a random control, and required all of them in
+both halves. A fleet of strategy designs was run against it and three passed.
+**All three passes were properties of my harness.** Memo `reports/beathold.md`,
+logged H54.
+
+**THE FLEET FOUND THE BUGS, NOT ME, AND THE FIRST WAS WORTH MORE THAN ANY EFFECT
+THE HARNESS HAD MEASURED.** *Cash drag*: every `continue` in `walk()` appended
+the unchanged equity, so a mark the strategy could not act on earned it **zero**
+while all three buy-and-hold benchmarks compounded through that window.
+Refusing to BUY a degenerate cross-section is right — it is what stops H52's
+one-name basket — but LIQUIDATING a book you already own because the screen went
+quiet is not what any holder does and not what the benchmark does. *The
+rebalance phase*: `marks` starts at `dates[offset]` and offset 0 is the panel's
+first bar for no reason but that it is first; all three passes vanished at every
+other offset. **A20's lesson — a parameter fixed by convenience and inherited by
+every study — committed inside the harness written to catch that class of
+error.** *The control's calendar*: the random arm ran at offset 0 whatever the
+strategy did.
+
+**AND A FOURTH I FOUND ONLY AFTER FIXING THE SECOND.** Equalising the phases is
+not enough, because the window starts at the first mark that yields a tradeable
+basket and **that date moves with the calendar**: one strategy's six semiannual
+phases began in **2005, 2007, 2007, 2008, 2009 and 2010**, spanning 15.9 to 21.2
+years. "4 of 6 phases" was counting six different experiments. A19's error class,
+surviving one fix and reappearing one level up. Phases now run over the common
+window, found by a scout pass.
+
+**D2 FAILED IN TWO OF THREE CLAUSES, AND ONLY BECAUSE THE BUG WAS REINSTATED ON
+PURPOSE TO MEASURE IT.** `Bench(carry=False)` is the drag, deliberately. The
+lift is **not one-signed** — three arms got WORSE when it was fixed, because
+sitting in cash was accidentally protective in windows where the market fell.
+**The drag was an unpriced cash position, not a systematic handicap**, and my own
+"1.8 to 6.7 points a year" was a one-sided read of a two-sided error. It is also
+largest at QUARTERLY (+2.64%/yr) rather than annual (+1.11%), because what
+matters is WHERE the skips fall — the early years, when the universe is below
+the floor — not how long they are. The ordering survives (Spearman **+0.871**),
+which is why the fleet's relative conclusions mostly stand while its levels do
+not. **Measuring a bug's cost by re-enabling it beats asserting the fix helped,
+and it is two lines.**
+
+**THE BINDING CONSTRAINT WAS MY OWN BENCHMARK, AND IT IS A SINGLE DRAW.**
+`picks-halves` failed **103 of 126 phase-verdicts (82%)** — and `BH_PICKS` is
+ONE ~10-name basket held eighteen years, spanning **0.49% to 15.82% a year
+across six calendars of the SAME rule**. A 15-point spread from moving the start
+date a few weeks. **A gate whose sampling error exceeds every effect it is
+measuring is not measuring.** It is now reported and not gated — a rule that
+loses to holding its own picks is still telling you the trading adds nothing,
+which is the whole ADRO question — while `BH_UNIVERSE` (100–200 names) stays a
+gate because it is diversified. The strict verdict still prints beside the
+weaker one and a test asserts it can never be true where the weaker one is
+false, per §2's ban on replacing a criterion that failed.
+
+**THE RESULT, BOTH WAYS.** Strict bar: **0 of 21 arms pass — D1 confirmed.**
+Diversified bar: **4 of 21 pass at 4 of 6 calendars**, all strength+calm, at
+**+4.5% to +6.5%/yr over the index** — and that bar was defined after seeing
+which gate bound, so they are a lead. **What is not in doubt either way: six
+arms beat the index in 6 of 6 calendars, and every strength or momentum arm
+beats a random basket from its own universe in 108 of 126 phase-verdicts by
+8–14 points a year.** A34–A38's "no selection rule beats the index" was measured
+at offset 0 through a harness with a cash drag in it and **does not survive the
+correction**.
+
+**D4 FAILED OPPOSITE TO THE CLAIM IT TESTED, and gives the cheapest result in
+the project.** Window-matched, the 2x2 says name churn is worth **+1.19 points**
+and letting weights DRIFT is worth **+1.64**, interacting (+0.57 when names
+churn, +1.64 when frozen). Doing neither to doing both is **−2.32% → +0.51%**.
+**The cheapest way to beat the index measured anywhere here is to stop trading**
+— own the eligible universe, never re-select, never reset to equal, 0.11%/yr in
+cost. The fleet had attributed the destruction to name churn alone; both matter
+and drift is the larger.
+
+**WHAT IS STILL NOT ESTABLISHED, and it is the load-bearing paragraph.** 4 of 6
+**heavily overlapping** windows is a robustness check, not a significance
+statement — the effective number of independent observations over one 18-year
+Indonesian history is small and no resampling manufactures more. The holdout was
+spent at H16, so every number is in-sample. The buffer sweep is **not monotone**
+(+6.50% tight / +4.76% wide / +4.14% none) so the parameter is unresolved and
+the family's spread is about as wide as its effect. And the cost model is still
+A23's small-order one: impact, suspension and auto-rejection are in no number
+here, and two of the ten current picks trade under Rp 2bn a day.

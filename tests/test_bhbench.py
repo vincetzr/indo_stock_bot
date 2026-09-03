@@ -65,6 +65,8 @@ class _FakeBench(Bench):
         self.P = P
         self.PX = Prices(P)
         self.dates = np.sort(P["date"].unique())
+        self._bd = {}
+        self.carry = kw.get("carry", True)
         self.fee = kw.get("fee", 0.0056)
         self.spread_mult = kw.get("spread_mult", 0.5)
         idx = (P.groupby("date")["adj_close"].mean())
@@ -372,3 +374,62 @@ def test_the_random_control_runs_on_the_same_calendar_as_the_strategy():
     i = src.index("np.random.default_rng")
     assert "offset=offset" in src[max(0, i - 300):i], (
         "the control's walk must be given the same offset as the strategy's")
+
+
+def test_every_phase_is_measured_over_the_same_window():
+    """A "4 of 6 phases" is only a replication test if the six phases are the
+    same experiment. The window starts at the first mark that yields a
+    tradeable basket, and that date moves with the calendar — on the real panel
+    one strategy's six semiannual phases began in 2005, 2007, 2007, 2008, 2009
+    and 2010, so the count was over six different periods and the phase that
+    caught the 2005-07 boom was not replicating anything. A19's error class,
+    surviving one fix and reappearing one level up."""
+    P = _panel(n_names=120, n_dates=900)
+    B = _FakeBench(P)
+
+    def picky(day):
+        #  Eligible early, selective later — so the natural start date differs
+        #  by calendar and the clip has something to do.
+        d = day.nlargest(12, "mom12_1")
+        return _all(d)
+
+    v = B.evaluate(picky, "picky", freq=63, draws=1, phases=4)
+    assert v["ok"]
+    starts = {p["start"] for p in v["phase_rows"]}
+    ends = {p["end"] for p in v["phase_rows"]}
+    #  Within one rebalance period of each other, not years apart.
+    sp = pd.to_datetime(sorted(starts))
+    ep = pd.to_datetime(sorted(ends))
+    assert (sp[-1] - sp[0]).days <= 200, sorted(starts)
+    assert (ep[-1] - ep[0]).days <= 200, sorted(ends)
+
+
+def test_the_cash_drag_can_be_reinstated_so_its_cost_is_measurable():
+    """`carry=False` is the bug on purpose. Asserting the fix helps is weaker
+    than measuring what it was worth, and the memo quotes a number."""
+    P = _panel(n_names=60, n_dates=500, drift=0.002)
+    state = {"n": 0}
+
+    def once(day):
+        state["n"] += 1
+        return _all(day) if state["n"] == 1 else []
+
+    good = _FakeBench(P).walk(once, freq=21)
+    state["n"] = 0
+    bad = _FakeBench(P, carry=False).walk(once, freq=21)
+    assert good["cagr"] > bad["cagr"] + 0.05, (good["cagr"], bad["cagr"])
+
+
+def test_the_strict_bar_survives_alongside_the_diversified_one():
+    """CLAUDE.md §2 forbids loosening a criterion to keep a project alive, so
+    the strict three-benchmark PASS is kept and PASS_DIV is added beside it,
+    never in place of it. A run that passes only the weaker bar has to say so."""
+    P = _panel(n_names=120, n_dates=700)
+    B = _FakeBench(P)
+    v = B.evaluate(_all, "own everything", freq=63, draws=2, phases=4)
+    assert "PASS" in v and "PASS_DIV" in v
+    for p in v["phase_rows"]:
+        #  The strict bar is the diversified bar plus the picks conditions, so
+        #  it can never be true where the weaker one is false.
+        assert not (p["PASS"] and not p["PASS_DIV"])
+    assert not (v["PASS"] and not v["PASS_DIV"])
