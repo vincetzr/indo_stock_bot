@@ -3212,3 +3212,60 @@ quoted it. A test now asserts the file ends in `main()`.
 take-profit sweep = 6. Trials after H56: 338.** Bonferroni bar 0.00015. Nothing
 is claimed against it: the stop is adopted on a risk statistic that moves in
 both halves in every variant, not on a return claim.
+
+---
+
+## H56b — the take-profit sweep the first grid could not reach (2026-09-04)
+
+*`scripts/stoptest.py` extended. Prompted by the user making it a standing
+requirement: "i want you to be a trading bot that can give accurate signals for
+winning trades so you need to have entry, tp and sl". H56's S3 established that
+a target costs money; it stopped at +50% and so could not say WHICH target costs
+least. If one is going to ship it should be the cheapest one.*
+
+**THE COST OF A TARGET IS MONOTONE IN ITS TIGHTNESS AND REACHES ZERO AT +100%.**
+
+| target | CAGR | cost vs no target |
+|---|---|---|
+| +20% | 6.51% | **−3.81** |
+| +30% | 7.90% | −2.42 |
+| +50% | 8.86% | −1.46 |
+| +75% | 9.79% | −0.53 |
+| **+100%** | **10.31%** | **−0.01** |
+| +150% | 10.21% | −0.11 |
+| sell HALF at +100% | 10.33% | **+0.01** |
+| sell THIRD at +100% | 10.30% | −0.02 |
+| trail 25% from peak | 10.60% | +0.28 |
+
+So the shipped level is **not an argmax** — it is where a monotone cost curve
+flattens to zero. A SCALE-OUT at that level is free (+0.01) because it banks a
+double while leaving the rest to run: the only form of profit-taking that does
+not cap the winner.
+
+**SHIPPED: stop −20% + sell HALF at +100%.** Each leg chosen on its own curve
+rather than as a combination — the stop is the middle of a flat family, the
+target is where the cost curve reaches zero.
+
+| arm | CAGR | maxDD | early / late | worst 1 name |
+|---|---|---|---|---|
+| BASE, band only | 10.32% | −42.0% | 10.87 / 11.40 | −91% |
+| **SHIPPED** | **11.08%** | **−35.2%** | 9.96 / 12.40 | −41% |
+
+**THE CAGR GAIN IS NOT CLAIMED.** The combined arm is worse in the early half
+(9.96 against 10.87) and better in the late one — A18's signature of regime
+noise. What IS claimed is the drawdown, which improves in both halves, and the
+worst single-name loss, which more than halves.
+
+**A trailing stop at 25% from the peak reads +0.28 and the lowest worst-name
+loss of any target-like rule (−32%)**, which makes it the best-motivated
+alternative if a fixed level is ever unwanted: it rises with a winner instead of
+capping it.
+
+**AND THE A36 RUNNER BUG WAS COMMITTED A THIRD TIME**, by the same string-slice
+pattern, in `scripts/rules.py`. The test added after the second occurrence
+caught it before the output was read, which is what a regression test is for.
+
+**Trial count: 9 registered cells (6 targets, 4 scale-outs, 2 trails, minus
+overlaps) beyond H56's 6. Trials after H56b: 347.** Bonferroni bar 0.00014. The
+target is adopted on a COST curve reaching zero, not on a positive result, and
+nothing here is claimed against the bar.

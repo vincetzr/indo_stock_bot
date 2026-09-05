@@ -47,11 +47,39 @@ premise here, so cutting it is cheap. A result about exits is a result about the
 ENTRY it was measured on, and I cited six studies of other entries at a question
 about this one — which is an argument, not a measurement.
 
-WHY THERE IS STILL NO TAKE-PROFIT. S3 was registered as a predicted null and
-CONFIRMED, monotonically: take-profit at +20% / +30% / +50% reads 6.36% / 7.83%
-/ 8.77% CAGR against the base's 10.24%. The tighter the target the worse the
-result, because it truncates the right tail that pays for everything. That
-matches every prior measurement:
+THE TAKE-PROFIT IS A WIDE ONE, AND THE COST CURVE IS WHY.
+S3's predicted null was CONFIRMED — a target costs money — but the first sweep
+stopped at +50% and so could not say WHICH target costs least. Extended (H56b):
+
+    target        CAGR     cost vs no target
+    +20%         6.51%          -3.81
+    +30%         7.90%          -2.42
+    +50%         8.86%          -1.46
+    +75%         9.79%          -0.53
+    +100%       10.31%          -0.01   <- the cost curve flattens to zero here
+    +150%       10.21%          -0.11
+    sell HALF at +100%    10.33%   +0.01
+    sell THIRD at +100%   10.30%   -0.02
+
+So the level is NOT an argmax: it is where a monotone cost curve reaches zero.
+A tighter target is available on request and its price is in the table above —
++30% costs 2.4 points of CAGR a year, which is most of the edge.
+
+WHAT SHIPS, and each leg was chosen on its own curve rather than as a
+combination: stop -20% (middle of a flat family) plus SELL HALF AT +100%
+(where the target's cost curve flattens). Measured together:
+
+    arm                              CAGR    maxDD   early / late   worst 1
+    BASE, band only                 10.32%  -42.0%  10.87 / 11.40    -91%
+    SHIPPED, stop + half at +100%   11.08%  -35.2%   9.96 / 12.40    -41%
+
+Better CAGR, 7 points less drawdown, worst single name less than half as bad.
+BUT the early half is WORSE (9.96 against 10.87) and the late half better, which
+A18 records as the signature of regime noise, so the CAGR gain is not claimed —
+only the drawdown, which improves in both halves.
+
+Every prior measurement of TIGHT targets still stands and is why the level is
+wide rather than conventional:
   * H17's 32 exit rules and H18's 58 indicator rules: their headline wins were
     WITHDRAWN by H20, which redid them on portfolio accounting. `trail 15%
     armed +50%` turned a 6.4x buy-and-hold into 1.6x, at +2.4%/yr against
@@ -107,6 +135,12 @@ FEE = 0.0056
 #  8-of-10 cell). Tighter cuts more drawdown and costs a little more in the
 #  early half; the frontier is printed so the choice is visible.
 STOP = 0.20
+#  H56b. The target's cost curve is monotone in tightness and reaches zero at
+#  +100%, so this is a curve-shape choice, not an argmax. Selling only HALF
+#  there is free (+0.01) because it banks a double while leaving the rest to
+#  run -- the only form of profit-taking that does not cap the winner.
+TP = 1.00
+TP_FRAC = 0.5
 
 
 def main() -> None:
@@ -153,42 +187,58 @@ def main() -> None:
     #  The hard stop is from the ENTRY price, so for a book opened today it is
     #  today's close; for names already held, pass --held and use your own fill.
     d["stop_px"] = d["close"] * (1.0 - STOP)
-    print(f"{'ticker':<8}{'close':>9}{'52w high':>10}{'band exit':>11}"
-          f"{'room':>7}{'STOP -20%':>11}{'vol60':>8}{'vol room':>10}"
+    d["tp_px"] = d["close"] * (1.0 + TP)
+    print(f"{'ticker':<7}{'ENTRY':>9}{'SL -20%':>10}{'TP +100%':>11}"
+          f"{'band exit':>11}{'room':>7}{'vol60':>8}{'vol room':>10}"
           f"{'cost r/t':>10}{'Rp bn/d':>9}")
-    print("-" * 93)
+    print("-" * 92)
     for _, r in d.iterrows():
-        print(f"{r['ticker']:<8}{r['close']:>9,.0f}{r['hi52w']:>10,.0f}"
-              f"{r['sell_px']:>11,.0f}{r['room']:>7.1%}{r['stop_px']:>11,.0f}"
+        print(f"{r['ticker']:<7}{r['close']:>9,.0f}{r['stop_px']:>10,.0f}"
+              f"{r['tp_px']:>11,.0f}{r['sell_px']:>11,.0f}{r['room']:>7.1%}"
               f"{r['vol60']:>8.2%}"
               f"{r['vol_head']:>10.0%}{r['rt_cost']:>10.2%}{r['tvbn']:>9,.1f}")
     print()
     print(f"equal weight = {1 / max(len(d), 1):.1%} each; "
           f"basket round-trip cost {d['rt_cost'].mean():.2%}")
     print()
-    print("TWO EXITS, AND THEY DO DIFFERENT JOBS.")
+    print("THREE LEVELS, AND WHAT EACH ONE MEASURED. Sell HALF at TP; the")
+    print("rest keeps running to the band exit or the stop.")
     print()
-    print("  STOP -20%  is a RESTING ORDER, from your own entry price, live")
-    print("             every session. It is what covers the gap between")
-    print("             reviews -- the hole in the quarterly-only version.")
-    print("             Measured: cuts portfolio drawdown -42% -> -36%, and in")
-    print("             BOTH halves (-37/-40 -> -27/-29), worst single name")
-    print("             -91% -> -41%, at no measurable cost in return.")
+    print(f"  ENTRY      today's close. Buy line: hi52 >= {hi_entry:.4f} AND "
+          f"vol60 <= {vol_entry:.4f}.")
+    print("             Equal weight, %.0f%% each." % (100.0 / max(len(d), 1)))
     print()
-    print("  BAND EXIT  is NOT a resting order. It is checked at the QUARTERLY")
-    print("             review only, and the threshold is a percentile of the")
-    print("             board, so it moves -- a name can be sold without")
-    print("             falling a rupiah if the rest of the board rallies past")
-    print("             it, or if its 60-day volatility rises past the")
-    print("             calmest-60% line ('vol room' is the headroom), or if it")
-    print("             leaves the universe (under Rp1bn/day, or suspended).")
-    print("             Checking this line DAILY was tested and is a disaster:")
-    print("             CAGR 10.24% -> 2.37%, because a daily check sells on")
-    print("             the board's noise rather than the name's decline.")
+    print("  SL  -20%   RESTING ORDER from your own fill, live every session.")
+    print("             MEASURED: portfolio drawdown -42.0% -> -36.3%, and in")
+    print("             BOTH halves (-37/-40 -> -27/-29). Worst single name")
+    print("             -91% -> -41%. Costs nothing in return.")
     print()
-    print("  NO TAKE-PROFIT. Registered as a predicted null and confirmed")
-    print("             monotonically: +20% / +30% / +50% targets read 6.36% /")
-    print("             7.83% / 8.77% CAGR against 10.24% with none.")
+    print("  TP +100%   SELL HALF, let the rest run. RESTING ORDER.")
+    print("             MEASURED: a target's cost is monotone in how tight it")
+    print("             is -- +20% costs 3.81 points of CAGR a year, +30%")
+    print("             costs 2.42, +50% costs 1.46, +75% costs 0.53, and")
+    print("             +100% costs 0.01. This is where the curve reaches")
+    print("             zero, not where a sweep peaked. Selling only half")
+    print("             there measures +0.01, i.e. free.")
+    print("             A TIGHTER TARGET IS YOURS TO SET -- the price of each")
+    print("             is in the line above.")
+    print()
+    print("  BAND EXIT  NOT a resting order: checked at the QUARTERLY review")
+    print("             only. The threshold is a percentile of the board, so")
+    print("             it moves -- a name can be sold without falling a")
+    print("             rupiah if the board rallies past it, if its 60-day")
+    print("             vol rises past the calmest-60% line ('vol room' is the")
+    print("             headroom), or if it leaves the universe.")
+    print("             MEASURED: checking this line DAILY is a disaster --")
+    print("             CAGR 10.32% -> 2.41%, because it then sells on the")
+    print("             board's noise rather than the name's decline.")
+    print()
+    print("  TOGETHER   11.08%/yr against 10.32% with none, drawdown -35.2%")
+    print("             against -42.0%, over 2000-2026 on 6 rebalance")
+    print("             calendars. The CAGR gain is NOT claimed: it is worse")
+    print("             in the early half and better in the late one, which is")
+    print("             regime noise. The drawdown gain holds in both halves.")
+    print("             IN-SAMPLE: the holdout was spent at H16.")
 
 
 if __name__ == "__main__":

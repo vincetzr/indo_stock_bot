@@ -311,21 +311,39 @@ def test_the_rule_card_says_the_level_is_not_a_resting_stop():
            "NOT a resting stop" in doc
 
 
-def test_the_hard_stop_is_shipped_and_no_take_profit_is():
-    """H56's S1 was registered as "a stop will not cut PORTFOLIO drawdown" and
-    FAILED: every level -10% to -30% cut it, in both halves, at no measurable
-    cost in return. So the stop ships. S3's predicted null CONFIRMED
-    monotonically (+20/+30/+50 targets read 6.36/7.83/8.77 against 10.24), so
-    no take-profit does. Asserting both directions stops either drifting."""
+def test_all_three_levels_ship_and_the_target_is_wide():
+    """THE STANDING CONTRACT (CLAUDE.md): every signal carries entry, SL and TP.
+
+    The SL ships because H56's S1 FAILED — every level -10% to -30% cut
+    portfolio drawdown in both halves at no cost in return. The TP ships
+    because the user asked for one twice, and its LEVEL is set by where the
+    cost curve reaches zero, not by a round number or a sweep's argmax:
+    +20/+30/+50/+75/+100 cost 3.81/2.42/1.46/0.53/0.01 points of CAGR.
+
+    A TIGHT target is the failure mode this guards. If TP ever drifts under
+    +75% it is costing more than half a point a year, and at +30% it costs
+    2.4 — most of the edge — so the floor is asserted rather than trusted.
+    """
     src = open(rules.__file__).read()
     body = src.split('"""', 2)[2]
     assert "STOP" in body and "stop_px" in body
-    for token in ("take_profit", "tp_px", "target_px"):
-        assert token not in body, token
-    #  The level must sit inside the family that was actually measured, and
-    #  must not be the sweep's argmax (-15%, which read best on both axes).
+    assert "TP" in body and "tp_px" in body
+    #  The stop sits inside the measured family and is not its argmax (-15%).
     assert 0.10 <= rules.STOP <= 0.30
     assert rules.STOP != 0.15
+    #  The target is WIDE, where the cost curve flattens.
+    assert rules.TP >= 0.75, "a tighter target costs >0.5 pts of CAGR a year"
+    #  And it is a SCALE-OUT: selling everything caps the winner outright.
+    assert 0.0 < rules.TP_FRAC < 1.0
+
+
+def test_the_cost_of_each_level_is_printed_with_it():
+    """CLAUDE.md's fourth column, and the non-negotiable one: a level without
+    its measured consequence is what this repo exists to avoid."""
+    src = open(rules.__file__).read()
+    assert "MEASURED" in src
+    for token in ("-42.0%", "10.32%", "3.81", "0.01"):
+        assert token in src, token
 
 
 def test_the_stop_and_the_band_are_described_as_different_instruments():
