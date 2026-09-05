@@ -110,14 +110,18 @@ def _dd(curve: np.ndarray) -> float:
 
 
 def walk(P: pd.DataFrame, offset: int = 0, stop: float = 0.0,
-         tp: float = 0.0, daily_keep: bool = False,
-         redeploy: bool = True) -> Dict:
+         tp: float = 0.0, tp_frac: float = 1.0, trail: float = 0.0,
+         daily_keep: bool = False, redeploy: bool = True) -> Dict:
     """One path. Selection quarterly; exits checked EVERY SESSION.
 
     `stop` / `tp` are fractions from the ENTRY price of that position, checked
     on the close (A27: filling at the nominal level flatters tight stops, and on
     IDX a breach can gap to auto-rejection where nothing trades at all).
     `daily_keep` checks the keep band every session instead of at marks only.
+    `tp_frac` < 1 SCALES OUT: sell that fraction at the target and let the rest
+    run, which is the only form of take-profit that does not truncate the right
+    tail outright. `trail` is a trailing stop from the position's own peak,
+    which unlike a fixed target rises with a winner instead of capping it.
     """
     dates = np.sort(P["date"].unique())
     marks = set(dates[offset::FREQ].tolist())
@@ -151,15 +155,31 @@ def walk(P: pd.DataFrame, offset: int = 0, stop: float = 0.0,
 
         # ---- EXITS, checked EVERY SESSION ------------------------------
         drop = []
+        scale = []
         for t, h in held.items():
             r = h["px"] / h["entry"] - 1.0
+            h["peak"] = max(h.get("peak", h["entry"]), h["px"])
             worst_name = min(worst_name, r)
             if stop and r <= -stop:
                 drop.append((t, "stop"))
-            elif tp and r >= tp:
-                drop.append((t, "tp"))
+            elif trail and h["px"] <= h["peak"] * (1.0 - trail):
+                drop.append((t, "stop"))
+            elif tp and r >= tp and not h.get("tp_done"):
+                if tp_frac >= 1.0:
+                    drop.append((t, "tp"))
+                else:
+                    scale.append(t)
             elif daily_keep and not keep.get(t, False):
                 drop.append((t, "band"))
+        for t in scale:
+            #  Sell part, bank it, and mark so it fires ONCE. A target that can
+            #  re-arm on the same position is a different rule and a much
+            #  churnier one.
+            take = held[t]["val"] * tp_frac
+            held[t]["val"] -= take
+            cash += take * (1.0 - cost.get(t, FEE))
+            held[t]["tp_done"] = True
+            n_tp += 1
         for t, why in drop:
             #  Fill at the CLOSE, not at the nominal level (A27): a bar that
             #  breaches −20% often closes at −25%, and on IDX it can gap to
@@ -189,7 +209,8 @@ def walk(P: pd.DataFrame, offset: int = 0, stop: float = 0.0,
                 if need > 0:
                     cand = e[e["in_entry"] & ~e["ticker"].isin(list(held))]
                     for t in cand.nlargest(need, "hi52")["ticker"]:
-                        held[t] = {"val": 0.0, "entry": px[t], "px": px[t]}
+                        held[t] = {"val": 0.0, "entry": px[t], "px": px[t],
+                                   "peak": px[t]}
                         n_sel += 1
                 if len(held) >= MIN_BASKET:
                     total = cash + sum(h["val"] for h in held.values())
@@ -252,9 +273,27 @@ ARMS: List[Tuple[str, Dict]] = [
     ("+ hard stop 20%", {"stop": 0.20}),
     ("+ hard stop 25%", {"stop": 0.25}),
     ("+ hard stop 30%", {"stop": 0.30}),
+    #  S3's original three, plus the WIDER targets the first sweep never
+    #  reached. If a take-profit is going to be shipped it should be the one
+    #  that costs least, and that cannot be known from a grid stopping at +50%.
     ("+ take-profit 20% (S3)", {"tp": 0.20}),
     ("+ take-profit 30% (S3)", {"tp": 0.30}),
     ("+ take-profit 50% (S3)", {"tp": 0.50}),
+    ("+ take-profit 75%", {"tp": 0.75}),
+    ("+ take-profit 100%", {"tp": 1.00}),
+    ("+ take-profit 150%", {"tp": 1.50}),
+    #  SCALE-OUT: bank part, let the rest run. The only take-profit that does
+    #  not truncate the right tail outright.
+    ("+ sell HALF at +50%", {"tp": 0.50, "tp_frac": 0.5}),
+    ("+ sell HALF at +100%", {"tp": 1.00, "tp_frac": 0.5}),
+    ("+ sell THIRD at +50%", {"tp": 0.50, "tp_frac": 1 / 3}),
+    ("+ sell THIRD at +100%", {"tp": 1.00, "tp_frac": 1 / 3}),
+    #  A TRAILING stop rises with a winner instead of capping it -- the honest
+    #  way to "take profit" without naming a level.
+    ("+ trail 25% from peak", {"trail": 0.25}),
+    ("+ trail 35% from peak", {"trail": 0.35}),
+    ("SHIPPED: stop 20% + sell HALF at +100%",
+     {"stop": 0.20, "tp": 1.00, "tp_frac": 0.5}),
     ("+ stop 20% AND take-profit 30%", {"stop": 0.20, "tp": 0.30}),
     ("DAILY band + stop 20%", {"daily_keep": True, "stop": 0.20}),
 ]

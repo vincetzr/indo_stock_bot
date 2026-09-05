@@ -2821,3 +2821,69 @@ spent at H16, so every number is in-sample. The buffer sweep is **not monotone**
 the family's spread is about as wide as its effect. And the cost model is still
 A23's small-order one: impact, suspension and auto-rejection are in no number
 here, and two of the ten current picks trade under Rp 2bn a day.
+
+---
+
+# STANDING INSTRUCTION — the deliverable is a signal with three levels
+
+*Added 2026-09-04 at the user's direction: "i want you to be a trading bot that
+can give accurate signals for winning trades so you need to have entry, tp and
+sl". This section governs the FORM of every signal this repo emits from now on.
+It does not override §2 or §11 — a level that is measured to lose money is still
+reported as losing money, next to the level.*
+
+## The contract
+
+Every signal this repo hands the user carries **four** things, never fewer:
+
+| | |
+|---|---|
+| **ENTRY** | a price and the condition that produced it |
+| **SL** | a resting stop, from the user's own fill, live every session |
+| **TP** | a target, or an explicit scale-out, or an explicit "none and here is what one costs" |
+| **the measured cost of each level** | what that SL and that TP did to CAGR, drawdown and win rate in the backtest that produced them |
+
+The fourth column is the part that is not negotiable. `scripts/rules.py` and
+`scripts/daily_signal.py` must print it. A level without its measured
+consequence is the thing this repo exists to avoid: A26 and A27 both record the
+resolution, and it is the same one here — **draw what was asked for, and print
+the measurement beside it. Refusing to draw it, or drawing it silently, are both
+worse.**
+
+## What is measured about each level, as of H56
+
+- **SL: adopt it.** S1 was registered as "a hard stop will not cut the
+  PORTFOLIO's maximum drawdown" and **FAILED**. Every level from −10% to −30%
+  cut it in BOTH halves (−42.0% → −30.7%/−36.3%), worst single name −91% → −41%,
+  at no measurable cost in return. `STOP = 0.20` is the middle of the family and
+  deliberately not its argmax.
+- **TP: it costs money, and the cost is monotone in tightness.** S3's predicted
+  null CONFIRMED: +20%/+30%/+50% read 6.36%/7.83%/8.77% CAGR against 10.24% with
+  none. A target truncates the right tail, and the right tail is the return.
+- **So the TP that ships is the one that costs least, not a round number**, and
+  its cost is printed next to it every time.
+
+## The three things that make a target legitimate here
+
+1. **Wide beats tight, always.** The whole grid is monotone. Any request for a
+   tighter target gets the number for that target, not a refusal.
+2. **A scale-out is not a target.** Selling a fraction and letting the rest run
+   is the only form of profit-taking that does not cap the winner, and it is
+   priced separately.
+3. **A trailing stop rises with the position.** It is the honest way to "take
+   profit" without naming a level, and it is in the same table.
+
+## What must never be claimed
+
+"Accurate signals for winning trades" is the goal, and these are the words the
+repo may not use to describe what it has:
+
+- **No win rate without its horizon and its threshold.** A28: the machinery
+  emits probabilities, so a hit rate is undefined until someone picks a
+  threshold, and whoever picks it decides the answer.
+- **No per-trade mean without the mean LOG beside it.** A36 measured the two
+  disagreeing in SIGN: a +5.77% average trade compounding at −5.3% a year.
+- **No level quoted without the benchmark.** A19 and A31 both record the missing
+  comparison as the error class that manufactures a result.
+- **Nothing described as validated.** The holdout was spent at H16. Every number
+  in this repo is in-sample, and A23 applies in full to third-party money.
