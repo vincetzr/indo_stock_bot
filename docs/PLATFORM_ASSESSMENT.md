@@ -338,3 +338,75 @@ cross-sectional model at **2.31 skew out of sample**. H56's stop.
 - **Survivorship is bounded, not corrected**: 105 of 121 recovered delisted
   names end at the 2019 snapshot rather than at their delisting, so
   `FORCED_RETURN = −1.00` remains an assumption.
+
+---
+
+## Postscript — the container was rebuilt cold, 2026-09-06
+
+The assessment workflow's remaining six probes were killed by a container
+restart. What the restart itself taught is worth more than the probes were.
+
+**All code survived; all raw data did not.** The three most recent commits were
+on the remote and not local — the container restored an older snapshot — and
+`git reset --hard origin/...` recovered them intact. Nothing in git was lost,
+because every unit of work had been pushed.
+
+**`data/` went from 1.9 GB to 4.5 MB.** It is gitignored by design (CLAUDE.md
+§13: "raw pulls, immutable, gitignored"), and that design assumes the data is
+re-fetchable. Measured, it partly is not:
+
+| store | before | after | recoverable? |
+|---|---|---|---|
+| `cache/ohlcv` | 901 files | **838 refetched in 3 min** | yes |
+| `spine/price_panel` | 2,866,877 rows, 919 tickers | **2,605,914 rows, 827 tickers** | yes, minus below |
+| `cache/delisted` | 121 names | 0 | **NO — see below** |
+| `cache/intraday` | 1,004 files, 3.1m 1h bars | 0 | **partly — 34.94% were older than Yahoo's 730-day window** |
+| `cache/ipot_broker` | 42,227 files | 0 | yes, but A1 prices it at 31,824 polite requests |
+| `cache/news` | 34 | 0 | live-only anyway |
+| `cache/fundamentals` | 59 | 0 | yes, and it was the gap regardless |
+
+**THE SURVIVORSHIP REPAIR IS GONE AND ITS SOURCE IS NOT RECORDED.** The panel
+now reads **827 tickers, 0 delisted**, against 919 with 89 before. Yahoo does
+not serve the dead names: probed `MYRX.JK` 200 with **0 bars**, `SUGI.JK`,
+`BTEL.JK`, `TRAM.JK` 200 with **36 bars** each, `SIAP.JK` **404**. And
+`spine/universe.py` documents the recovery's provenance only in prose — "a
+published point-in-time listing of 627 IDX tickers" as of 2019-04-07 — with **no
+URL, no accession date and no checksum anywhere in the repo**. So the artefact
+that turned three guesses into measurements (2.87%/yr attrition, 4.8pp
+pre-delisting drag, a survivorship-free universe) cannot be re-obtained from the
+repo's own record.
+
+That is a documentation failure, not a data failure, and it is the more
+embarrassing of the two: the repo was careful enough to keep the delisted names
+in a separate directory so they could not silently change a study, and not
+careful enough to write down where they came from.
+
+**pip installs do NOT survive a cold rebuild.** The environment probe measured
+them persisting across warm resumes (eight packages from 08-07..08-24 still
+present on 09-06) and explicitly flagged the cold case as DATA UNAVAILABLE.
+It is now answered: after the restart, `pandas`, `numpy`, `pyarrow`,
+`scikit-learn`, `matplotlib`, `pytest`, `statsmodels`, `lightgbm`, `duckdb` and
+`yfinance` were all gone, leaving 38 packages. `requirements.txt` listed **four**
+of them. A manifest that is a subset of what the code imports is not a manifest.
+
+### What this changes in the roadmap
+
+Stage 0 was "fix `Cache.write` to merge rather than replace, because a refresh
+would destroy 1,092,171 out-of-window 1h bars". The restart destroyed them
+first, which does not make the fix less necessary — it makes it more, because
+the *next* cache to accumulate beyond Yahoo's window will be lost the same way
+unless the store is durable.
+
+Three items are added ahead of everything else:
+
+| # | item | why |
+|---|---|---|
+| **0a** | `requirements.txt` now lists the full runtime (done) | the rebuild blocker |
+| **0b** | Record the 2019 snapshot's URL, accession date and checksum in `spine/universe.py`; re-obtain the 121 names | it is the only survivorship repair and it is currently unreproducible |
+| **0c** | Decide what in `data/` is *derived* (re-buildable from a script) versus *irreplaceable* (a point-in-time artefact), and commit or externally back up the second class | 1.9 GB of gitignore made no distinction between the two, and the distinction is the whole point |
+
+**Verified working after recovery:** 2,390 tests pass, 3 skipped; the panel
+rebuilt to 2026-09-04; `scripts/rules.py` emits the live basket with entry, SL
+and TP. What is degraded: every study that depended on the delisted names is now
+running on a survivorship-biased universe until 0b is done, and `gate0.py`'s
+survivorship check will fail.
