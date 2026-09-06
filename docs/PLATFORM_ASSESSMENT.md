@@ -410,3 +410,79 @@ rebuilt to 2026-09-04; `scripts/rules.py` emits the live basket with entry, SL
 and TP. What is degraded: every study that depended on the delisted names is now
 running on a survivorship-biased universe until 0b is done, and `gate0.py`'s
 survivorship check will fail.
+
+---
+
+## 0b done — the survivorship repair is back, wider, and reproducible
+
+**The lost 2019-04-07 snapshot was not re-found and its source remains unknown.**
+What replaced it is a different artefact, and both are now recorded as constants
+in `spine/universe.py` so no study can silently swap one for the other.
+
+| | lost snapshot | current recovery |
+|---|---|---|
+| source | **unknown — prose only** | `github.com/wildangunawan/Dataset-Saham-IDX` @ `bc0ac771` |
+| names recovered | 121 | **145** |
+| window | reached back before 2019-04-07 | **2019-07-29 → 2025-02-21**, 1,355 bars |
+| dates each death? | **no** — "the months in which a name actually died are still missing" (A2) | **yes**, from the last bar carrying volume |
+| reproducible? | **no** | `python scripts/delisted_collect.py --clone` |
+
+Measured: 958 dataset names against 827 in the live spine, **145 the spine does
+not have**, median total return **−54.5%**, and **68 stopped trading before
+2025-02**. A median that deeply negative is the point — survivorship bias *is*
+the absence of the losers, so a recovery whose median looked like the survivors'
+would have recovered the wrong thing. A test asserts it stays below −20%.
+
+Sample death dates, derived from volume: ARMY 2019-11-29, MYRX 2020-01-15,
+TRAM and SMRU 2020-01-22, IIKP 2020-01-22, HOME 2020-01-31, RIMO 2020-02-11.
+
+**Wider but shallower.** Names that died before 2019-07-29 are still gone, so
+the recovery is one-sided in the *other* direction from the old one. That is
+recorded rather than papered over.
+
+**One trap worth naming.** The dataset has a `delisting_date` column. It is
+**empty for all 958 names** — a header only. Its name invites exactly the
+assumption that would produce a table full of silent NaTs, so the death date is
+derived from volume and a test pins that.
+
+### The licence is the user's call, and nothing imports this until they make it
+
+CC BY-NC 4.0 on the compilation. The dataset's own README states the data is
+taken from idx.co.id and "all data in the dataset belongs to PT Bursa Efek
+Indonesia", pointing at IDX's Syarat Penggunaan — which CLAUDE.md §3 already
+records as **barring commercial redistribution while permitting personal
+research use**.
+
+A23 records this project being pointed at a client's money. Whether managing
+third-party money for a fee is "non-commercial" is not a question this repo
+should answer for you. So, following the same pattern as
+`data.broker_allowed_hosts` shipping empty (A5):
+
+- the recovery writes to `data/cache/delisted/` and a manifest;
+- **nothing under `spine/` or `features/` imports it**, enforced by an AST test
+  identical in spirit to the one quarantining the news layer;
+- `RECOVERY_LICENCE_PENDING = True` in `universe.py` until you rule.
+
+**What I need from you:** whether CC BY-NC covers your use. If yes, the spine
+rebuild includes the 145 names and `gate0.py`'s survivorship check passes again.
+If no, the repo stays survivorship-biased and every affected result carries that
+caveat — which is worse, but honest, and it is your call to make.
+
+### 0c — the rule that stops this recurring
+
+`data/` was 1.9 GB of gitignore that made no distinction between two kinds of
+thing, and the distinction is the entire point:
+
+| class | example | on loss | policy |
+|---|---|---|---|
+| **DERIVED** | `price_panel.parquet`, `ohlcv/`, indicator panels | rebuild by script in minutes | gitignore, and keep the script |
+| **IRREPLACEABLE** | the 2019 snapshot, out-of-window 1h bars, any point-in-time artefact | **gone forever** | **must carry a collector with pinned provenance, or be backed up outside the container** |
+
+Every irreplaceable store now needs four recorded fields — source, pinned
+commit or accession date, licence, checksum — and a script that rebuilds it from
+them. `scripts/delisted_collect.py` is the reference implementation and
+`tests/test_delisted_collect.py` asserts the fields cannot regress to prose.
+
+Still unprotected under this rule: `cache/intraday` (34.94% of its bars were
+already past Yahoo's 730-day window and are gone) and `cache/ipot_broker`
+(42,227 files, priced by A1 at 31,824 polite requests).

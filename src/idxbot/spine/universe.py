@@ -234,13 +234,38 @@ def caveat(weighting: str = "equal") -> str:
 #: bigger one.
 DELISTED_DIR = os.path.join("data", "cache", "delisted")
 
-#: The snapshot these came from, and its limits. A published point-in-time
-#: listing of 627 IDX tickers as of this date - not survivorship-biased,
-#: because it was taken then. It is the only such snapshot found, so the
-#: recovery is one-sided: names that vanished AFTER it are recoverable, names
-#: that delisted before it are not.
-SNAPSHOT_DATE = pd.Timestamp("2019-04-07")
-SNAPSHOT_SIZE = 627
+#: WHERE THE RECOVERED NAMES COME FROM. This block used to say only "a
+#: published point-in-time listing of 627 IDX tickers" -- no URL, no commit, no
+#: checksum, and no collector script anywhere in the repo. On 2026-09-06 a cold
+#: container rebuild destroyed data/cache/delisted and the repo could not
+#: rebuild it, because the acquisition had been done by hand in a session and
+#: never written down. The survivorship repair -- the thing that turned three
+#: guesses into measurements -- was irreproducible from the repo's own record.
+#: `scripts/delisted_collect.py` is the fix and `tests/test_delisted_collect.py`
+#: asserts the provenance fields exist, so this cannot regress to prose.
+#:
+#: The 2019-04-07 snapshot itself was NOT re-found. What replaced it is wider
+#: and shallower, and the constants below record BOTH so no study silently
+#: swaps one for the other.
+SNAPSHOT_DATE = pd.Timestamp("2019-04-07")   # the LOST snapshot; source unknown
+SNAPSHOT_SIZE = 627                           # its size, from the old prose
+
+#: The CURRENT recovery. Wider (145 names against 121) and shallower (opens
+#: 2019-07-29 rather than reaching back before it), and it fixes the
+#: one-sidedness: the last bar carrying real volume dates each death directly,
+#: which the old snapshot could not do.
+RECOVERY_SOURCE = "github.com/wildangunawan/Dataset-Saham-IDX"
+RECOVERY_COMMIT = "bc0ac7712ce5e46f1067349e13ab9f338883c6c4"
+RECOVERY_FIRST_BAR = pd.Timestamp("2019-07-29")
+RECOVERY_LAST_BAR = pd.Timestamp("2025-02-21")
+RECOVERY_SIZE = 145
+#: CC BY-NC 4.0 on the compilation; the underlying data is PT Bursa Efek
+#: Indonesia's, and CLAUDE.md section 3 records IDX Terms of Use item 5 as
+#: barring COMMERCIAL redistribution. A23 records this project being pointed at
+#: a client's money, so whether that use is non-commercial is the USER's ruling
+#: to make (A5). Until they make it, nothing under spine/ or features/ imports
+#: the recovery and a test enforces that.
+RECOVERY_LICENCE_PENDING = True
 
 
 def delisted_available() -> List[str]:
