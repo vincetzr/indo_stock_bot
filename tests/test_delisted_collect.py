@@ -47,13 +47,20 @@ def test_the_licence_and_its_chain_are_recorded():
     assert "Bursa Efek Indonesia" in lic
 
 
-def test_the_licence_decision_is_left_to_the_user():
+def test_the_licence_ruling_is_recorded_with_its_SCOPE():
     """A5: a source is adopted only after the USER has checked its licensing.
-    CC BY-NC is non-commercial and A23 records this project being pointed at a
-    client's money, so the script must not decide that question for them."""
-    src = open(dc.__file__).read()
-    assert "PENDING USER RULING" in src
-    assert "A5" in src
+    They ruled on 2026-09-06 -- personal research only. The SCOPE is the part
+    that must not rot: A23 was written when this project was pointed at a
+    client's account, and a ruling for personal research does not carry over to
+    third-party money or to redistribution."""
+    import idxbot.spine.universe as u
+    assert u.RECOVERY_LICENCE_PENDING is False
+    ruling = u.RECOVERY_LICENCE_RULING
+    assert "personal research" in ruling.lower()
+    #  The two things the ruling does NOT cover must be named in it, or a later
+    #  reader will take it as blanket permission.
+    assert "redistribution" in ruling.lower()
+    assert "third-party money" in ruling.lower()
 
 
 def test_the_docstring_carries_all_four_provenance_fields():
@@ -86,10 +93,11 @@ def test_recovered_names_are_written_apart_and_never_merged():
     assert "NOT MERGED" in src
 
 
-def test_no_module_under_spine_or_features_imports_the_recovery():
-    """The same quarantine tests/test_news.py enforces for the news layer. If
-    the spine imported this, every downstream study would change universe
-    without a single number looking wrong."""
+def test_no_module_under_spine_or_features_imports_the_COLLECTOR():
+    """The collector is a one-shot acquisition script, not a runtime dependency.
+    The spine reads the CSV files it writes -- price_panel_build.py already
+    globs data/cache/delisted -- but importing the collector would drag a git
+    clone into the feature path."""
     import ast
     root = os.path.join(os.path.dirname(__file__), os.pardir, "src", "idxbot")
     for sub in ("spine", "features"):

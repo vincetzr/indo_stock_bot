@@ -270,3 +270,48 @@ alongside). Bonferroni bar α = 0.05/323 = **0.00015**. Nothing here is claimed
 against it: the strict result is negative, and the positive result under the
 weaker bar rests on a 4-of-6 count over overlapping windows, which carries no
 p-value at all.
+
+---
+
+## §7. The survivorship correction — H54's headline takes a 2.6-point haircut
+
+*2026-09-06. The 145 recovered delisted names are in the spine (user ruling:
+personal research, `spine/universe.py:RECOVERY_LICENCE_RULING`). Panel now
+**968 tickers, 141 delisted, 2,783,846 rows** against 827/0/2,605,914. Re-run:
+`reports/beathold_survivorship.txt`.*
+
+**Every number in §0–§6 above was measured on a universe with no dead names in
+it.** This section supersedes them.
+
+| arm | vs index BEFORE | vs index AFTER | beats index |
+|---|---|---|---|
+| sticky tight buffer, quarterly | **+6.50%** | **+3.86%** | 6/6 → 6/6 |
+| strength+calm 10, semiannual | +4.53% | +4.62% | 5/6 → 4/6 |
+| sticky wide buffer, quarterly | +4.76% | +4.42% | 6/6 → 6/6 |
+| strength+calm sticky, quarterly | +3.40% | +4.30% | 6/6 → 6/6 |
+| sticky 20 names, quarterly | +4.81% | +4.25% | 6/6 → 6/6 |
+| own everything, quarterly | −1.13% | −1.79% | 0/6 → 0/6 |
+
+**The leading arm loses 2.64 points.** That is the survivorship bias being paid
+back, and it is the direction A2 predicted ("inflates equal-weight return
+~2.7pp/yr" — measured here at 2.64 on this arm, which is close enough to be
+worth noting and not close enough to be a coincidence worth trusting).
+
+**The random control fell further than the screen did** — +2.75% → +2.21%,
++0.56% → +0.86%/+0.47% depending on the arm's window. A random draw now
+sometimes picks a name that went to zero, which is exactly what it should do and
+never could before.
+
+**What survives:** the sticky family still beats the index in **6 of 6**
+calendars. The qualitative result is intact; the magnitude is not.
+
+### The correction is PARTIAL and the honest haircut is larger
+
+The recovery window is **2019-07-29 → 2025-02-21** — 5.5 years of a 26-year
+panel. Names that died before July 2019 are still missing, so **roughly 19 of
+the 26 years remain survivorship-biased.** The 2.64-point haircut is what
+correcting one fifth of the sample costs; correcting all of it would cost more,
+and by how much is not estimable from what is here.
+
+So the right reading of "+3.86% over the index" is: **an upper bound that has
+been lowered once and would fall again given a fuller recovery.**

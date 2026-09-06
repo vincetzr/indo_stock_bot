@@ -261,11 +261,24 @@ RECOVERY_LAST_BAR = pd.Timestamp("2025-02-21")
 RECOVERY_SIZE = 145
 #: CC BY-NC 4.0 on the compilation; the underlying data is PT Bursa Efek
 #: Indonesia's, and CLAUDE.md section 3 records IDX Terms of Use item 5 as
-#: barring COMMERCIAL redistribution. A23 records this project being pointed at
-#: a client's money, so whether that use is non-commercial is the USER's ruling
-#: to make (A5). Until they make it, nothing under spine/ or features/ imports
-#: the recovery and a test enforces that.
-RECOVERY_LICENCE_PENDING = True
+#: barring COMMERCIAL redistribution.
+#:
+#: THE USER RULED ON 2026-09-06: "yes it's for research, include the 145 names.
+#: its for personal use only." That is the A5 check being performed by the
+#: person entitled to perform it, and the 145 names are now in the spine.
+#:
+#: THE RULING IS SCOPED AND THE SCOPE IS LOAD-BEARING. It covers PERSONAL
+#: RESEARCH. It does not cover redistribution, and it does not cover managing
+#: third-party money for a fee -- A23 was written when this project was pointed
+#: at a client's account, and if it is pointed there again this question
+#: REOPENS rather than carrying over. Nothing derived from this source may be
+#: republished either way: that is IDX's term, not the dataset's, and no user
+#: ruling can waive it.
+RECOVERY_LICENCE_PENDING = False
+RECOVERY_LICENCE_RULING = (
+    "2026-09-06, user: personal research only. NOT for redistribution and NOT "
+    "for third-party money -- if the use changes, re-check the licence."
+)
 
 
 def delisted_available() -> List[str]:
