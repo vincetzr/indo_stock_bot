@@ -2822,6 +2822,146 @@ the family's spread is about as wide as its effect. And the cost model is still
 A23's small-order one: impact, suspension and auto-rejection are in no number
 here, and two of the ten current picks trade under Rp 2bn a day.
 
+## A40. The §58 roadmap run to its end, and the correction it never contained
+
+A39 closed H54. What followed was the master brief's §58 assessment
+(`docs/PLATFORM_ASSESSMENT.md`) and then its nine-stage roadmap, run in order.
+All nine are now done or blocked with the blocker named and priced. H57–H61,
+plus a Gate 0 that had regressed.
+
+**GATE 0 WAS FAILING AND THE FIX WAS A DIFFERENT SOURCE, NOT A LOWER BAR.** A
+container rebuild destroyed `data/cache/broker_daily`, which §5 check 1
+reconciled against, and re-accumulating it needs a host in
+`data.broker_allowed_hosts` — which ships EMPTY and is the **user's** call (A5).
+The check now falls back to the IDX-derived daily summary already on disk:
+**838,227 ticker-days, 814 names, cross-source median 0.000%**, against the old
+route's ten names over eighteen months. The thresholds are the same literal
+expression in both paths and a test asserts it appears exactly twice.
+**And the first version passed on TWO ROWS** — the surviving store held two
+ticker-days of one name, reconciled them, and printed PASS. A19's
+smallest-cell trap with a PASS on it. `MIN_RECON_FILES=40` and
+`MIN_RECON_ROWS=200` now floor it. The verdict's *"agrees to 0.017%"* was
+hardcoded and had outlived the store that produced it; it is computed now, and
+the retracted number survives only as a marked retraction.
+
+**H57 — THE POINT-IN-TIME SHARE COUNT, AND H52's SIZE EFFECT SURVIVES A REAL
+RULER.** A25 refused market cap because the only share source was frozen at
+2024-07-10. The delisted-recovery dataset carries `listed_shares` **per bar**:
+**405 of 949 names (43%) change theirs, up to 41×** — PANI 410,000,000 →
+16,883,595,500. A25's refusal was right. With a real ruler, H52's tier collapse
+reproduces (+0.0358 → +0.0185 against turnover's +0.0184), so the size
+conclusion is **not** an artefact of its proxy.
+
+**AND ITS POSITIVE CONTROL FAILED ON THE OBVIOUS STATISTIC.** On the arithmetic
+mean of the 60-session forward return, H52's OWN turnover ruler does not
+reproduce H52's own collapse — the ladder is hump-shaped. On the mean log it
+does. A36 recorded the two averages disagreeing in SIGN; **here they disagree
+about whether the effect EXISTS.** The mean log is scored because it is what
+H52 measured, not because it passed. The collapse is also **ten times larger in
+the early half**, which a boolean "does it decline" hides four times over.
+
+**H58 — THE DEFLATED SHARPE §11 HAS DEMANDED SINCE DAY ONE, NEVER COMPUTED IN
+350 TRIALS.** `hypotheses.md` opens by saying the trial count exists so it can
+be computed. A running count that never enters a statistic is bookkeeping. It
+is also a **different correction** from the seven permutation nulls that have
+decided results here: a null asks whether the LABEL carries information and
+cannot ask whether a strategy is the best of 350 attempts.
+
+**THE INPUT THAT COULD HAVE BEEN FAKED IS `sr_variance`, AND IT IS A LOWER
+BOUND.** Estimated from `bhbench`'s own random control arms rather than typed
+in — but a control draw varies only *which names are bought*, while 350 trials
+varied the whole hypothesis. A lower bound on the dispersion is an **upper
+bound on the DSR**, so the answer is a sweep, not a number: 0.0072 → **0.974**,
+0.0127 → **0.947**, 0.05 → 0.608, 0.25 → 0.001. **The best arm survives 1 of 7
+assumptions and the one it survives is the single most flattering available.**
+D2's predicted null passed (a random basket reads 0.748). D3 failed: 11,200
+trials to kill it, not ~350.
+
+**H59 — SECTOR MOMENTUM IS REAL AND COSTS MORE THAN IT IS WORTH.** The frozen
+map's survivorship worry does **not** bite: 97.1% of dead names carry a sector.
+Rank IC +0.0798 at z +1.50, and **under-powered** — 114 marks needed, 75
+observed. No tilt beats the untilted screen. But tilt-vs-no-tilt confounds
+CHOICE with CONCENTRATION, and the matched cell says otherwise: at three
+sectors, momentum-chosen **+1.85%** against random-chosen **−3.20%**, a
+difference of **+5.05%/yr**. A38's shape again — the lever that would exploit
+the effect costs more than the effect. So the rule card **prints** the sector
+mix and never filters on it, and a test enforces that.
+
+**AND THE FIRST RUN COMMITTED A19's WINDOW MISMATCH A FOURTH TIME**, printing
++12.01% against +6.65% with their INDEX benchmarks at +8.71% and +4.63%. **A
+benchmark that moves four points between arms is proof the windows differ.**
+
+**H60 — THE REGIME ENGINE, AND THE REGIME IS 2008.** HDBSCAN returns **0
+clusters and 100% noise** at any minimum size worth calling a regime; GMM's BIC
+falls monotonically to the largest k tried, which is what BIC does on
+autocorrelated data. Contiguous episodes: **13 at k=2** over 18.9 years — an
+episode is the observation, not a day. The screen's edge inverts at k=3
+(spread +0.1853, rotation null +0.0507 ± 0.0334, **z +4.03**) — and at **every
+k where the sign flips, the inverting regime's largest episode is 2008-09 →
+2009-03/04**, and dropping it halves the spread every time. One window, four
+clusterings. A registered failure, not a tradeable finding, and no arm is built
+on it. The null **rotates** the label series rather than shuffling it; a
+day-level shuffle manufactures evenly-mixed pseudo-regimes and inflates every z.
+
+**H61 — EVERY CHART PATTERN IS NEGATIVE AGAINST ITS MATCHED CONTROL, IN BOTH
+HALVES.** Six classic shapes, causal by construction, scored against random
+bars from the same (ticker, year) cells at the same counts. Breakout −0.0179,
+golden cross −0.0270, higher-highs **−0.0593**, double bottom −0.0310, gap-up
+−0.0352. **Buying the confirmation bar is worse than buying a random day in the
+same name-year** — H13's `rev1` from a different direction. 0 of 6 beat the
+control after the fee alone, while the RAW return looks positive for 6 of 6,
+which is the market's drift.
+
+**AND THE PREDICTED NULL FIRED AT z −47.65.** `digit` — the close ending in 0 or
+5 — clears the Bonferroni bar by orders of magnitude, so **significance in that
+table is not evidence**. A9 registered `squeeze` the same way and it fired at
+t = +3.55; this is the second and more emphatic occurrence.
+
+**FOUR BUGS THIS SESSION, ALL CAUGHT BY IMPOSSIBLE NUMBERS OR BY A CONTROL.**
+
+*`~` ON AN OBJECT-DTYPE SERIES INVERTS THE INTEGER.* `shift(1)` on a bool
+column returns object, `fillna(False)` leaves it object, and `~False == -1` is
+**truthy** — so `up & ~up.shift(1).fillna(False)` is just `up`. The golden
+cross fired **357,925 times on 690,591 eligible bars**, 52% of the panel, for a
+signal that should fire a dozen times per name in twenty-six years. After the
+fix: 1,705.
+
+*A COLUMN WITH NO BENCHMARK IN IT.* H61's `net` printed the pattern's own
+return minus the fee, reading **+6.30%** for a pattern whose control returned
+more. A19's error class, and the number a reader quotes.
+
+*A DRAWDOWN PATH THAT STARTED BELOW PAR.* `metrics.tail` built the equity path
+from returns alone, so a series opening −30% reported a maximum drawdown of
+**exactly zero**.
+
+*A CONTROL NOBODY COULD AFFORD TO RUN.* H60's null rebuilt a two-million-row
+screen inside the draw loop and H61's control filtered the whole panel per
+cell; both were correct and unusable. **A control that cannot be redrawn at
+enough draws is a control that quietly gets dropped**, which is the one thing
+these studies cannot lose.
+
+**TWO SOURCES RE-PROBED, AND ONE OF THEM WAS THE A12 SHAPE AGAIN.** ALFRED
+vintages do **not** need the ALFRED host: `api.stlouisfed.org` takes
+`realtime_start`/`realtime_end`, which IS the vintage mechanism, and that host
+answers 400 (key missing) rather than timing out. §5–§6 are gated on **one free
+key**, not two unreachable hosts. And GDELT's unit price is one request per
+name for a whole history — but its **sustainable rate is not established** (6s
+→ 429, 15s → 2 of 4, 20s → still failed), and probing harder means hammering a
+rate-limited public API to see how hard you can hammer it. Its client ships
+**quarantined**, because whether GDELT's index is stable for past dates is
+unverified and a narrative feature built on an unstable index is look-ahead
+with no visible symptom. Every cached row carries `fetched_at` so the question
+stays answerable later.
+
+**WHAT THE ROADMAP RETURNED, IN ONE LINE.** Stage 3 (fundamentals): no filing
+date source is reachable, so §15/§22–28/§33 stay unbuildable — recorded, not
+pending. Stage 8 is therefore a **calculator that refuses to predict**: every
+value carries a §55 rung and constructing a `PREDICTION`-rung value **raises**.
+Stage 9's vision layer is not built and its prerequisite is: every pattern now
+has a base rate, and they are all negative.
+
+---
+
 ---
 
 # STANDING INSTRUCTION — the deliverable is a signal with three levels
