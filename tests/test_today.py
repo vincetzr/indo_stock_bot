@@ -306,3 +306,53 @@ def test_the_cagr_noun_follows_the_sign(monkeypatch):
     assert "CAGR cost" in "\n".join(precedence())
     monkeypatch.setitem(CARD, "cagr", 0.14)
     assert "CAGR edge" in "\n".join(precedence())
+
+
+# ------------------------------------------------ THE BOOK IS NOT THE RECORD
+
+def _seed(ss, tmp_path, monkeypatch):
+    import pandas as pd
+    monkeypatch.setattr(ss, "STORE_DIR", str(tmp_path))
+    monkeypatch.setattr(ss, "EMITTED", str(tmp_path / "e.csv.gz"))
+    monkeypatch.setattr(ss, "OUTCOMES", str(tmp_path / "o.csv.gz"))
+    dead = next(iter(ss.SUPERSEDED))
+    row = [{"ticker": "AAAA", "entry": 100.0, "sl": 80.0, "tp": 200.0}]
+    ss.emit(row, dead[0], dead[1], pd.Timestamp("2026-01-05"), 252)
+    ss.emit(row, "live_rule", "v1", pd.Timestamp("2026-01-05"), 252)
+
+
+def test_the_open_book_excludes_superseded_versions(tmp_path, monkeypatch):
+    """A HOLDER HOLDS A NAME ONCE.
+
+    The store is append-only and has no delete by design, so it carries every
+    version ever emitted — on 2026-09-04 that was the live card plus TWO
+    superseded ones, all holding the same ten names. Printing all three told
+    the reader they held AADI three times, which is what running the finished
+    product surfaced. A rule nobody ships has no position.
+    """
+    from idxbot import signal_store as ss
+    _seed(ss, tmp_path, monkeypatch)
+    live = open_book()
+    assert list(live["rule"]) == ["live_rule"]
+    assert len(open_book(live_only=False)) == 2
+
+
+def test_the_superseded_rows_are_counted_not_deleted_from_the_view():
+    """Deleting them from the view would hide that the repo made those
+    predictions; listing them makes them look like holdings. Counted."""
+    src = open(SRC).read()
+    assert "superseded_open()" in src
+    assert "NOT holdings" in src
+    i = src.index("sup = superseded_open()")
+    #  counted, never iterated into the position table
+    assert "for _i, r in sup.iterrows()" not in src[i:]
+
+
+def test_the_two_surfaces_over_one_store_ask_different_questions():
+    """`summary()` prints every version — there the question is 'what has this
+    repo predicted', and a superseded prediction still happened. The book asks
+    'what do I hold'. One store, two filters, so the filter is a parameter."""
+    import inspect
+    sig = inspect.signature(open_book)
+    assert "live_only" in sig.parameters
+    assert sig.parameters["live_only"].default is True

@@ -218,8 +218,22 @@ def precedence() -> List[str]:
     return L
 
 
-def open_book() -> pd.DataFrame:
-    """Signals in the append-only store that have not settled."""
+def open_book(live_only: bool = True) -> pd.DataFrame:
+    """Unsettled signals — the positions a holder actually has.
+
+    LIVE VERSIONS ONLY, AND THAT IS THE POINT OF THE ARGUMENT. The store is
+    append-only and has no delete BY DESIGN (A46), so it carries every version
+    of a rule ever emitted — today it holds the live card plus TWO superseded
+    ones, all emitted on the same date with the same ten names. A book that
+    prints all three tells the reader they hold AADI three times.
+
+    `summary()` is right to print every version, because there the question is
+    "what has this repo predicted" and a superseded prediction still happened.
+    Here the question is "what do I hold", and the answer for a rule nobody
+    ships any more is: nothing. Two surfaces over one store, asking different
+    questions, needing different filters — which is why the filter is an
+    argument rather than a constant.
+    """
     em = ss.load_emitted()
     if em.empty:
         return em
@@ -227,7 +241,19 @@ def open_book() -> pd.DataFrame:
     if len(oc) and "settled" in oc.columns:
         done = set(oc.loc[oc["settled"].astype(bool), "signal_id"])
         em = em[~em["signal_id"].isin(done)]
+    if live_only and len(em):
+        em = em[[ss.is_live(r, v) for r, v in
+                 zip(em["rule"], em.get("rule_version", ""))]]
     return em
+
+
+def superseded_open() -> pd.DataFrame:
+    """The unsettled rows a superseded version emitted. RECORD, not holdings."""
+    all_open = open_book(live_only=False)
+    live = open_book(live_only=True)
+    if all_open.empty:
+        return all_open
+    return all_open[~all_open["signal_id"].isin(set(live["signal_id"]))]
 
 
 def main() -> int:
@@ -281,6 +307,22 @@ def main() -> int:
               f"{ob['rule'].nunique()} rule(s). None of these is out-of-sample")
         print("  evidence until it settles; scripts/signal_log.py --score "
               "walks them forward.")
+    #  SUPERSEDED ROWS ARE RECORD, NOT HOLDINGS, and they are COUNTED rather
+    #  than listed. The store keeps every version ever emitted (A46: a record a
+    #  later run can rewrite is not evidence), so today it carries two dead
+    #  versions of the card holding the same ten names as the live one. Listing
+    #  them told the reader they held AADI three times; deleting them from the
+    #  view entirely would hide that the repo made those predictions.
+    sup = superseded_open()
+    if not sup.empty:
+        print(f"\n  ({len(sup)} more unsettled rows belong to "
+              f"{sup.groupby(['rule', 'rule_version']).ngroups} SUPERSEDED "
+              f"rule version(s)")
+        print("   and are NOT holdings — a rule nobody ships has no position. "
+              "They stay")
+        print("   in the record because the store has no delete by design, and "
+              "they are")
+        print("   scored separately by scripts/signal_log.py --score.)")
 
     #  ------------------------------------------------------------- the card
     print("\n" + "-" * 78)

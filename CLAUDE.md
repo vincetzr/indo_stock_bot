@@ -3489,6 +3489,48 @@ actually runs — do not assume it calls the code you wrote for it.**
 
 ---
 
+## A50. Running the finished product found the bug reading the code did not
+
+A49 fixed the scheduled job. The remaining question was whether the thing it
+feeds is one coherent product, and the only way to answer that was to run
+`scripts/today.py` end to end and read all 424 lines of it.
+
+**THE OPEN BOOK SAID THE READER HELD AADI THREE TIMES.** The store is
+append-only and has no delete BY DESIGN (A46), so it carries every version of a
+rule ever emitted — on 2026-09-04 that is the live card plus TWO superseded
+versions, all ten names, same date, same levels. `open_book()` filtered on
+"unsettled" and nothing else, so it printed **33 rows for 13 positions.**
+`ss.is_live()` already existed; the book had simply never consulted it.
+
+**THE FIX IS A PARAMETER, NOT A CONSTANT, AND THE REASON IS THE FINDING.** Two
+surfaces read this one store and they ask DIFFERENT QUESTIONS. `summary()` asks
+*what has this repo predicted*, and a superseded prediction still happened — so
+it prints every version, marked. The book asks *what do I hold*, and a rule
+nobody ships has no position. Same rows, opposite correct answers, so
+`live_only` is an argument with a default rather than a filter baked in.
+
+**AND THE SUPERSEDED ROWS ARE COUNTED, NOT DELETED FROM THE VIEW.** Listing
+them makes dead rules look like holdings; dropping them silently hides that the
+repo made those predictions. The book prints thirteen positions and then a
+parenthesis saying twenty more unsettled rows belong to two superseded versions
+and are not holdings.
+
+**WHY READING THE CODE COULD NOT HAVE FOUND IT.** Every component was correct.
+The store correctly keeps all versions. `summary()` correctly breaks them out.
+`is_live()` correctly answers. `open_book()` correctly returned unsettled rows.
+The defect existed only in the COMPOSITION, and composition is what a running
+program shows you and a diff does not. A43 concluded "run your own deliverable
+before believing your own memos" and then did not run it after four more
+sections of edits.
+
+**The product now reads as one document**: the index first (A19's missing
+comparison), a computed verdict, thirteen open positions, the card with entry /
+SL / TP / measured cost, the watchlist explicitly marked do-not-act, and the
+in-sample closer. Every number on it is read from a measurement file or
+computed from the panel; none is typed.
+
+---
+
 ---
 
 # STANDING INSTRUCTION — the deliverable is a signal with three levels
