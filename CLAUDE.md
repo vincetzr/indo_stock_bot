@@ -3072,6 +3072,62 @@ price basis. **Check the plumbing on the same schedule as the statistics.**
 
 ---
 
+## A43. Three surfaces, three answers, and nothing saying which one to believe
+
+A41 fixed how the forward record scores; A42 fixed what reaches it. This is the
+last gap between a research repo and something a person can act on, and it was
+not a statistical one.
+
+**THE SYSTEM GAVE THREE DIFFERENT ANSWERS AND RANKED NONE OF THEM.**
+`rules.py` names a quarterly basket, `daily_signal.py` names a daily bracket,
+`positions.py` monitors what is already open. Run all three and you get three
+lists — today, ten names against three, with no overlap — and nothing telling
+you which the evidence supports. Every individual number was carefully
+qualified and the ONE question a reader actually has was unanswered.
+
+`scripts/today.py` is one command that prints all of it in order, and its
+design is three refusals.
+
+**IT DOES NOT BLEND THEM.** A13's rule: a composite of separately-tested
+components is a new signal wearing their credibility, and it has never been
+tested. The lists print side by side, each with what IT was measured to do.
+
+**THE VERDICT IS COMPUTED, NOT WRITTEN.** *"Act on the card, the bracket is a
+watchlist"* is the output of a comparison over the measured constants — the
+card's 6-of-6 calendar count and both-halves drawdown against the bracket's
+−13.06%/yr versus holding, negative in all ten expectancy deciles. Change a
+constant and the sentence changes; a test flips one and asserts it does. This
+repo has recorded a hand-written sentence drifting from its own table four
+times — a reconciliation figure that outlived the store it measured, a
+docstring asserting what its own function had retracted, Pine constants pinned
+only by a test — so the verdict is derived rather than asserted.
+
+**THE BENCHMARK PRINTS FIRST, AND BOTH VERSIONS OF IT.** A19's error class is
+the missing comparison, and the one a reader would actually take is buying the
+index. It goes at the top. And it is quoted as **+11.15% to +12.70%** with both
+sources, because A19 and A38 measured it over DIFFERENT WINDOWS and picking one
+to call "the index" would be A19's other error class in the same file. A test
+asserts the verdict does not read either figure — it turns on the calendar
+count, which is already window-matched per arm.
+
+**The qualifications print whatever the verdict is**: the CAGR edge is
+explicitly not claimed (worse early, better late — regime noise), the drawdown
+is what holds in both halves, the deflated Sharpe survives 1 of 7 dispersion
+assumptions and the number that FAILS is printed beside the one that passes,
+and the closing lines say the holdout was spent at H16 and that A23 applies in
+full to third-party money.
+
+**The lesson, and it is not a statistical one.** A41, A42 and A43 are the same
+finding three times: **forty appendices of measurement discipline do nothing
+for a deliverable whose plumbing nobody checked.** A prediction that is never
+written down, or is scored against the wrong price basis, or is one of three
+contradictory lists — none of those is a modelling error, and none of them
+shows up in a null, a half-split or a Bonferroni bar. The research was audited
+to four decimal places; the thing handed to the user had not been read end to
+end. **Run your own deliverable before believing your own memos.**
+
+---
+
 ---
 
 # STANDING INSTRUCTION — the deliverable is a signal with three levels
