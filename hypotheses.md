@@ -3821,3 +3821,36 @@ the bracket scan is a daily rule and A42 wired it to record the rows shown.
 Same schedule, different cadence, one of them wrong.
 
 Suite: 2,713 → 2,718 collected.
+
+---
+
+## 2026-09-07 — The scheduled job never called the code written for it
+
+**NOT A HYPOTHESIS. Trial count: 0. Trials remain 366.**
+
+**THE WEEKDAY ROUTINE RAN `refresh.py --panel` AND `daily_signal.py` WITH NO
+`--log`.** A42 wired both loggers into `refresh.py --signals`; the Routine's
+prompt predates that and called neither. It fired successfully every weekday,
+printed a correct table, and **wrote nothing to the forward record** — today's
+11:04 UTC run succeeded while the store's only rows were Friday's, emitted by
+hand. Fixed by putting `--signals` in the prompt.
+
+Nothing in this repo could have caught it: the prompt lives outside the
+repository. `scripts/bootstrap.py` now names it as the one dependency that is
+not a file.
+
+**AND THE PANEL WAS THREE DAYS STALE, WHICH MADE THE SCORER'S REFUSAL LOOK
+LIKE A BUG.** Every row scored `exit_reason = "no bars yet"` — correct, and
+indistinguishable from a broken walk-forward. Refreshing gave 826 names (98%)
+on 2026-09-07 and the ledger produced its first real marks. **A refusal that is
+correct for the wrong reason is the hardest kind to notice.**
+
+**The first scored rows check out:** `adj_factor` 1.0 computed from
+`adj_close/close` at the decision bar rather than defaulted (A41's distinction),
+correct because no corporate action fell between Friday and Monday;
+`ret_net = ret − 0.0056` on every row; `mfe = mae = ret` at one bar; nothing
+settled; and the summary prints no rate, mean or win count, because none is
+defined on an unsettled sample.
+
+Store state: 33 signals, 13 names, 4 rule versions kept apart, 0 settled,
+33 open.

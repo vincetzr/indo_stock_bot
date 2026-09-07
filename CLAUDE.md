@@ -3444,6 +3444,51 @@ experiment.**
 
 ---
 
+## A49. The scheduled job never reached the logging path, and the panel was stale
+
+A41 fixed how the forward record scores, A42 what reaches it, A48 the cadence
+it reaches it at. All three assumed the thing that fires every weekday actually
+calls the code they fixed. **It did not.**
+
+**THE ROUTINE RAN `refresh.py --panel` AND `daily_signal.py` WITH NO `--log`.**
+A42 wired both loggers into `refresh.py --signals` and wired `--log` into the
+daily scanner. The Routine's prompt — written at A31, before either existed —
+called neither. So the job fired successfully every weekday, printed a correct
+table, and **recorded nothing.** Today's 11:04 UTC run succeeded and the store's
+only rows were Friday's, emitted by hand. **A log that records nothing looks
+exactly like a log with nothing to record**, which is A42's own sentence,
+committed one layer up by its own author.
+
+The fix is one flag in the Routine prompt. What makes it worth an appendix is
+that **nothing in this repo could have caught it**: the prompt lives outside the
+repository, so there is no test, no import, no manifest entry. `bootstrap.py`
+now names it as the one dependency that is not a file — A45 asked whether the
+bot survives the night and this is the half of that question a manifest cannot
+answer.
+
+**AND THE PANEL WAS THREE DAYS STALE, WHICH HID THE SECOND HALF.** Scoring the
+record returned `exit_reason = "no bars yet"` for every row — correct, and
+indistinguishable from a broken scorer. The panel ended 2026-09-04 because
+nothing had refreshed it since Friday; refreshing gave 826 names on 2026-09-07
+and the ledger produced its first real forward marks. **A refusal that is
+correct for the wrong reason is the hardest kind to notice**, and the only way
+to tell them apart was to remove the cause and watch the refusal go away.
+
+**The first scored rows check out.** `adj_factor` is 1.0 — COMPUTED from
+`adj_close/close` at the decision bar, not defaulted, which A41 established is
+the distinction that matters — and 1.0 is right because no corporate action
+fell between Friday and Monday. `ret_net = ret - 0.0056` on every row, `mfe`
+and `mae` equal `ret` at one bar, nothing settled, and the summary prints no
+rate, mean or win count because none is defined on an unsettled sample.
+
+**What the two halves have in common.** A41 through A48 are eight findings about
+plumbing, and this is the ninth: the research is audited to four decimal places
+and the machinery around it is checked by whoever last remembered to look.
+**The scheduled job is part of the deliverable. Run it, or read what it
+actually runs — do not assume it calls the code you wrote for it.**
+
+---
+
 ---
 
 # STANDING INSTRUCTION — the deliverable is a signal with three levels

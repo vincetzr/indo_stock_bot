@@ -149,6 +149,20 @@ def main() -> int:
     print("    longer depends on it: it reconciles against the IDX daily")
     print("    summary instead, on 838,227 ticker-days against 814 names.")
 
+    #  THE ONE DEPENDENCY THAT IS NOT A FILE, and it lives outside this repo
+    #  where no test can reach it. A45 asked whether the bot survives the
+    #  night; this is the half of that question the manifest cannot answer.
+    print("\n  AND ONE DEPENDENCY THAT IS NOT IN THIS REPO AT ALL:")
+    print("    The weekday Routine that fires at 11:00 UTC must run")
+    print("    `refresh.py --panel --signals`. WITHOUT `--signals` it prints a")
+    print("    list and records NOTHING -- the scan runs, the report looks")
+    print("    perfect, and every prediction evaporates. That is how it stood")
+    print("    from A31 until it was caught: a log recording nothing looks")
+    print("    exactly like a log with nothing to record. The holdout was spent")
+    print("    at H16, so the forward record is the only out-of-sample evidence")
+    print("    this project will ever have, and nothing in this repo can test")
+    print("    that the scheduled job still carries the flag.")
+
     if not a.run:
         print("\n  (report only; pass --run to rebuild)")
         return 0 if all(r["ok"] for r in rows) else 1
