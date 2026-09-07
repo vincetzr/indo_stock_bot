@@ -192,6 +192,14 @@ def main() -> int:
     if a.signals:
         run([sys.executable, os.path.join(os.path.dirname(__file__),
                                           "signal_log.py")])
+        #  BOTH SURFACES, NOT ONE. `signal_log.py` records the quarterly card;
+        #  the daily bracket scan fires every weekday under a Routine (A31)
+        #  and recorded nothing at all until it was wired here. Two rules under
+        #  two names, so the records stay separable -- `signal_id` hashes the
+        #  rule, and pooling them would merge predictions that must be read
+        #  apart.
+        run([sys.executable, os.path.join(os.path.dirname(__file__),
+                                          "daily_signal.py"), "--log"])
 
     if a.tables:
         rc |= run([sys.executable, "scripts/brief.py", "--build-tables",

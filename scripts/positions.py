@@ -68,7 +68,41 @@ def _positions(a) -> list:
     if a.file:
         df = pd.read_csv(a.file)
         out += df.to_dict("records")
-    return out
+    if getattr(a, "from_store", False):
+        #  THE BOOK THE SYSTEM ITSELF SAID TO HOLD, rather than one retyped by
+        #  hand. `signal_store` is append-only and already carries the entry,
+        #  the stop and the target for every signal this repo has emitted, so
+        #  a monitor that asks the user to re-enter them can drift from the
+        #  record that will later be SCORED -- and then the thing being
+        #  monitored is not the thing being measured.
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__),
+                                        os.pardir, "src"))
+        from idxbot import signal_store as ss                # noqa: PLC0415
+        em = ss.load_emitted()
+        if a.rule:
+            em = em[em["rule"] == a.rule]
+        if len(em):
+            oc = ss.load_outcomes()
+            #  Only what is still OPEN: a settled signal is history, not a
+            #  position, and printing it as one would overstate the book.
+            if len(oc) and "settled" in oc.columns:
+                done = set(oc.loc[oc["settled"].astype(bool), "signal_id"])
+                em = em[~em["signal_id"].isin(done)]
+            for _i, r in em.iterrows():
+                out.append({"ticker": r["ticker"],
+                            "entry_date": str(pd.Timestamp(r["asof"]).date()),
+                            "entry_price": float(r["entry"]),
+                            "sl": float(r["sl"]), "tp": float(r["tp"]),
+                            "rule": r["rule"]})
+    #  Same ticker from two sources is one position, and the FIRST wins --
+    #  a hand-entered fill is the real one, the store's is the model's close.
+    seen, uniq = set(), []
+    for d in out:
+        if d["ticker"] in seen:
+            continue
+        seen.add(d["ticker"])
+        uniq.append(d)
+    return uniq
 
 
 def main() -> int:
@@ -78,6 +112,10 @@ def main() -> int:
     ap.add_argument("--hold", action="append",
                     help="TICKER:YYYY-MM-DD[:entry_price], repeatable")
     ap.add_argument("--file", help="CSV with ticker,entry_date[,entry_price]")
+    ap.add_argument("--from-store", action="store_true",
+                    help="monitor every OPEN signal in the append-only store")
+    ap.add_argument("--rule", default="",
+                    help="with --from-store, restrict to one rule name")
     ap.add_argument("--trail", type=float, default=0.15)
     ap.add_argument("--arm", type=float, default=0.50)
     ap.add_argument("--chandelier", type=float, default=3.0)
@@ -86,7 +124,8 @@ def main() -> int:
 
     pos = _positions(a)
     if not pos:
-        raise SystemExit("nothing to monitor — pass --hold or --file")
+        raise SystemExit("nothing to monitor — pass --hold, --file or "
+                         "--from-store")
 
     P = pd.read_parquet(a.panel)
     P["date"] = pd.to_datetime(P["date"])
@@ -96,6 +135,12 @@ def main() -> int:
     warn = B.coverage_warning(P, day)
 
     F = M.position_frame(P, I, pos, day)
+    #  `position_frame` returns only what IT computes, so the levels that came
+    #  in with the position (from the store, or from a CSV) have to be carried
+    #  across by ticker rather than assumed present.
+    given = {d["ticker"]: d for d in pos}
+    for key in ("sl", "tp", "rule"):
+        F[key] = [given.get(t, {}).get(key, np.nan) for t in F["ticker"]]
     tags = {} if a.no_news else M.event_tags(
         [r["ticker"] for r in pos])
 
@@ -117,6 +162,29 @@ def main() -> int:
         print(f"        peak {r['peak_gain']:+.1%}, now {r['give_back']:+.1%} "
               f"off that peak")
 
+        #  ------------------------------------------------------------
+        #  THE SHIPPED LEVELS COME FIRST, AND THEY WERE MISSING.
+        #  Everything below is the CATALOGUE of exit rules H17/H18 measured
+        #  -- and A34 records 169 exit configurations of which NONE beat
+        #  holding. Printing that catalogue while omitting the SL and TP the
+        #  reader was actually given hands them a screen full of rules that
+        #  lost money and none of the two the standing instruction requires.
+        px_now = float(r.get("price", np.nan))
+        for lab, key, sign in (("SL  (the level you were given)", "sl", -1),
+                               ("TP  (the level you were given)", "tp", +1)):
+            lvl = r.get(key)
+            try:
+                lvl = float(lvl)
+            except (TypeError, ValueError):
+                lvl = float("nan")
+            if not np.isfinite(lvl) or lvl <= 0:
+                continue
+            dist = (lvl / px_now - 1.0) if np.isfinite(px_now) and px_now > 0 \
+                else float("nan")
+            fired = (np.isfinite(dist)
+                     and ((sign < 0 and dist >= 0) or (sign > 0 and dist <= 0)))
+            print(f"          {lab:<34} Rp {lvl:>9,.0f}  {dist:>+7.1%}"
+                  + ("  <-- REACHED" if fired else ""))
         L = M.levels(r, arm=a.arm, trail=a.trail, chand_k=a.chandelier)
         hit = L[L["active"] & (L["distance"] >= 0)]
         for _, x in L.iterrows():
@@ -160,6 +228,10 @@ def main() -> int:
                   f"{', '.join(tags[r['ticker']])}")
         print()
 
+    print(" The SL and TP rows are the levels the rule actually shipped and")
+    print(" the ones the append-only store will SCORE. Everything under them")
+    print(" is a catalogue: A34 records 169 exit configurations tested across")
+    print(" H17/H18/H35/H38/H40/H47 and NONE beat simply holding.")
     print(" The trail and chandelier levels are the rules H17/H18 measured.")
     print(" A rule shown as 'not armed' CANNOT fire — that is why the")
     print(" measured P(-50%) barely moved: a name that falls from entry")

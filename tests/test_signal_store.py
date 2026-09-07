@@ -19,6 +19,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir, "src"))
 
 from idxbot import signal_store as ss                              # noqa: E402
 
+SCRIPTS = os.path.join(os.path.dirname(__file__), os.pardir, "scripts")
+
 
 @pytest.fixture(autouse=True)
 def _isolate(tmp_path, monkeypatch):
@@ -308,3 +310,102 @@ def test_the_existing_log_rows_recover_their_fraction():
         pytest.skip("no emitted signals on disk")
     fr = [ss._tp_frac(r) for _i, r in em.iterrows()]
     assert all(0.0 < f <= 1.0 for f in fr)
+
+
+# ============================================ THE LIVE SURFACES AND THE STORE
+#
+# THE GAP THESE CLOSE. Every number in this repo is in-sample -- the holdout
+# was spent at H16 -- so the append-only store is the ONLY route to
+# out-of-sample evidence about ENTRY, SL and TP. The daily scanner fires every
+# weekday under a Routine and wrote NOTHING to it: each of those predictions
+# evaporated when the terminal scrolled. And the position monitor printed a
+# catalogue of exit rules -- 169 of which A34 records as never beating a hold
+# -- while omitting the two levels the reader was actually given.
+
+def test_the_daily_scanner_can_log_what_it_showed():
+    src = open(os.path.join(SCRIPTS, "daily_signal.py")).read()
+    assert "--log" in src
+    assert "h42_bracket_scan" in src
+
+
+def test_the_scanner_logs_the_SHOWN_rows_not_the_whole_scan():
+    """A row the reader never saw is not a prediction that was made, and a row
+    the H42 gate REJECTED is one the scanner explicitly declined. Logging
+    either would score a list nobody was given."""
+    src = open(os.path.join(SCRIPTS, "daily_signal.py")).read()
+    i = src.index("if a.log:")
+    body = src[i:i + 2000]
+    assert "fresh.iterrows()" in body
+    assert "S.iterrows()" not in body
+
+
+def test_the_scanner_uses_a_different_rule_name_from_the_quarterly_card():
+    """`signal_id` hashes the rule, so pooling a quarterly basket and a daily
+    bracket under one name would merge two records that must be read apart."""
+    dsrc = open(os.path.join(SCRIPTS, "daily_signal.py")).read()
+    lsrc = open(os.path.join(SCRIPTS, "signal_log.py")).read()
+    assert "h42_bracket_scan" in dsrc
+    assert "h42_bracket_scan" not in lsrc
+    assert "h54_sticky_tight" in lsrc
+    assert "h54_sticky_tight" not in dsrc
+
+
+def test_the_scanner_fixes_its_horizon_at_emission():
+    """A20: the horizon is the parameter twelve studies inherited without
+    choosing, and choosing it after seeing the outcome is the purest form of
+    the error."""
+    src = open(os.path.join(SCRIPTS, "daily_signal.py")).read()
+    i = src.index("h42_bracket_scan")
+    assert "252" in src[i - 400:i + 200]
+
+
+def test_the_monitor_can_take_its_book_from_the_store():
+    src = open(os.path.join(SCRIPTS, "positions.py")).read()
+    assert "--from-store" in src
+    assert "load_emitted" in src
+
+
+def test_the_monitor_drops_settled_signals_from_the_open_book():
+    """A settled signal is history, not a position; printing it as one would
+    overstate the book."""
+    src = open(os.path.join(SCRIPTS, "positions.py")).read()
+    assert 'oc["settled"]' in src
+    assert "~em[\"signal_id\"].isin(done)" in src
+
+
+def test_a_hand_entered_fill_wins_over_the_stores_close():
+    """The store records the model's close; a hand-entered position records
+    what was actually paid. Two rows for one ticker is one position."""
+    src = open(os.path.join(SCRIPTS, "positions.py")).read()
+    assert "seen, uniq" in src
+    assert "the FIRST wins" in src
+
+
+def test_the_monitor_prints_the_shipped_levels_before_the_catalogue():
+    """The catalogue is 169 configurations of which none beat holding (A34).
+    Printing it while omitting the SL and TP the reader was given hands them a
+    screen full of rules that lost money and neither of the two that ship."""
+    src = open(os.path.join(SCRIPTS, "positions.py")).read()
+    assert "the level you were given" in src
+    assert src.index("the level you were given") < src.index("M.levels(r,"), (
+        "the shipped levels must print BEFORE the catalogue, where a reader "
+        "who stops early still meets them")
+
+
+def test_the_monitor_carries_the_given_levels_across_the_frame():
+    """`position_frame` returns only what it computes, so levels arriving with
+    the position have to be carried by ticker rather than assumed present --
+    which they silently were not, and the rows printed nothing."""
+    src = open(os.path.join(SCRIPTS, "positions.py")).read()
+    assert "given = {d[\"ticker\"]: d for d in pos}" in src
+
+
+def test_both_surfaces_are_logged_by_the_scheduled_refresh():
+    """A log that depends on someone remembering has gaps exactly where the
+    interesting days were. `signal_log.py` was wired in; the daily bracket scan
+    -- which fires every weekday under a Routine -- was not."""
+    src = open(os.path.join(SCRIPTS, "refresh.py")).read()
+    i = src.index("if a.signals:")
+    body = src[i:i + 1200]
+    assert "signal_log.py" in body
+    assert "daily_signal.py" in body and '"--log"' in body

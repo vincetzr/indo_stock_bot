@@ -3018,6 +3018,60 @@ occur — here, a split — rather than a test that the arithmetic is right toda
 
 ---
 
+## A42. The daily surface recorded nothing, and the monitor showed every level except the two that ship
+
+A41 fixed how the forward record SCORES. This is about what reaches it at all.
+The standing instruction's contract is ENTRY, SL, TP and the measured cost of
+each; three surfaces implement it, and two of them were disconnected from the
+only mechanism that can ever make them out-of-sample.
+
+**THE DAILY SCAN FIRED EVERY WEEKDAY AND WROTE NOTHING.** `daily_signal.py`
+runs under a Routine at 11:00 UTC (A31) and its rows never touched the store,
+so **every one of those predictions evaporated when the terminal scrolled.**
+The quarterly card was wired in at roadmap stage 1; the surface that actually
+fires daily was not, and nothing said so because a log that records nothing
+looks exactly like a log with nothing to record.
+
+Three things about the wiring are deliberate. It logs the **rows SHOWN**, not
+the whole scan: a row the reader never saw is not a prediction that was made,
+and a row the H42 gate REJECTED is one the scanner explicitly declined. It uses
+a **separate rule name** — `signal_id` hashes the rule, so pooling a quarterly
+basket with a daily bracket would merge two records that must be read apart.
+And its **horizon is fixed at emission** at 252 sessions, which is what H42
+replayed, per A20's rule that the horizon is the parameter twelve studies
+inherited without choosing.
+
+**THE POSITION MONITOR PRINTED EVERY EXIT LEVEL EXCEPT THE TWO THAT SHIP.**
+`positions.py` showed the chandelier, the EMA breaks, the hard stop and the
+armed trails — **169 exit configurations of which A34 records that NONE beat
+simply holding** — while omitting the SL and TP the reader was actually given.
+A screen full of measured-losing rules with neither of the two shipped ones on
+it is worse than no screen. They now print FIRST, marked as the levels the
+store will score, above the catalogue and above its caveat.
+
+**AND `--from-store` MAKES THE MONITORED BOOK THE RECORDED ONE.** A monitor
+that asks the user to retype entries can drift from the record that will later
+be scored, and then the thing being monitored is not the thing being measured.
+Settled signals are dropped — a settled signal is history, not a position — and
+a hand-entered fill wins over the store's close, because that is the price that
+was actually paid.
+
+**One bug, and it is the shape worth remembering.** The levels were carried in
+on the position dicts and the print loop iterates a frame built by
+`position_frame`, which returns only what IT computes. So the new rows silently
+printed nothing at all — no error, no blank, just absence. **A field that
+arrives on one object and is read off another is not missing data, it is a
+missing join**, and the symptom is indistinguishable from "there was nothing to
+show."
+
+**The general point.** A41 and A42 are the same failure from two sides: the
+research is measured to four decimal places and the LEDGER underneath it was
+unverified. Forty appendices of statistical discipline do nothing for a
+prediction that was never written down, or was written down against the wrong
+price basis. **Check the plumbing on the same schedule as the statistics.**
+
+---
+
 ---
 
 # STANDING INSTRUCTION — the deliverable is a signal with three levels

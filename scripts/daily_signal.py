@@ -227,6 +227,9 @@ def main() -> int:
                     help="max sessions since the ribbon turned green")
     ap.add_argument("--target-pct", type=float, default=0.0,
                     help="use a fixed %% target instead of the swing high")
+    ap.add_argument("--log", action="store_true",
+                    help="record the shown rows in the append-only signal "
+                         "store, so this scan can ever be scored")
     a = ap.parse_args()
 
     P = load(holdout=True)
@@ -310,6 +313,52 @@ def main() -> int:
     n_pos = int((fresh["ev"] > 0).sum())
     print(f"\n  {n_pos} of the {len(fresh)} shown have a POSITIVE expectancy.")
     S.to_csv(os.path.join(OUT, "daily_signal.csv"), index=False)
+
+    #  ------------------------------------------------------------------
+    #  RECORD WHAT WAS SHOWN, OR THIS SCAN CAN NEVER BE SCORED.
+    #  The holdout was spent at H16, so every number above is IN-SAMPLE and
+    #  the only route to out-of-sample evidence is to write the prediction
+    #  down before the outcome exists. This surface fires every weekday under
+    #  a Routine (A31) and wrote NOTHING to the store until now -- every one
+    #  of those predictions evaporated the moment the terminal scrolled.
+    #
+    #  The ROWS SHOWN are what gets logged, not `S`. A row the reader never
+    #  saw is not a prediction that was made, and a row rejected by the H42
+    #  gate is one the scanner explicitly declined; logging either would score
+    #  a list nobody was given.
+    #
+    #  A SEPARATE RULE NAME FROM THE QUARTERLY CARD, deliberately. These are
+    #  two different predictions -- a quarterly basket held to a horizon, and
+    #  a daily bracket -- and `signal_id` hashes the rule, so mixing them
+    #  under one name would pool two records that must be read apart.
+    if a.log:
+        from idxbot import signal_store as ss                # noqa: PLC0415
+        rows = [{
+            "ticker": r["ticker"],
+            "entry": float(r["close"]),
+            "sl": float(r["stop"]),
+            "tp": float(r["target"]),
+            #  a bracket is a FULL exit at the target, unlike the quarterly
+            #  card's scale-out
+            "tp_frac": 1.0,
+            "ev": float(r["ev"]), "rr": float(r["rr"]),
+            "p_first": float(r["p_first"]), "med_days": float(r["med_days"]),
+            "ann_vol": float(r["ann_vol"]), "age": int(r["age"]),
+            "turnover_bn": float(r["turnover_bn"]),
+            "in_domain": bool(r["in_domain"]),
+        } for _, r in fresh.iterrows()]
+        ver = (f"minrr{MIN_RR:g}_fresh{a.fresh}_top{a.top}"
+               f"_tgt{'swing' if a.target_pct <= 0 else format(a.target_pct, '.2f')}")
+        #  HORIZON FIXED AT EMISSION (A20). The cone's own median time to the
+        #  target is 24-110 sessions across the interquartile range (A26), so
+        #  252 is a full year of room -- chosen because it is the horizon the
+        #  bracket study H42 replayed, not because it flattered anything.
+        res = ss.emit(rows, "h42_bracket_scan", ver, asof, 252)
+        print(f"\n  LOGGED {res.get('written', 0)} of {len(rows)} shown rows "
+              f"to the signal store ({res.get('skipped', 0)} already present).")
+        print(f"  rule h42_bracket_scan  version {ver}")
+        print("  Scored later by scripts/signal_log.py --score. Nothing here")
+        print("  is out-of-sample until those settle.")
     return 0
 
 
