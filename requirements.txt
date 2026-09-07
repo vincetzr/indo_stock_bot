@@ -20,5 +20,6 @@ lxml>=5.0
 yfinance>=0.2
 pytest>=7.0          # 2,393 tests
 statsmodels>=0.14    # HAC/Newey-West standard errors
-duckdb>=1.0          # 13x pandas on point queries over the existing parquet
+duckdb>=1.0          # 2.6-15x pandas on SELECTIVE queries with a CACHED
+                     # connection; ~35x SLOWER on `SELECT *` (src/idxbot/store.py)
 tabulate>=0.9

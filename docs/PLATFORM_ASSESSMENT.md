@@ -183,6 +183,38 @@ verified, stopped again), but a remote database is impossible — the agent prox
 does not carry raw TCP. DuckDB reads the parquet already on disk, so it costs
 nothing to adopt and nothing to abandon.
 
+**BUILT as `src/idxbot/store.py` (H58 / stage 2), and the recommendation above
+needs two corrections it could not have known.**
+
+*The speedup is conditional on reusing the connection, and the first version
+threw it away.* Opening a fresh connection per query re-registers eight views
+and re-opens the 258 MB file, which measured **2.5× to 35× SLOWER than pandas
+on every query tried** — while returning perfectly correct answers, so nothing
+in the output said so. With the connection cached:
+
+| query | duckdb | pandas | speedup |
+|---|---|---|---|
+| one ticker, 2 cols | 0.008 s | 0.083 s | **10.4×** |
+| one date, cross-section | 0.019 s | 0.049 s | 2.6× |
+| group-by, all names | 0.020 s | 0.114 s | 5.6× |
+| count only | 0.002 s | 0.026 s | 15.3× |
+
+*And it is a loss for the thing every existing script actually does.*
+`SELECT *` over the whole panel is roughly **35× slower** than
+`pd.read_parquet`, because materialising 2.8m × 40 back into a DataFrame is
+pure overhead when nothing was filtered away. So DuckDB is adopted for
+**selective** queries and the panel loads stay as they are. `store.benchmark()`
+reproduces the table, because the "13–28×" above shipped with no re-runnable
+measurement behind it.
+
+*Correctness is gated rather than assumed.* `store.verify()` computes seven
+aggregates in SQL and in pandas and reports any that disagree — a query engine
+that quietly reads the same file differently is worse than none. All seven
+agree today, and `tests/test_store.py` fails the build if any stops agreeing.
+There is **no write path**: `connect(read_only=False)` raises, because the
+spine is built by `scripts/refresh.py` and repaired by an auditable registry,
+and a SQL UPDATE would be neither.
+
 Tables, following the brief's §48 (new ones marked ✚):
 
 ```
@@ -248,10 +280,19 @@ than rewritten.
 | missing benchmark | three buy-and-hold arms + a matched random control | `bhbench`, A19 |
 | **data loss** | **NOT GUARDED** — `Cache.write` replaces; a 1h refresh would destroy 1,092,171 bars older than Yahoo's 730-day window | `data/cache.py` ← **fix before any intraday work** |
 
-Metrics the brief's §39 lists that the repo does **not** yet compute: Sharpe,
-Sortino, profit factor, expectancy, exposure, tail risk. It computes CAGR, max
-drawdown, win rate, turnover, mean/median/mean-log and half-split. Adding the
-missing six is trivial and should happen in stage 1.
+~~Metrics the brief's §39 lists that the repo does **not** yet compute: Sharpe,
+Sortino, profit factor, expectancy, exposure, tail risk.~~ **DONE in
+`src/idxbot/metrics.py` (H58) — and this sentence was half wrong when written:
+`portfolio._stats` had computed Sharpe and Sortino all along.**
+
+**The real gap was not the six ratios.** §11 names the **deflated Sharpe ratio**
+as non-negotiable and `hypotheses.md` opens by saying the trial count exists so
+that it can be computed. Across fifty-seven hypotheses and 350 trials it was
+never computed once. A running count that never enters a statistic is
+bookkeeping, not a correction — and it is a *different* correction from the
+seven permutation nulls that have decided results here, because a null asks
+whether the label carries information and cannot ask whether a strategy is the
+best of 350 attempts. See `reports/deflated.md`.
 
 ---
 
@@ -264,7 +305,7 @@ could kill a branch goes first.
 |---|---|---|---|---|---|---|
 | 0 | **Fix `Cache.write` to merge on `ts`** | it is destroying data now | none | — | a test that a refresh preserves out-of-window bars | 1 h |
 | 1 | **Signal→outcome store (§38)** | costs nothing, compounds daily, and is the only thing that ever produces out-of-sample evidence now the holdout is spent | none | needs months to pay | schema + a test that every emitted signal is logged | 1 d |
-| 2 | **§39 metric completion + DuckDB** | pure plumbing, 13–28× faster, no migration | none | — | numbers must match the existing ones | 1 d |
+| 2 | ~~**§39 metric completion + DuckDB**~~ **DONE (H58).** The metric set is `src/idxbot/metrics.py`; the real gap turned out to be §11's **deflated Sharpe**, never computed in 350 trials. DuckDB is `src/idxbot/store.py`, views-only, `verify()`-gated | — | the speedup needs a **cached connection** and is a **loss** for `SELECT *`; `sr_variance` is not recoverable from the log, so the DSR is reported as a sweep | 7/7 SQL-vs-pandas checks agree; 3 positive controls on the metrics | done |
 | 3 | ~~**Fundamental point-in-time probe**~~ **DONE — and the answer is no.** Yahoo `quoteSummary` returns 429 from this IP on every retry; `yfinance`/`curl_cffi` cannot use the proxy and defeating a fingerprint check is out of bounds anyway. **§15, §22–28 and §33 stay unbuildable and this is now recorded rather than pending.** What the probe DID find is `listed_shares` **per bar** in the delisted-recovery dataset — the one point-in-time fundamental-shaped series available free — which unblocked market cap and re-tested H52 as **H57** | — | 5.6-year span only; no filing dates, so no earnings, book value or debt | H57's C0 positive control | done |
 | 4 | **FRED + BPS keys, ALFRED vintages** | same shape: one question decides whether §5–§6 can be backtested | vintages retrievable | revised-only series ⇒ macro stays descriptive | reproduce a known revision | 1 d, needs **user to register two free keys** |
 | 5 | **Regime engine (§7)** paired with a method that can return "no clusters" | cheap on existing data | regimes exist | A10 warns they may not | HDBSCAN alongside GMM; report if k=0 | 2 d |

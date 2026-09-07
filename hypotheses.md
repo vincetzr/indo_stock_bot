@@ -3362,3 +3362,70 @@ does not independently establish the effect the two rulers agree about.
 **Trial count: 3 registered (P1–P3) plus 2 controls (C0, C1) that gate rather
 than claim = 3. Trials after H57: 350.** Bonferroni bar 0.00014. Nothing here
 is claimed against it; P2 is a replication check on an existing conclusion.
+
+---
+
+## H58 — the deflated Sharpe ratio §11 has demanded since day one
+
+**2026-09-07.** `src/idxbot/metrics.py`, `scripts/deflate.py`,
+`reports/deflated.md`. Registered in the script docstring before the numbers
+existed.
+
+**WHAT WAS NEVER DONE.** CLAUDE.md §11 names the deflated Sharpe as
+non-negotiable and this log opens by saying the trial count exists so that it
+can be computed. **Fifty-seven hypotheses and 350 trials later it had never
+been computed once.** A running count that never enters a statistic is
+bookkeeping, not a correction. It is also a DIFFERENT correction from the seven
+permutation nulls that have decided results here: a null asks whether the LABEL
+carries information and cannot ask whether a strategy is the best of 350
+attempts, because it is only ever handed one.
+
+**THE ONE INPUT THAT COULD HAVE BEEN FAKED.** DSR needs the variance of the
+Sharpe ratios ACROSS trials. It is estimated from `bhbench`'s random-selection
+control arms — same universe, calendar and costs, only the names drawn at
+random — rather than typed in. **And it is a LOWER BOUND**: a control draw
+varies only which names are bought, while this repo's 350 trials varied the
+whole hypothesis. A lower bound on the dispersion is an UPPER bound on the DSR.
+
+| arm | Sharpe | PSR | SR* | DSR | kill@ | ctl DSR |
+|---|---|---|---|---|---|---|
+| own everything, quarterly | +0.43 | 0.976 | +0.25 | 0.796 | already | 0.748 |
+| momentum top 10, quarterly | +0.46 | 0.992 | +0.25 | 0.865 | already | 0.748 |
+| low vol top 10, quarterly | +0.53 | 0.992 | +0.25 | 0.901 | already | 0.748 |
+| strength+calm 10, quarterly | +0.69 | 0.998 | +0.25 | 0.968 | 2,800 | 0.748 |
+| **strength+calm sticky, quarterly** | **+0.73** | 0.999 | +0.25 | **0.974** | 11,200 | 0.748 |
+| sticky tight buffer, quarterly | +0.61 | 0.995 | +0.25 | 0.936 | already | 0.748 |
+| strength+calm 10, annual | +0.63 | 0.994 | +0.20 | 0.956 | 1,400 | 0.585 |
+
+**D2, THE PREDICTED NULL, PASSED.** A random basket through the identical
+deflation reads **0.748** and 0.585. Without that the column above would not be
+readable at all.
+
+**D4 IS THE FINDING.** DSR of the best arm against the assumed dispersion:
+0.0072 → **0.974**, 0.0127 → **0.947**, 0.05 → 0.608, 0.10 → 0.200, 0.25 →
+0.001. **It survives 1 of 7 assumptions and the one it survives is the single
+most flattering available.** The very next estimate in hand — the spread of the
+seven strategy FAMILIES run in this script, sd 0.11 — already kills it, and 0.11
+is narrower than 350 hypotheses across six instruments would plausibly produce.
+
+**D1 CONFIRMED IN SUBSTANCE, FAILED ON ITS LITERAL WORDING.** I predicted no arm
+would clear at 350 trials; three clear on the lower bound and none on anything
+wider. Logged as such rather than reframed as a pass.
+
+**D3 FAILED.** I predicted `trials_to_kill` within an order of magnitude of 350.
+It is **11,200** — thirty-two times the repo's own count. Same fact as D4 from
+the other side: on the flattering dispersion the result is hard to kill by
+COUNTING trials and easy to kill by admitting they were not all alike.
+
+**ONE BUG, CAUGHT BY AN IMPOSSIBLE NUMBER.** `tail()` built the drawdown path
+from the returns alone, so the running maximum started BELOW par whenever the
+first period was a loss and a series opening −30% reported a maximum drawdown
+of **exactly zero**. A30's rule, fourth occurrence in this repo.
+
+**WHAT IS NOW CHEAP AND WAS NOT.** `sr_variance` is not recoverable from this
+log because no Sharpe was ever stored per trial. Storing one per logged
+hypothesis from here on turns the deflation from a sweep into a measurement.
+
+**Trial count: 4 registered (D1–D4). Trials after H58: 354.** Bonferroni bar
+0.00014. Nothing is claimed against it; D1's arms are pre-existing results being
+re-read, not new claims.
