@@ -409,3 +409,70 @@ def test_both_surfaces_are_logged_by_the_scheduled_refresh():
     body = src[i:i + 1200]
     assert "signal_log.py" in body
     assert "daily_signal.py" in body and '"--log"' in body
+
+
+# =========================================== RULE VERSIONS ARE NEVER POOLED ==
+#
+# A first `summary()` printed ONE mean over every row in the store. That is the
+# composite error this repo bans everywhere else (A13: a blend of
+# separately-tested components is a new signal wearing their credibility), and
+# it was about to matter: H62 moved KEEP_HI from 0.80 to 0.70, so the store
+# holds a SUPERSEDED card alongside the live one, plus a daily bracket the same
+# repo says explicitly not to act on. A pooled mean over those describes no rule
+# anyone is trading.
+
+def test_outcomes_carry_the_rule_version():
+    """Without it the scored rows cannot be separated by rule at all."""
+    assert "rule_version" in ss.OUTCOME_COLUMNS
+    P = _panel(path="up")
+    asof = P["date"].iloc[5]
+    ss.emit([{"ticker": "AAAA", "entry": 100.0, "sl": 80.0, "tp": 200.0}],
+            "r", "v7", asof, 20)
+    out = ss.score(P)
+    assert out["rule_version"].iloc[0] == "v7"
+
+
+def test_the_summary_breaks_out_by_rule_version_and_never_pools():
+    P = _panel(path="up")
+    asof = P["date"].iloc[5]
+    ss.emit([{"ticker": "AAAA", "entry": 100.0, "sl": 80.0, "tp": 200.0}],
+            "r", "v1", asof, 20)
+    ss.emit([{"ticker": "AAAA", "entry": 100.0, "sl": 80.0, "tp": 200.0}],
+            "r", "v2", asof, 20)
+    txt = ss.summary(ss.score(P))
+    assert "BY RULE VERSION (2 distinct)" in txt
+    assert "never pooled" in txt
+    assert "[v1]" in txt and "[v2]" in txt
+
+
+def test_a_superseded_version_is_labelled_and_explained():
+    """Declared rather than deleted: the store has no delete BY DESIGN, and
+    adding one to cover an author's own mistake is exactly the door that design
+    closes."""
+    assert ss.SUPERSEDED, "nothing declared superseded"
+    for (rule, ver), why in ss.SUPERSEDED.items():
+        assert isinstance(rule, str) and isinstance(ver, str)
+        assert len(why) > 30, (rule, ver, why)
+        assert not ss.is_live(rule, ver)
+
+
+def test_the_live_rule_is_not_marked_superseded():
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir,
+                                    "scripts"))
+    import signal_log                                          # noqa: PLC0415
+    assert ss.is_live(signal_log.RULE, signal_log.RULE_VERSION), (
+        "the rule the logger is about to emit is declared superseded")
+
+
+def test_a_rule_name_does_not_carry_a_parameter_value():
+    """`h54_sticky_tight` said 'tight' for a rule that was no longer tight the
+    moment H62 moved the buffer. A name carrying a parameter drifts every time
+    the parameter moves; the FAMILY is the name and the parameters live in
+    `rule_version`."""
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir,
+                                    "scripts"))
+    import signal_log                                          # noqa: PLC0415
+    for word in ("tight", "wide", "0.8", "0.7", "20", "100"):
+        assert word not in signal_log.RULE, signal_log.RULE
+    #  and the parameters ARE in the version
+    assert "hi" in signal_log.RULE_VERSION and "sl" in signal_log.RULE_VERSION

@@ -3246,6 +3246,63 @@ first time you try to actually use the thing.**
 
 ---
 
+## A46. The buffer was an argmax, and changing it exposed a store that pooled rules
+
+**H62 CLOSED THE SHIPPED RULE'S LAST LOOSE PARAMETER.** `KEEP_HI = 0.80` was
+H54's "tight buffer" — the ARGMAX of a three-point sweep at ONE rebalance
+phase. A39 flagged it and left it: the sweep is not monotone, and the tight
+arm's own per-phase range (+1.97 to +6.61) is nearly three times its
+1.74-point lead. **A lead smaller than its own sampling spread is not a lead.**
+H56 had already answered this correctly for the stop; the buffer never got the
+same treatment.
+
+On the full 8×6 grid across six phases: **the spread across PHASES within one
+cell is +6.57%, more than double the +3.01% across the whole buffer grid**
+(B1), **five distinct cells win across six phases** (B3), and the predicted
+null holds — the middle cell sits inside the argmax's own phase spread (B2).
+**And keep_hi 0.80 is the WORST ROW of the grid**: the argmax of three points
+at one phase was the weakest setting once the grid and the phases were filled
+in.
+
+By the rule registered before the run, the constant moves to the **MIDDLE of
+the family, 0.70/0.60**, defined on the grid AXES and never on the results —
+picking the middle by outcome is an argmax wearing a different word.
+`middle_cell()` is one definition shared by script and test. Turnover falls
+54% → 41%. **The +1.92pp that came with it is NOT claimed**: B1 says the phase
+spread swamps it, and the reason for the move is instability, not a result.
+
+**THEN CHANGING IT EXPOSED THE STORE, AND THAT IS THE MORE GENERAL FINDING.**
+`summary()` printed ONE mean over every row it held. That is the composite
+error this repo bans everywhere else (A13), and it was about to matter
+concretely: the store now holds a superseded card, the live card, and a daily
+bracket the same repo says explicitly **not to act on**. A pooled mean over
+those three describes no rule anyone is trading — and it would have been the
+headline of the only out-of-sample evidence this project will ever have.
+
+Outcomes now carry `rule_version`, and the summary breaks out by
+(rule, version) with the power statement inside each block. **A parameter
+change is a new prediction, and a store that cannot see that is a store that
+launders a dead rule into a live conclusion.**
+
+**AND A RULE NAME MUST NOT CARRY A PARAMETER VALUE.** `h54_sticky_tight` said
+"tight" for a rule that stopped being tight the moment the buffer moved — the
+same drift as the card printing "top 20%" beside a 0.70 constant, and the
+FIFTH occurrence of that shape here. The family is the name; the parameters
+live in `rule_version`, where they can change without lying. Renamed to
+`h54_sticky`, with a test banning parameter values from the name.
+
+**THE MISTAKE THAT COST IS RECORDED RATHER THAN DELETED.** Two identity changes
+landed the same day, so 2026-09-04 carries THREE variants of the card — one
+superseded by H62, one emitted for two minutes under the old name, one live.
+The store has no delete BY DESIGN ("a record a later run can rewrite is not
+evidence, it is a draft"), and adding one to cover an author's own mistake is
+exactly the door that design closes. So `SUPERSEDED` declares each dead version
+with WHY, the summary prints it marked, and a test asserts the live rule is not
+on that list. **The cost of an append-only store is that your mistakes are
+permanent and visible; that is what makes the rest of it worth anything.**
+
+---
+
 ---
 
 # STANDING INSTRUCTION — the deliverable is a signal with three levels

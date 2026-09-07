@@ -62,7 +62,14 @@ EMIT_COLUMNS = [
     "horizon_days", "features",
 ]
 OUTCOME_COLUMNS = [
-    "signal_id", "asof", "ticker", "rule", "horizon_days", "scored_at",
+    #  `rule_version` is here because WITHOUT IT THE OUTCOMES CANNOT BE
+    #  SEPARATED BY RULE. H62 moved KEEP_HI from 0.80 to 0.70, which is a
+    #  different prediction under the same rule NAME -- `signal_id` already
+    #  hashes the version, so the emissions stay distinct, but the scored rows
+    #  did not carry it and a summary would pool a superseded rule with the
+    #  live one.
+    "signal_id", "asof", "ticker", "rule", "rule_version", "horizon_days",
+    "scored_at",
     "bars_seen", "settled", "exit_reason", "exit_date", "exit_px",
     "ret", "ret_net", "mfe", "mae", "hit_tp", "hit_sl", "last_px",
     "adj_factor",
@@ -248,6 +255,7 @@ def score(panel: pd.DataFrame, cost: float = 0.0056,
         rec = {c: np.nan for c in OUTCOME_COLUMNS}
         rec.update({"signal_id": s["signal_id"], "asof": s["asof"],
                     "ticker": s["ticker"], "rule": s["rule"],
+                    "rule_version": s.get("rule_version", ""),
                     "horizon_days": s["horizon_days"], "scored_at": stamp,
                     "bars_seen": 0, "settled": False,
                     "exit_reason": "no data"})
@@ -351,51 +359,109 @@ def score(panel: pd.DataFrame, cost: float = 0.0056,
     return out
 
 
+#: Rule versions that are NO LONGER LIVE, with why. Declared rather than
+#: deleted, because the store has no delete BY DESIGN — "a record a later run
+#: can rewrite is not evidence, it is a draft" — and adding one to cover an
+#: author's own mistake is exactly the door that design closes.
+#:
+#: 2026-09-04 carries THREE variants of the card because two identity changes
+#: landed the same day. Both are recorded so a reader meets the explanation
+#: rather than an unexplained triple.
+SUPERSEDED: Dict[Tuple[str, str], str] = {
+    ("h54_sticky_tight", "hi0.9/0.8_vol0.5/0.6_k10_sl0.2_tp1.0x0.5"):
+        "pre-H62: KEEP_HI was the argmax of a three-point sweep at one "
+        "rebalance phase, and the worst row of the full grid",
+    ("h54_sticky_tight", "hi0.9/0.7_vol0.5/0.6_k10_sl0.2_tp1.0x0.5"):
+        "emitted for ~2 minutes under a name that still said 'tight' after "
+        "H62 moved the buffer off tight; renamed to h54_sticky because a name "
+        "carrying a parameter value drifts every time the parameter moves",
+}
+
+
+def is_live(rule: str, version: str) -> bool:
+    return (str(rule), str(version)) not in SUPERSEDED
+
+
+def _block(o: pd.DataFrame, label: str) -> List[str]:
+    """One rule-version's record. Never pooled with another's."""
+    st = o[o["settled"].astype(bool)]
+    L = [f"  {label}",
+         f"    emitted {len(o):,} over {o['ticker'].nunique()} names, "
+         f"{pd.to_datetime(o['asof']).min().date()} -> "
+         f"{pd.to_datetime(o['asof']).max().date()}"
+         f"   settled {len(st):,}   open {len(o) - len(st):,}"]
+    if st.empty:
+        L.append("    nothing settled — no rate, mean or win count is defined "
+                 "on an unsettled sample")
+        return L
+    r = st["ret_net"].dropna()
+    if not len(r):
+        L.append("    settled but unscoreable")
+        return L
+    pos = r[r > -1 + 1e-9]
+    ml = float(np.mean(np.log1p(pos))) if len(pos) else float("nan")
+    L += [f"    mean net {r.mean():+.2%}   median {r.median():+.2%}   "
+          f"mean log {ml:+.4f}   positive {(r > 0).mean():.1%} of {len(r)}"]
+    sd = float(r.std(ddof=1)) if len(r) > 1 else float("nan")
+    if np.isfinite(sd) and sd > 0 and abs(r.mean()) > 0:
+        need = (2.0 * sd / abs(r.mean())) ** 2
+        L.append(f"    POWER: telling this mean from ZERO at t=2 needs "
+                 f"~{need:,.0f} settled signals; {len(r)} exist.")
+    return L
+
+
 def summary(outcomes: Optional[pd.DataFrame] = None) -> str:
     """What the store can honestly say, which at the start is 'not yet'.
 
-    THE POWER STATEMENT IS THE POINT. A31 measured that distinguishing this
-    kind of edge from random needs 46,856 months, and recorded conflating an
-    EFFECT statement with a POWER statement as its own error. So this prints how
-    much evidence exists BEFORE it prints any number derived from it.
+    BROKEN OUT BY (rule, rule_version), AND NEVER POOLED ACROSS THEM.
+    A first version printed ONE mean over every row in the store. That is the
+    composite error this repo bans in every other context (A13: a blend of
+    separately-tested components is a new signal wearing their credibility) —
+    and it was about to matter concretely: H62 moved `KEEP_HI` from 0.80 to
+    0.70, so the store holds a SUPERSEDED version of the card alongside the
+    live one, plus a daily bracket the same repo says explicitly not to act on.
+    A pooled mean over those three describes no rule anyone is trading.
+
+    THE POWER STATEMENT COMES BEFORE ANY EFFECT, per block. A31 measured that
+    distinguishing this kind of edge from random needs 46,856 months, and
+    records conflating a POWER statement with an EFFECT statement as its own
+    error.
     """
     o = outcomes if outcomes is not None else load_outcomes()
     if o.empty:
         return ("SIGNAL STORE EMPTY. Nothing has been emitted yet, so there is\n"
                 "no out-of-sample evidence. This is the honest state on day one\n"
                 "and it is why the store exists: it only ever gets later.")
-    s = o[o["settled"].astype(bool)]
-    L = [f"emitted   {len(o):,} signals over "
-         f"{o['ticker'].nunique()} names, "
+    if "rule_version" not in o.columns:
+        o = o.assign(rule_version="")
+    o = o.copy()
+    o["rule_version"] = o["rule_version"].fillna("")
+    st = o[o["settled"].astype(bool)]
+    L = [f"emitted   {len(o):,} signals over {o['ticker'].nunique()} names, "
          f"{pd.to_datetime(o['asof']).min().date()} -> "
          f"{pd.to_datetime(o['asof']).max().date()}",
-         f"settled   {len(s):,}  ({len(s) / max(len(o), 1):.0%})",
-         f"open      {len(o) - len(s):,}"]
-    if s.empty:
+         f"settled   {len(st):,}  ({len(st) / max(len(o), 1):.0%})",
+         f"open      {len(o) - len(st):,}",
+         ""]
+    keys = list(o.groupby(["rule", "rule_version"], dropna=False).groups)
+    L.append(f"BY RULE VERSION ({len(keys)} distinct). These are DIFFERENT")
+    L.append("PREDICTIONS and are never pooled: a mean across them would")
+    L.append("describe no rule anyone is trading.")
+    live, dead = [], []
+    for (rule, ver), g in o.groupby(["rule", "rule_version"], dropna=False):
+        (live if is_live(rule, ver) else dead).append((rule, ver, g))
+    for rule, ver, g in live:
         L.append("")
-        L.append("NOTHING HAS SETTLED YET. No rate, mean or win count is")
-        L.append("defined on an unsettled sample, so none is printed.")
-        return "\n".join(L)
-    r = s["ret_net"].dropna()
-    if len(r):
-        #  Mean AND mean log, always together (A36: they disagreed in SIGN).
-        pos = r[r > -1 + 1e-9]
-        ml = float(np.mean(np.log1p(pos))) if len(pos) else float("nan")
-        L += ["",
-              f"mean net      {r.mean():+.2%}",
-              f"median net    {r.median():+.2%}",
-              f"mean log      {ml:+.4f}   "
-              f"(an equal-weighted holder is paid the mean, a sequential",
-              f"                        trader the mean log -- A36 measured "
-              f"them disagreeing in SIGN)",
-              f"positive      {(r > 0).mean():.1%}  of {len(r)} settled"]
-        #  The power statement, before anything is concluded from the numbers.
-        sd = float(r.std(ddof=1)) if len(r) > 1 else float("nan")
-        if np.isfinite(sd) and sd > 0 and abs(r.mean()) > 0:
-            need = (2.0 * sd / abs(r.mean())) ** 2
-            L += ["",
-                  f"POWER: at t=2, distinguishing this mean from ZERO needs "
-                  f"~{need:,.0f} settled signals.",
-                  f"       {len(r)} exist. This is a POWER statement, not an "
-                  f"effect statement (A31)."]
+        L += _block(g, f"{rule}  [{ver or 'no version recorded'}]")
+    for rule, ver, g in dead:
+        L.append("")
+        L += _block(g, f"{rule}  [{ver or 'no version recorded'}]  "
+                       f"** SUPERSEDED **")
+        L.append(f"    superseded: {SUPERSEDED[(rule, ver)]}")
+        L.append("    kept because the store has no delete BY DESIGN; it must "
+                 "not be pooled with a live rule.")
+    if st.empty:
+        L += ["", "NOTHING HAS SETTLED YET anywhere in the store. No rate, mean",
+              "or win count is defined on an unsettled sample, so none is",
+              "printed."]
     return "\n".join(L)

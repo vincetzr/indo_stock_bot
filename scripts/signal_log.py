@@ -34,7 +34,14 @@ import rules                                                       # noqa: E402
 #  The rule's identity. CHANGING ANY OF THESE CHANGES THE SIGNAL ID, which is
 #  correct: a different parameter set is a different prediction and must not
 #  overwrite the old one's record.
-RULE = "h54_sticky_tight"
+#  A NAME MUST NOT CARRY A PARAMETER VALUE. This was `h54_sticky_tight`, after
+#  H54's arm name for keep_hi = 0.80 -- and H62 moved it to 0.70, at which
+#  point the store's own label said "tight" for a rule that is not. A name
+#  carrying a parameter drifts every time the parameter moves, which is the
+#  same failure as the card's hardcoded "top 20%" label. The FAMILY is the
+#  name; the parameters live in `rule_version`, which is where they can change
+#  without lying.
+RULE = "h54_sticky"
 RULE_VERSION = (f"hi{rules.ENTRY_HI}/{rules.KEEP_HI}"
                 f"_vol{rules.ENTRY_VOL}/{rules.KEEP_VOL}"
                 f"_k{rules.K}_sl{rules.STOP}_tp{rules.TP}x{rules.TP_FRAC}")
