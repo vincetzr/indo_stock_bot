@@ -226,7 +226,10 @@ class YahooOHLCV:
                 return self._repaired(stale, ticker)
             return df
 
-        self.cache.write("ohlcv", symbol, df)      # cache the RAW source
+        #  MERGE: the request asks for full history, so overlap is total and
+        #  new always wins -- but a truncated or partial response can then never
+        #  SHORTEN the cache, which is the failure mode worth insuring against.
+        self.cache.write("ohlcv", symbol, df, merge_on="date")
         return self._repaired(df, ticker)
 
     def get_many(self, tickers: List[str], max_age: float = 3600.0,

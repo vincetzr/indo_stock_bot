@@ -138,6 +138,8 @@ def main() -> int:
                     help="rebuild the brief's conditional tables afterwards")
     ap.add_argument("--brief", choices=["pre", "post"], default=None,
                     help="run the brief afterwards and save md + html")
+    ap.add_argument("--signals", action="store_true",
+                    help="log today's signals and score the settled ones (§38)")
     a = ap.parse_args()
 
     now = dt.datetime.now(tz=WIB)
@@ -183,6 +185,14 @@ def main() -> int:
     rc = 0
     if a.panel:
         rc |= run([sys.executable, "scripts/price_panel_build.py"])
+    #  §38. WIRED IN RATHER THAN RUN BY HAND, because a log that depends on
+    #  someone remembering has gaps exactly where the interesting days were.
+    #  With the holdout spent at H16 this is the only mechanism left that
+    #  produces out-of-sample evidence, and it only ever gets later.
+    if a.signals:
+        run([sys.executable, os.path.join(os.path.dirname(__file__),
+                                          "signal_log.py")])
+
     if a.tables:
         rc |= run([sys.executable, "scripts/brief.py", "--build-tables",
                    "--no-news"])
