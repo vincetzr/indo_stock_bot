@@ -3531,3 +3531,70 @@ certainly overfit. **No trading arm is built on it.**
 
 **Trial count: 3 registered (G1-G3) plus a 5-cell k sweep reported in full = 3.
 Trials after H60: 360.** Bonferroni bar 0.00014.
+
+---
+
+## H61 — §14 chart patterns, and the base rate a vision layer would need first
+
+**2026-09-07.** `scripts/patterns.py`, `reports/patterns.md`. Registered in the
+module docstring before any cell was scored.
+
+**WHAT §14 ASKS FOR AND WHY THIS IS NOT IT.** The brief wants a vision model
+that looks at a chart and names what it sees. No vision endpoint is callable
+from this process, and it would be the wrong thing to build first anyway: a
+layer returning "double bottom, high confidence" is only usable once someone has
+measured what a double bottom is worth. Six classic patterns, defined
+programmatically and CAUSALLY — each fires on the bar at which it would have
+been visible, never at the pivot it is built from — scored against a control
+drawn from the SAME (ticker, year) cells at the SAME rate.
+
+**EVERY PATTERN HAS A NEGATIVE EDGE, IN BOTH HALVES.** 63-session horizon,
+2000–2026, 968 names.
+
+| pattern | fires | mean log | control | edge | z | raw | **net edge** |
+|---|---|---|---|---|---|---|---|
+| breakout from squeeze | 4,014 | +0.0234 | +0.0413 | −0.0179 | −6.23 | +6.86% | **−2.46%** |
+| golden cross | 1,705 | −0.0125 | +0.0145 | −0.0270 | −4.63 | +2.20% | −3.30% |
+| higher highs and lows | 54,244 | −0.0031 | +0.0562 | **−0.0593** | −54.31 | +4.26% | **−7.57%** |
+| double bottom confirmed | 9,752 | +0.0164 | +0.0474 | −0.0310 | −14.35 | +6.17% | −3.52% |
+| gap up on volume | 5,849 | −0.0419 | −0.0067 | −0.0352 | −8.66 | +2.68% | −3.86% |
+| **digit (PREDICTED NULL)** | 427,592 | −0.0212 | −0.0148 | **−0.0064** | **−47.65** | +1.51% | −1.27% |
+
+**P1 FAILED IN DIRECTION.** I registered that the trend-continuation family
+would show a POSITIVE edge, on the strength of H13's momentum features. All six
+are negative and the same sign in both halves. Buying the confirmation bar is
+worse than buying a random day in the same name-year — a short-term reversal
+effect, and the same fact H13 measured as `rev1`.
+
+**P2's PREDICTED NULL FIRED AT z −47.65.** `digit` — the close ending in 0 or 5
+— is read off the price like every other pattern and means nothing, and it
+clears the Bonferroni bar by an order of magnitude. **So significance in this
+table is not evidence and the whole thing must be read on effect size.** A9
+registered `squeeze` the same way and it fired at t = +3.55; this is the second
+time, and the more emphatic one.
+
+**P3 CONFIRMED. 0 of 6 beat their control after the 0.56% fee alone**, before
+any spread — while the RAW return looks positive for 6 of 6, which is the
+market's drift and not the pattern. That gap is the whole reason the gated
+column subtracts the control.
+
+**TWO BUGS, BOTH CAUGHT BY IMPOSSIBLE NUMBERS.**
+
+*`~` on an object-dtype Series inverts the INTEGER.* `Series.shift(1)` on a
+bool column returns object dtype, `.fillna(False)` leaves it object, and
+`~False == -1` is truthy — so `up & ~up.shift(1).fillna(False)` is just `up`,
+with the negation silently doing nothing. The golden cross fired **357,925
+times on 690,591 eligible bars — 52% of the panel**, for a signal that should
+fire a dozen times per name in twenty-six years. After the fix: 1,705.
+
+*The `net` column had no benchmark in it.* It printed the pattern's own return
+minus the fee, reading **+6.30%** for a pattern whose matched control returned
+more. A19's error class, and the number a reader would quote.
+
+*And a planted-shape test found an off-by-one.* `p_double_bottom` started its
+scan at `2*w + 1`, discarding the first valid bar, and failed to fire on a
+textbook double bottom until it was fixed to `2*w`.
+
+**Trial count: 3 registered (P1–P3) plus 6 patterns reported in full = 3.
+Trials after H61: 363.** Bonferroni bar 0.00014 — which the predicted null
+clears, so the bar is not what decides anything here.
