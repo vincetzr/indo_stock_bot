@@ -10,9 +10,18 @@ cross-sectional coverage, the same as-of rule the daily brief uses.
 
 WHAT THIS IS AND IS NOT
 ------------------------
-It is the exit rules from `spine/exits.py`, the ones H17/H18 validated,
+It is the exit rules from `spine/exits.py`, the ones H17/H18 MEASURED,
 evaluated FORWARD and printed as prices you could type into a broker screen.
 Same code, so the monitor cannot drift from the study.
+
+    THIS LINE SAID "the ones H17/H18 VALIDATED" AND THAT WAS A RETRACTED
+    CLAIM. A18 withdrew both headlines: `trail 15% armed +50%` and `stoch
+    rollover armed +50%` turn a 6.4x buy-and-hold into 1.6x and 1.4x and are
+    the two WORST rules of the seven tested. A34 puts the running total at
+    169 exit configurations across H17/H18/H35/H38/H40/H47 with NONE beating
+    a hold. The sentence is kept, marked, rather than deleted, because A19
+    records deleting a refuted claim as its own failure. These are levels to
+    look at, not rules that were shown to work.
 
 It is NOT a recommendation, and two of its columns are explicitly weaker than
 the rest. The stochastic and volume readings are STATE, not validated rules —

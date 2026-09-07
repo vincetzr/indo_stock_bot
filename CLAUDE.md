@@ -3128,6 +3128,69 @@ end. **Run your own deliverable before believing your own memos.**
 
 ---
 
+## A44. The standing instruction's own prohibitions were being broken, in fourteen places
+
+The standing instruction lists four things this repo may never say. All four
+were a matter of whoever was writing remembering them, and an audit found
+**fourteen live claims of the banned kind**. Two were worse than a word choice.
+
+**A PRINTED VERDICT READ `"validated - the one to use"`.** `invest.py` returned
+it in a table shown to the user, on a rule whose evidence is a holdout that was
+spent at H16 — so the one word that could make it true is the one thing it
+cannot be.
+
+**AND `positions.py` DESCRIBED ITS EXIT RULES AS "the ones H17/H18
+VALIDATED".** A18 WITHDREW both headlines outright: `trail 15% armed +50%` and
+`stoch rollover armed +50%` turn a 6.4x buy-and-hold into 1.6x and 1.4x and are
+the two worst of the seven tested; A34 puts the running total at **169 exit
+configurations across six studies with none beating a hold**. That sentence sat
+above code I had edited the same day to add the shipped SL and TP — **the A19
+shape for the seventh time: the code gets corrected and the sentence above it
+does not.**
+
+The rest were `plan.py` printing "validated at a {days}-day cap", `cli.py`
+advertising "long-horizon portfolio (validated 60d momentum)" in its help text,
+`dipreversal.py` calling one rule "the validated rule" three times,
+`current_picks.py` and `paper_account.py` describing whole engines as validated
+when both predate every control this repo now runs, and `twosleeve.py`,
+`report/monitor.py`, `broker_habits.py` and `report/dashboard.py`.
+
+**A PROHIBITION NOBODY CAN FAIL IS NOT A PROHIBITION, SO IT IS NOW A TEST.**
+`tests/test_standing_contract.py` walks `scripts/` and `src/idxbot/` and fails
+the build on the claim-form of the word. Three things make it a guard rather
+than noise:
+
+*It distinguishes claims from identifiers.* `validate_tick_schedule`,
+`validation_fraction`, `params.validate()`, `invalidation` and
+"cross-validation" are vocabulary. A check that flagged those would be turned
+off within a week, and a guard people learn to ignore is worse than none.
+
+*It has a positive control.* A test constructs a file containing the banned
+claim and asserts the checker would flag it — A26's sine wave, A27's planted
+Fibonacci bump and A36's Q0 martingale, now applied to a linter. A guard that
+cannot fire proves nothing by not firing.
+
+*The three ambiguous survivors were REWORDED rather than exempted.* Two were
+about validating DATA (a series passing integrity checks, the encoded ARA/ARB
+rules confirmed against 2.6m bars) and one was describing an old bug. All three
+were defensible and none is worth an exception, because an exception list is
+where a guard goes to die.
+
+**The other three prohibitions are enforced too**: a per-trade mean cannot be
+computed without its mean log beside it (with a fixture that keeps the two free
+to disagree in SIGN, per A36), `describe()` must print the power statement
+before any ratio (A31/A19), and every shipped surface must state that the
+holdout is spent.
+
+**The lesson, and it is the fourth in a row of the same kind.** A41 found the
+ledger scoring against the wrong price basis, A42 found the daily surface
+recording nothing, A43 found three lists and no ranking, and A44 finds the
+repo's own stated rules broken in fourteen places. None of these is a modelling
+error and none shows up in a null, a half-split or a Bonferroni bar. **A rule
+written in a brief is a wish; the same rule in a test is a rule.**
+
+---
+
 ---
 
 # STANDING INSTRUCTION — the deliverable is a signal with three levels

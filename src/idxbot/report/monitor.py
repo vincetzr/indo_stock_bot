@@ -7,7 +7,12 @@ question for research and the wrong one for a Tuesday evening. What a holder
 needs is the level: **at what price does my stop fire tomorrow, and how far is
 that from here.** Same rule definitions, same parameters, evaluated forward
 instead of backward, so there is exactly one implementation of each rule and
-the monitor cannot drift from the study that validated it.
+the monitor cannot drift from the study that MEASURED it.
+
+    "the study that VALIDATED it" is what this said, and nothing here was
+    validated: A18 withdrew H17's and H18's headlines outright, and A34 counts
+    169 exit configurations of which none beat simply holding. Same code as
+    the study is a guarantee about CONSISTENCY, not about the rules working.
 
 THE NEWS COLUMN IS NOT A SIGNAL AND MUST NOT BECOME ONE
 ---------------------------------------------------------

@@ -4,9 +4,9 @@ No CDN, no external fonts, no network at render time: the file opens from disk
 and works offline, which matters because it is generated after the close and
 read on whatever machine happens to be nearby.
 
-Charts are hand-rolled inline SVG. Colours come from a validated categorical
-palette with light and dark steps chosen per surface; series identity is carried
-by a legend plus direct labels, never by colour alone.
+Charts are hand-rolled inline SVG. Colours come from a contrast-checked
+categorical palette with light and dark steps chosen per surface; series
+identity is carried by a legend plus direct labels, never by colour alone.
 """
 
 from __future__ import annotations

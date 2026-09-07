@@ -3,7 +3,7 @@
 WHY THIS EXISTS
 ---------------
 Running the encoded auto-rejection bands against 843 IDX tickers and 2.6 million
-bars was meant to validate the RULES. It validated them - 99.99% of days sit
+bars was meant to check the RULES. It confirmed them - 99.99% of days sit
 inside the bands - but it also surfaced three defects in the price data itself,
 each of which corrupts returns in a way that runs clean and never announces
 itself:

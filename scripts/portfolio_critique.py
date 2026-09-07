@@ -324,7 +324,11 @@ def main() -> int:
     v = validate_index(S)
     print(f" IHSG cached {v['start'].date()} .. {v['end'].date()}, "
           f"{v['n']:,} sessions")
-    print(f"   validated: worst landmark error "
+    #  "validated:" here meant the SERIES passed its integrity checks, not
+    #  that a result was validated -- but a reader cannot tell those apart
+    #  from one word, and a guard with exceptions is a guard people learn
+    #  to ignore.
+    print(f"   checks passed: worst landmark error "
           f"{v['worst_landmark_error']:.4%}, "
           f"{v['n_moves_over_20pct']} moves >20% "
           f"({v['n_moves_over_10pct']} >10%), kurtosis {v['kurtosis']:.1f}, "

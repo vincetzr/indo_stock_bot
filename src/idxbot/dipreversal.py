@@ -1,7 +1,9 @@
 """Intraday reversal rules — buying capitulation, out by the close.
 
-The validated rule is ``capitulation_*``. Read that one; the other two are kept
-only because their failure is instructive.
+The best-evidenced rule is ``capitulation_*``. Read that one; the other two are
+kept only because their failure is instructive. It is not VALIDATED and the
+word is not available here: the holdout was spent at H16, so every number in
+this repo is in-sample.
 
 **Capitulation gap reversal.** A stock that opens ≥10% below yesterday's close,
 *after already falling for a month*, on a morning *the whole index gaps down*.
@@ -117,7 +119,7 @@ GAP_INDEX_MIN = 0.005    # index return at the open
 GAP_TARGET = 0.05
 GAP_STOP = 0.20          # measured irrelevant - almost nothing stops out
 
-# --- capitulation variant: the validated rule -------------------------------
+# --- capitulation variant: the best-evidenced rule (in-sample) -------------------------------
 # The hourly figures above came from 25 trades and pointed the wrong way. On
 # 761,458 liquid daily sessions across 25 years the filters INVERT:
 #
@@ -369,7 +371,7 @@ def render_gap_plan(ticker: str, session_open: float, gap: float,
 
 
 # ---------------------------------------------------------------------------
-# Capitulation gap reversal - the validated rule
+# Capitulation gap reversal - the best-evidenced rule (in-sample)
 # ---------------------------------------------------------------------------
 
 def capitulation_qualifies(gap: float, index_gap: float,

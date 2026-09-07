@@ -147,7 +147,7 @@ class TradingPlan:
         out.append(f"   time stop     {self.time_stop_days} trading days")
 
         out.append("")
-        # When a validated exit rule is present it governs, and these levels are
+        # When a MEASURED exit rule is present it governs, and these levels are
         # reference only. Printing both as instructions tells the reader to sell
         # at +8% and simultaneously not to - and selling at a fixed target is
         # precisely the behaviour measured to destroy the edge.
@@ -398,7 +398,9 @@ def _exit_basis(cfg: Config) -> str:
     if not measured:
         return "exit structure - not yet measured for this configuration"
     days = cfg.get("plan.exit.max_days", 20)
-    return (f"validated at a {days}-day cap: {float(measured.get('win_rate', 0)):.0%} "
+    #  "validated at a {days}-day cap" is what this printed. Measured, not
+    #  validated -- the holdout was spent at H16.
+    return (f"measured (IN-SAMPLE) at a {days}-day cap: {float(measured.get('win_rate', 0)):.0%} "
             f"win rate, PF {float(measured.get('profit_factor', 0)):.2f}, "
             f"{int(measured.get('trades', 0)):,} trades, "
             f"avg {float(measured.get('avg_days', 0)):.1f} days held")
@@ -487,7 +489,7 @@ def _decide(plan: TradingPlan, signal, cfg: Config, min_rr: float,
         if share < intended * 0.6:
             needed = intended * float(exit_cfg.get("stop_pct", 0.15))
             plan.warnings.append(
-                f"position is {share:.0%} of equity, but the validated result assumes "
+                f"position is {share:.0%} of equity, but the MEASURED result assumes "
                 f"~{intended:.0%} per name. To match it, raise "
                 f"plan.risk_per_trade_pct to about {needed:.0%} "
                 f"(portfolio heat {needed * cfg.get('plan.intended_positions', 5):.0%})"

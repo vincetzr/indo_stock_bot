@@ -526,7 +526,8 @@ def cmd_macro(args) -> int:
 def cmd_book(args) -> int:
     """The two-sleeve book: blue-chip compounding plus a multibagger sleeve.
 
-    Prints today's picks for each sleeve and the record each was validated on.
+    Prints today's picks for each sleeve and the record each was MEASURED on
+    (in-sample: the holdout was spent at H16).
     Everything here is cross-sectional and always invested, because Result 28
     priced what sitting in cash costs in a market that drifts up.
     """
@@ -1011,7 +1012,10 @@ def cmd_paste(args) -> int:
 
 
 def cmd_invest(args) -> int:
-    """Long-horizon portfolio: the validated 60-day momentum basket."""
+    """Long-horizon portfolio: the best-evidenced 60-day momentum basket.
+
+    Not validated -- the holdout was spent at H16 and this is in-sample.
+    """
     from . import invest as inv
 
     engine = _engine(args)
@@ -1518,7 +1522,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_paste)
 
     # invest
-    p = sub.add_parser("invest", help="long-horizon portfolio (validated 60d momentum)")
+    p = sub.add_parser("invest", help="long-horizon portfolio (60d momentum; in-sample)")
     common(p, universe_default="lq45")
     p.add_argument("--equity", type=float)
     p.add_argument("--top-n", type=int, default=10)

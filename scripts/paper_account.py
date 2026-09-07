@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 """Rp50,000,000 at the open of the data, run to today, every transaction logged.
 
-This is the validated engine from Part VIII - rank liquid IDX names on momentum
+SUPERSEDED — see `scripts/today.py`. This is the engine from the repo's "Part"
+era, which predates the H-numbered hypotheses and their controls; H54's
+`bhbench` is the harness that replaced it, with three buy-and-hold benchmarks
+and a matched random control. Nothing here is validated: the holdout was spent
+at H16 and every number in this repo is in-sample.
+
+Rank liquid IDX names on momentum
 within each date, own the strongest few, rebalance, always invested - run as a
 real account rather than as an index of returns. That means:
 

@@ -19,7 +19,7 @@ objectives want opposite ends of four of the same columns. Two sleeves can.
 
 What each sleeve is
 -------------------
-**Blue chip (50%).** The cross-sectional momentum book validated in Part II and
+**Blue chip (50%).** The cross-sectional momentum book MEASURED in Part II and
 walk-forwarded in Part VIII: rank liquid large caps within each date, hold the
 top few for 20 days, no take-profit, always invested. Its job is to compound.
 

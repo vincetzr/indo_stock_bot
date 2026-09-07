@@ -16,7 +16,9 @@ with the other two horizons:
     horizon   evidence
     day       expectancy straddles zero; ORB filter looks helpful on n=3
     swing     holdout IC +0.031 (t = 3.08) at 20 days - real but thinner
-    long      holdout IC +0.046 (t = 4.92) at 60 days - the validated one
+    long      holdout IC +0.046 (t = 4.92) at 60 days - the best-evidenced
+              of the three, which is NOT the same as validated: the holdout
+              was spent at H16 and every number in this repo is in-sample
 
 The honest ordering is the reverse of most people's instinct: the *slowest*
 horizon has the best evidence, and the fastest has none.
@@ -333,6 +335,8 @@ def compare_horizons(cfg: Config) -> pd.DataFrame:
         {"horizon": "long", "hold": "60 days", "profile": "momentum",
          "measured_edge": "IC +0.046 (t=4.92)",
          "evidence": "holdout; +4.67%/period vs universe (t=2.32)",
-         "verdict": "validated - the one to use"},
+         #  "validated - the one to use" is what this said, and the standing
+         #  instruction bans it: the holdout was spent at H16.
+         "verdict": "best-evidenced of the three; in-sample"},
     ]
     return pd.DataFrame(rows)

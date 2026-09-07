@@ -293,7 +293,7 @@ def main() -> int:
     print(f"\n {days} sessions is a demonstration, not a finding. These exits are "
           f"measured on\n whatever fraction of each broker's book was visible, "
           f"and the bound column above\n says how much was not. Treat the "
-          f"MACHINERY as validated and the NUMBERS as\n provisional until the "
+          f"MACHINERY as CHECKED and the NUMBERS as\n provisional until the "
           f"panel is long enough for the layer-2 protocol.")
     T = technical_context(df, args.ticker)
     if T is not None:

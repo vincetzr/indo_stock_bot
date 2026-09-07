@@ -132,8 +132,8 @@ def check_eid_table(P: pd.DataFrame) -> None:
     Eid in range is straddled by a long exchange closure. The converse — that
     every long closure is an Eid — is FALSE and is supposed to be: Christmas,
     New Year and the odd national holiday cluster also shut the exchange. A
-    first version tested the converse, got 18 of 23, and made a validated
-    table look 78% right.
+    first version tested the converse, got 18 of 23, and made a table that had
+    passed its own check look 78% right.
     """
     d = pd.DatetimeIndex(np.sort(P["date"].unique()))
     gap = (d[1:] - d[:-1]).days

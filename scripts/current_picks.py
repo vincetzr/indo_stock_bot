@@ -1,7 +1,15 @@
 #!/usr/bin/env python3
 """Today's picks for the 50/50 book, with lot-level sizing.
 
-Applies the two validated screens to the latest bar in the data:
+SUPERSEDED — see `scripts/today.py`, and read this header before the numbers.
+The screens below are from the repo's "Part" era, which predates the H-numbered
+hypotheses and every control this repo now runs: no clustered permutation null,
+no half-split, no rebalance-phase sweep, no benchmark beyond the strategy's own
+pool. H13 later measured all eight registered price features as net-negative
+after cost, and H54 replaced this construction. Nothing here is validated —
+the holdout was spent at H16, so every number in this repo is in-sample.
+
+Applies the two screens below to the latest bar in the data:
 
 **Momentum sleeve (50%)** - rank every liquid IDX name on 120-day momentum, take
 the top 8, equal weight, rebalance every 10 sessions, **and only hold a name
@@ -180,7 +188,7 @@ def main() -> int:
     df = build()
     half = args.capital / 2.0
 
-    # The blue-chip half, built the way Part XIX validated it: a universe
+    # The blue-chip half, built the way Part XIX MEASURED it: a universe
     # defined as of today by turnover, listing age and volatility, ranked on
     # 250-day momentum, top 12, held quarterly, no gate.
     W = load_wide(verbose=False)
