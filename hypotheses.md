@@ -3598,3 +3598,72 @@ textbook double bottom until it was fixed to `2*w`.
 **Trial count: 3 registered (P1–P3) plus 6 patterns reported in full = 3.
 Trials after H61: 363.** Bonferroni bar 0.00014 — which the predicted null
 clears, so the bar is not what decides anything here.
+
+---
+
+## H62 — the shipped buffer was the argmax of a three-point sweep, and it was the worst row of the grid
+
+**2026-09-07.** `scripts/buffer.py`, `reports/buffer_sweep.csv`. Registered in
+the module docstring — including the DECISION RULE — before any cell was scored.
+
+**WHAT WAS RE-OPENED.** `scripts/rules.py` shipped `KEEP_HI = 0.80,
+KEEP_VOL = 0.60`, H54's "tight buffer" arm, which was the ARGMAX of a
+three-point sweep at ONE rebalance phase. A39 flagged it and left it: *"the
+buffer sweep is not monotone (+6.50% tight / +4.76% wide / +4.14% none) so the
+parameter is unresolved and the family's spread is about as wide as its
+effect."* The tight arm's own per-phase range was **+1.97 to +6.61** against a
+**1.74-point lead**. A lead smaller than its own sampling spread is not a lead.
+H56 had already answered exactly this for the stop — `STOP = 0.20` is "the
+middle of the family and deliberately not its argmax" — and the buffer never
+got the same treatment.
+
+**THE GRID: 8 × 6 buffer cells × 6 rebalance phases = 288 walks**, entry line
+held FIXED so only the KEEP band moves. Median excess over each walk's own
+index window:
+
+| keep_hi \ keep_vol | 0.50 | 0.55 | 0.60 | 0.70 | 0.80 | 0.90 |
+|---|---|---|---|---|---|---|
+| 0.90 (no buffer) | +6.62% | +5.42% | +5.53% | +5.41% | +5.63% | +5.63% |
+| 0.85 | +6.24% | +5.33% | +5.35% | +5.52% | +5.70% | +5.82% |
+| **0.80 SHIPPED** | **+5.09%** | **+4.74%** | **+4.29%** | **+4.01%** | **+4.10%** | **+4.46%** |
+| 0.75 | +5.30% | +5.89% | +5.79% | +4.96% | +5.24% | +5.36% |
+| 0.70 | **+7.03%** | +6.85% | +6.21% | +5.85% | +6.02% | +5.72% |
+| 0.60 | +5.17% | +5.37% | +4.65% | +4.55% | +5.34% | +6.26% |
+| 0.50 | +4.83% | +5.58% | +5.42% | +5.08% | +5.21% | +6.42% |
+| 0.40 | +5.35% | +5.30% | +5.39% | +5.60% | +5.55% | +5.68% |
+
+**AND THE SHIPPED ROW IS THE WORST ROW IN THE GRID** — every cell of keep_hi
+0.80 sits below every other row. The argmax of three points at one phase turned
+out to be the weakest setting once the grid and the phases were filled in.
+
+**B1 CONFIRMED.** Spread ACROSS buffer settings **+3.01%**; spread ACROSS
+PHASES within the median cell **+6.57%** — more than double. A buffer chosen at
+one calendar is chosen on one draw.
+
+**B3 CONFIRMED.** **Five distinct cells win across six phases**: keep_hi
+0.40/0.80/0.70/0.40/0.70/0.60. The ranking is not a ranking.
+
+**B2, THE PREDICTED NULL, CONFIRMED.** The middle cell's median excess
+(+6.21%) sits inside the argmax cell's own phase spread [+3.22%, +8.05%], so
+moving there costs nothing measurable.
+
+**THE MOVE, BY THE RULE REGISTERED BEFORE THE RUN:** `KEEP_HI, KEEP_VOL` goes
+to **0.70, 0.60** — the MIDDLE of the family, defined on the grid AXES and
+never on the results, because picking the middle by outcome is an argmax
+wearing a different word. `middle_cell()` is the one definition, shared by the
+script and its test, so the constant and the rule that chose it cannot drift.
+**It does not move to the argmax under any outcome.** Turnover falls 54% → 41%.
+
+**THE +1.92pp THAT CAME WITH IT IS NOT CLAIMED.** B1 says the phase spread
+swamps it. The reason for the move is that a maximum this unstable is not a
+measurement, not that the middle measured better.
+
+**AND THE PRINTED LABELS HAD TO BE DERIVED.** The rule card read "top 20%" for
+a full day after the constant moved to 0.70, because the percentile labels were
+typed next to the constants rather than computed from them — the fifth
+occurrence of that drift in this repo. They are computed now.
+
+**Trial count: 3 registered (B1–B3). The 48-cell grid is a MAP, not 48
+hypotheses, and its argmax is explicitly not adopted. Trials after H62: 366.**
+Bonferroni bar 0.00014. Nothing is claimed against it; the move is made on
+instability, not on a result.

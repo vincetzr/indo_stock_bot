@@ -122,9 +122,27 @@ from beathold import Sticky                                       # noqa: E402
 from bhbench import MIN_TV, load                                  # noqa: E402
 from paint_suite import tick_of                                   # noqa: E402
 
-#  H54's leading arm: `sticky tight buffer, quarterly`.
 ENTRY_HI, ENTRY_VOL = 0.90, 0.50      # to BUY: top 10% on hi52, calmest half
-KEEP_HI, KEEP_VOL = 0.80, 0.60        # to KEEP: top 20% on hi52, calmest 60%
+#  H62. WAS `KEEP_HI, KEEP_VOL = 0.80, 0.60` -- H54's "tight buffer" arm, which
+#  was the ARGMAX of a three-point sweep at ONE rebalance phase. A39 already
+#  flagged it as unresolved ("the buffer sweep is not monotone ... the family's
+#  spread is about as wide as its effect"), and the full 8x6 grid across six
+#  phases says worse than unresolved:
+#
+#    * the spread ACROSS phases within one cell is +6.57%, more than DOUBLE
+#      the +3.01% spread across the whole buffer grid -- so a buffer chosen at
+#      one calendar is chosen on one draw (B1);
+#    * five distinct cells win across six phases (B3);
+#    * and keep_hi 0.80 is the WORST ROW of the grid, +4.01% to +5.09%, below
+#      every other row. The argmax of three points at one phase turned out to
+#      be the weakest setting once the grid and the phases were filled in.
+#
+#  So the constant moves to the MIDDLE of the family, by the rule registered
+#  before the run and for the same reason H56 chose STOP = 0.20: not because
+#  the middle measured better, but because a maximum this unstable is not a
+#  measurement. The +1.92pp of median excess that comes with it is a SIDE
+#  EFFECT and is not claimed -- B1 says the phase spread swamps it.
+KEEP_HI, KEEP_VOL = 0.70, 0.60        # to KEEP: top 30% on hi52, calmest 60%
 K = 10
 FEE = 0.0056
 #  H56. The whole family -10% to -30% cuts portfolio drawdown in BOTH halves at
@@ -167,10 +185,16 @@ def main() -> None:
           f"{len(day)} eligible names\n")
     print("THE TWO LINES, as they sit today (both are CROSS-SECTIONAL "
           "percentiles and move each quarter):")
-    print(f"  to BUY  : hi52 >= {hi_entry:.4f} (top 10% of the board)   AND  "
-          f"vol60 <= {vol_entry:.4f} (calmest half)")
-    print(f"  to KEEP : hi52 >= {hi_keep:.4f} (top 20%)              AND  "
-          f"vol60 <= {vol_keep:.4f} (calmest 60%)")
+    #  THE LABELS ARE DERIVED FROM THE CONSTANTS, NOT TYPED NEXT TO THEM.
+    #  They read "top 20%" for a full day after H62 moved KEEP_HI from 0.80 to
+    #  0.70 -- the same drift this repo has now recorded five times, and the
+    #  only fix that survives the next edit is to compute them.
+    print(f"  to BUY  : hi52 >= {hi_entry:.4f} "
+          f"(top {1 - ENTRY_HI:.0%} of the board)   AND  "
+          f"vol60 <= {vol_entry:.4f} (calmest {ENTRY_VOL:.0%})")
+    print(f"  to KEEP : hi52 >= {hi_keep:.4f} (top {1 - KEEP_HI:.0%})"
+          f"           AND  "
+          f"vol60 <= {vol_keep:.4f} (calmest {KEEP_VOL:.0%})")
     print()
 
     d = day[day["ticker"].isin(picks)].copy()

@@ -398,3 +398,33 @@ def test_the_rule_card_carries_the_deflated_sharpe_caveat():
     assert body.index("TOGETHER") < body.index("THE SEARCH"), (
         "the caveat must come after the claim it qualifies, where a reader "
         "who stops early still meets it")
+
+
+def test_the_percentile_labels_are_derived_from_the_constants():
+    """They read "top 20%" for a day after H62 moved KEEP_HI from 0.80 to 0.70.
+    A label typed next to a constant drifts from it; this repo has recorded
+    that five times, and the only fix that survives the next edit is to
+    compute it."""
+    src = open(rules.__file__).read()
+    body = src.split('"""', 2)[2]
+    assert "1 - ENTRY_HI" in body and "1 - KEEP_HI" in body
+    for hardcoded in ('(top 20%)', '(calmest half)', '(top 30%)'):
+        assert hardcoded not in body, hardcoded
+
+
+def test_the_buffer_is_the_middle_of_its_family_not_the_argmax():
+    """H62: the phase spread within one cell (+6.57%) is more than DOUBLE the
+    spread across the whole buffer grid (+3.01%), and five distinct cells win
+    across six phases. `KEEP_HI = 0.80` was the argmax of a three-point sweep
+    at ONE phase and is the WORST ROW of the full grid."""
+    assert rules.KEEP_HI == 0.70, (
+        "the buffer moved off the middle of its family — H62's registered "
+        "decision rule says it does not move to an argmax under any outcome")
+    assert rules.KEEP_VOL == 0.60
+    #  still a buffer: keeping must be easier than entering, or the rule churns
+    #  on rank noise around the cut
+    assert rules.KEEP_HI < rules.ENTRY_HI
+    assert rules.KEEP_VOL > rules.ENTRY_VOL
+    src = open(rules.__file__).read()
+    assert "WAS `KEEP_HI, KEEP_VOL = 0.80, 0.60`" in src, (
+        "the superseded constant must stay visible as a retraction (A19)")
