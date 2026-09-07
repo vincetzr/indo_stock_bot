@@ -3368,6 +3368,18 @@ benchmark with everything else, labelled. A **fresh** file that predates the
 field yields `None` and the card **says the benchmark is not in the file rather
 than borrowing one measured over a different run's window.**
 
+**AND THE FIRST VERSION OF THAT GUARD MISSED A SURFACE THE CONTRACT NAMES.**
+The standing instruction says `rules.py` **and `daily_signal.py`** must print
+the fourth column; the guard covered `rules.py` and `positions.py`. The bracket
+surface turned out already to READ its cost — from `cone.BRACKET_VS_HOLD`, not
+from a literal — because its measurement is H42's rather than `stoptest.py`'s.
+So the check is **per-surface on the SOURCE, not one shared reader**: what the
+three have in common is that the figure is read from somewhere named, never
+typed into the string that prints it. Its docstring did type the three numbers,
+and that is now checked against the constant, with the positive control planted
+on the **real** docstring — a control that passes on a hand-made example proves
+only that the example was hand-made.
+
 **The lesson, and it is A44's with the sign reversed.** A44 found the repo's own
 prohibitions broken in fourteen places and concluded that a rule in a brief is a
 wish while the same rule in a test is a rule. This is the constructive form:
@@ -3375,7 +3387,9 @@ the contract's fourth column is now enforced by
 `test_the_fourth_column_is_read_from_the_study_not_typed`, which requires the
 figures to arrive through `measured` rather than requiring the word "measured"
 to appear. **A guard that checks for a word can be satisfied by typing the
-word.**
+word.** And a guard is only as wide as the list it iterates — mine was written
+from the two surfaces I had just edited rather than from the contract that
+names them.
 
 ---
 

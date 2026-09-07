@@ -158,7 +158,15 @@ def test_the_standing_contract_is_still_in_claude_md():
 
 #: Every surface that hands the user a level. The contract is ENTRY, SL, TP
 #: *and the measured cost of each* — four things, never fewer.
+#:
+#: They do not share a SOURCE, and that is why the check is per-surface. The
+#: card's levels were measured by `stoptest.py`, so their cost comes through
+#: `idxbot.measured`, which refuses the result file when it measured a
+#: different rule. The daily bracket's cost was measured by H42 and lives in
+#: `cone.BRACKET_VS_HOLD`. What they share is that the figure is READ from
+#: somewhere named, never typed into the string that prints it.
 LEVEL_SURFACES = ("rules.py", "positions.py")
+BRACKET_SURFACE = "daily_signal.py"
 
 
 def test_the_fourth_column_is_read_from_the_study_not_typed():
@@ -194,3 +202,53 @@ def test_the_fourth_column_check_can_actually_fire():
     typed = 'print("  SL -20%  costs 0.70 points of CAGR (13.46% -> 12.76%)")'
     assert "measured.load()" not in typed
     assert "measured.noun(" not in typed
+
+
+def test_the_bracket_surface_reads_its_cost_too():
+    """The standing instruction names `daily_signal.py` alongside `rules.py`,
+    and my first version of the guard above covered neither it nor its source.
+    Its cost is H42's, not `stoptest.py`'s, so it reads a different constant —
+    but it must still READ one."""
+    src = open(os.path.join(ROOT, "scripts", BRACKET_SURFACE)).read()
+    assert "BRACKET_VS_HOLD" in src
+    from idxbot.cone import BRACKET_VS_HOLD
+    m, lo, hi = BRACKET_VS_HOLD
+    assert m < 0 and lo < m < hi, (
+        "the bracket is measured as LOSING to a hold; a sign change here means "
+        "the surface's prose needs rewriting, not just its numbers")
+    #  the printed line must be formatted FROM the constant
+    assert '{m:+.2%} a year' in src or "{m:+.2%}" in src
+
+
+def test_the_bracket_surfaces_docstring_matches_its_own_constant():
+    """A19 records a docstring outliving the function beneath it, and A47 found
+    three narrative tables of the same shape on the card. This surface types
+    the same three figures in prose above code that formats them from a
+    constant, so the prose is checked against the constant."""
+    import re
+    from idxbot.cone import BRACKET_VS_HOLD
+    src = open(os.path.join(ROOT, "scripts", BRACKET_SURFACE)).read()
+    doc = src.split('"""')[1]
+    found = [float(x) / 100.0
+             for x in re.findall(r"[−-](\d+\.\d+)%", doc)]
+    for want in BRACKET_VS_HOLD:
+        assert any(abs(f - abs(want)) < 5e-4 for f in found), (
+            f"{abs(want):.4f} from BRACKET_VS_HOLD is not in the docstring; "
+            f"the prose has drifted from the constant beneath it")
+
+
+def test_that_docstring_check_can_fire():
+    """POSITIVE CONTROL, per A26/A27/A36/A44 — and planted on the REAL
+    docstring rather than a toy string, because a check that passes on a
+    hand-made example proves only that the example was hand-made."""
+    import re
+    from idxbot.cone import BRACKET_VS_HOLD
+    src = open(os.path.join(ROOT, "scripts", BRACKET_SURFACE)).read()
+    doc = src.split('"""')[1]
+    head = abs(BRACKET_VS_HOLD[0])
+    drifted = doc.replace(f"{head * 100:.2f}", "9.99")
+    assert drifted != doc, "the headline figure is not in the docstring at all"
+    found = [float(x) / 100.0
+             for x in re.findall(r"[−-](\d+\.\d+)%", drifted)]
+    assert not any(abs(f - head) < 5e-4 for f in found), \
+        "the check cannot see a drift it was pointed straight at"
