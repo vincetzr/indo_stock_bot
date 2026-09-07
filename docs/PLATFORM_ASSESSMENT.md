@@ -408,6 +408,7 @@ re-fetchable. Measured, it partly is not:
 | `cache/ipot_broker` | 42,227 files | 0 | yes, but A1 prices it at 31,824 polite requests |
 | `cache/news` | 34 | 0 | live-only anyway |
 | `cache/fundamentals` | 59 | 0 | yes, and it was the gap regardless |
+| `cache/broker_daily` | 2 ticker-days | — | **NO — Gate 0 check 1 no longer depends on it.** Re-accumulating needs a host the USER must add to `data.broker_allowed_hosts` (A5). The check now falls back to the IDX-derived daily summary already on disk: **838,227 ticker-days, 814 names, median cross-source error 0.000%** against the old route's ten names over eighteen months |
 
 **THE SURVIVORSHIP REPAIR IS GONE AND ITS SOURCE IS NOT RECORDED.** The panel
 now reads **827 tickers, 0 delisted**, against 919 with 89 before. Yahoo does

@@ -190,6 +190,118 @@ def validate_tick_schedule(files) -> tuple:
                             + f"\n   {agree}/{total} bands agree")
 
 
+IDX_DAILY = "/home/user/wildangunawan/dataset-saham-idx/Saham/Semua"
+
+#: Floors below which §5 check 1 is not a reconciliation. A19 records the
+#: smallest cell producing the largest effect three times; a gate that can pass
+#: on two ticker-days is the same trap with a PASS printed on it.
+MIN_RECON_FILES = 40
+MIN_RECON_ROWS = 200
+
+#: Filled by whichever §5-check-1 path actually ran, and read by the summary.
+#: A HARDCODED FIGURE IN THE PROSE IS THE FAILURE THIS REPLACES. The verdict
+#: block said "agrees with an independent source to 0.017%" long after the
+#: source it measured had been destroyed, so the sentence outlived the number.
+#: A26's Pine drift guard is the same lesson: the only thing worse than an
+#: unvalidated constant is two copies of it that stop matching.
+LAST_RECON: dict = {}
+
+
+def _reconcile_against_idx_dataset(src: str = IDX_DAILY,
+                                   limit: int = 0) -> tuple:
+    """§5 check 1, against the IDX-derived daily summary already on disk.
+
+    THE POINT IS THAT THE TWO PIPELINES SHARE NOTHING. Yahoo's chart endpoint
+    and this dataset (scraped from IDX's own daily summary, provenance pinned
+    in `scripts/delisted_collect.py`) have no common code, no common vendor and
+    no common parser. Two unrelated pipelines landing on the same rupiah is not
+    something a parsing bug does.
+
+    THREE TESTS, AND THE FIRST IS THE SOURCE CHECKING ITSELF.
+
+      internal   `value / volume` is an implied VWAP and must lie inside the
+                 day's own high-low. A source that fails this is arithmetically
+                 broken and nothing built on it is readable.
+      cross      Yahoo `volume x close` against IDX `volume x close`. This is
+                 the comparison that matters and it is SPLIT-INVARIANT: Yahoo
+                 back-adjusts old volume up and old price down by the same
+                 factor, so the product is unchanged. Comparing volumes or
+                 prices directly would report a split as a data error, and A2
+                 already established that 21% of the spine provably sits on a
+                 vendor-adjusted basis.
+      vs value   Yahoo `volume x close` against IDX's PUBLISHED value. This one
+                 is expected to differ by roughly half a percent and does,
+                 because close is not VWAP — the original IndoPremier check
+                 documented the same gap at 0.55%. It is reported, not gated.
+    """
+    files = sorted(glob.glob(os.path.join(src, "*.csv")))
+    if not files:
+        return False, (f" no IDX daily summary at {src}, and no broker store "
+                       f"either — nothing independent to reconcile against.")
+    if limit:
+        files = files[:limit]
+    out = []
+    for f in files:
+        tk = os.path.basename(f)[:-4]
+        yp = os.path.join(OHLCV, f"{tk}.JK.csv.gz")
+        if not os.path.exists(yp):
+            continue
+        try:
+            d = pd.read_csv(f, usecols=["date", "close", "high", "low",
+                                        "volume", "value"],
+                            parse_dates=["date"])
+        except Exception:                                   # noqa: BLE001
+            continue
+        d = d[(d["volume"] > 0) & (d["value"] > 0) & (d["close"] > 0)
+              & (d["high"] > 0) & (d["low"] > 0)]
+        if d.empty:
+            continue
+        y = load(yp)
+        #  Rename explicitly rather than relying on merge suffixes: only the
+        #  COLLIDING columns get one, so `high`/`low` would arrive unsuffixed
+        #  and a later rename would silently pick up whichever survived.
+        d = d.rename(columns={"high": "high_i", "low": "low_i"})
+        m = d.merge(y[["date", "close", "volume"]], on="date",
+                    suffixes=("_i", "_y"))
+        m = m[(m["volume_y"] > 0) & (m["close_y"] > 0)]
+        if m.empty:
+            continue
+        m["ticker"] = tk
+        out.append(m)
+    if not out:
+        return False, " no overlapping ticker-days between the two sources."
+    M = pd.concat(out, ignore_index=True)
+    vwap = M["value"] / M["volume_i"]
+    #  A one-tick tolerance on the range: the published value is rounded to the
+    #  rupiah and the extremes are exact prints, so an implied VWAP can land a
+    #  hair outside a range it genuinely sits in.
+    inside = float(((vwap >= M["low_i"] * 0.999)
+                    & (vwap <= M["high_i"] * 1.001)).mean())
+    val_y = M["volume_y"] * M["close_y"]
+    val_i = M["volume_i"] * M["close_i"]
+    cross = ((val_y - val_i).abs() / val_i)
+    med = float(cross.median())
+    vs_pub = ((val_y - M["value"]).abs() / M["value"])
+    ratio = M["volume_y"] / M["volume_i"]
+    #  SAME THRESHOLDS AS THE BROKER-STORE PATH. Not relaxed; see the caller.
+    ok = med < 0.01 and inside > 0.95
+    LAST_RECON.update({"source": "IDX daily summary", "median": med,
+                       "rows": int(len(M)), "names": int(M["ticker"].nunique())})
+    txt = (f"   {len(M):,} overlapping ticker-days, {M['ticker'].nunique()} "
+           f"names, {M['date'].min().date()} -> {M['date'].max().date()}\n"
+           f"   IDX internal (value/volume inside its own high-low): "
+           f"{inside:.2%}\n"
+           f"   cross-source, SPLIT-INVARIANT (Yahoo vol x close vs IDX "
+           f"vol x close): median {med:.3%}, p90 {cross.quantile(0.9):.2%}\n"
+           f"   vs IDX PUBLISHED value (close is not VWAP, so a gap is "
+           f"expected): median {vs_pub.median():.3%}\n"
+           f"   raw volume agrees within 1% on "
+           f"{float(((ratio - 1).abs() < 0.01).mean()):.1%} of ticker-days — "
+           f"the rest is Yahoo's split basis, which is why the gated "
+           f"comparison is the product")
+    return ok, txt
+
+
 def reconcile_traded_value(files) -> tuple:
     """§5 Gate 0 check 1: does traded value agree with an independent source?
 
@@ -206,8 +318,30 @@ def reconcile_traded_value(files) -> tuple:
     """
     store = os.path.join("data", "cache", "broker_daily")
     blobs = sorted(glob.glob(os.path.join(store, "*_ipot-all.csv.gz")))
-    if not blobs:
-        return False, " no broker-summary store, so nothing to reconcile against."
+    #  A GATE CANNOT PASS ON A HANDFUL OF ROWS. Two surviving ticker-days is
+    #  not a reconciliation, and A19 records the smallest cell producing the
+    #  largest effect three separate times. Below the floor the store is
+    #  treated as absent so the wider fallback runs, and the floor is checked
+    #  on FILES here and on ROWS after the merge.
+    if len(blobs) < MIN_RECON_FILES:
+        #  THE PREFERRED SOURCE IS GONE AND THE CHECK IS NOT. A container
+        #  rebuild destroyed `broker_daily`, and re-accumulating it needs a
+        #  host in `data.broker_allowed_hosts` — which ships EMPTY and is the
+        #  USER's call to populate (A5), not this script's. So the check falls
+        #  back to a DIFFERENT independent pipeline that is already on disk.
+        #
+        #  THE TEST AND THE THRESHOLDS ARE UNCHANGED. CLAUDE.md §2 forbids
+        #  loosening a criterion to keep a gate alive; what changes here is the
+        #  second source, not the bar it has to clear. The fallback is in fact
+        #  closer to §5's wording ("reconcile against IDX published
+        #  aggregates") than the IndoPremier route was, and it is two orders of
+        #  magnitude wider — 814 names against ten.
+        ok, txt = _reconcile_against_idx_dataset()
+        return ok, (" broker_daily store is absent (destroyed by a container "
+                    "rebuild; re-accumulating it needs a host the USER must "
+                    "add to data.broker_allowed_hosts, per A5).\n"
+                    "   Falling back to the IDX-derived daily summary, which "
+                    "is already on disk.\n" + txt)
     rows = []
     for b in blobs:
         try:
@@ -235,6 +369,12 @@ def reconcile_traded_value(files) -> tuple:
     if not out:
         return False, " no overlapping ticker-days between the two sources."
     M = pd.concat(out, ignore_index=True)
+    if len(M) < MIN_RECON_ROWS:
+        ok, txt = _reconcile_against_idx_dataset()
+        return ok, (f" broker_daily store has only {len(M)} overlapping "
+                    f"ticker-days, below the {MIN_RECON_ROWS}-row floor.\n"
+                    "   Falling back to the IDX-derived daily summary.\n"
+                    + txt)
     M["internal"] = ((M["total_lot"] * 100 * M["vwap"] - M["total_val"]).abs()
                      / M["total_val"])
     M["cross"] = ((M["volume"] * M["vwap"] - M["total_val"]).abs()
@@ -244,6 +384,8 @@ def reconcile_traded_value(files) -> tuple:
                     & (M["implied"] <= M["high"])).mean())
     med = float(M["cross"].median())
     ok = med < 0.01 and inside > 0.95
+    LAST_RECON.update({"source": "IndoPremier session footer", "median": med,
+                       "rows": int(len(M)), "names": int(M["ticker"].nunique())})
     txt = (f" {len(M):,} overlapping ticker-days, {M['ticker'].nunique()} names\n"
            f"   IPOT internal (lots x 100 x VWAP vs published value): "
            f"median {M['internal'].median():.3%}\n"
@@ -522,9 +664,13 @@ def main() -> int:
     passed = all(ok for _, ok in checks)
     print()
     if passed:
+        r = LAST_RECON
+        recon = (f"{r['median']:.3%} across {r['rows']:,} ticker-days and "
+                 f"{r['names']} names\n ({r['source']})"
+                 if r else "an independent source")
         print(" Gate 0 PASSES, including both checks CLAUDE.md §5 names by "
               "name.\n\n The encoded rules match 843 tickers of real history; "
-              "traded value agrees with an\n independent source to 0.017%; "
+              f"traded value agrees with an\n independent source to {recon}; "
               "nine corporate actions reconcile against their\n announcements; "
               "and the one defect that hides - a vendor basis applied to part "
               "of\n a series - has been swept for across every ticker rather "
