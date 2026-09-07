@@ -3191,6 +3191,61 @@ written in a brief is a wish; the same rule in a test is a rule.**
 
 ---
 
+## A45. A bot that cannot be run tomorrow is not a bot
+
+A41-A44 fixed the deliverable. This is whether it survives the night.
+
+**THE CONTAINER IS EPHEMERAL AND THIS REPO HAS ALREADY LOST `data/` ONCE** —
+the assessment's postscript records 1.9 GB becoming 4.5 MB, taking
+`broker_daily` permanently. Today `positions.py` failed to start because
+`indicator_panel.parquet` was gone, and **nothing anywhere said which command
+rebuilt it.** I found out by grepping. A user would have found out by giving up.
+
+Measured, `scripts/today.py` needs **476 MB across two derived panels and 859
+cached OHLCV files, none of it in git** — plus two small tracked files. All of
+the large part is reproducible from the network in about seven minutes, in an
+order that matters because each step reads the previous one's output. None of
+that was written down.
+
+`scripts/bootstrap.py` declares every artefact, what builds it, why it is
+needed, and whether it is tracked — and reports before it rebuilds, because a
+command that regenerates 476 MB as a side effect of being run is a command
+nobody runs twice.
+
+**THE DECLARED LIST IS CHECKED AGAINST WHAT THE SURFACES ACTUALLY OPEN.**
+A dependency list reads as a guarantee, so a stale one is worse than none: it
+tells the reader everything is accounted for while the missing thing is the one
+not on it. A test parses the shipped surfaces for `data/...` paths and fails on
+any that is undeclared — **verified by adding one to a real surface and
+watching the check fail**, then restoring it. A list-checker that cannot flag
+an omission proves nothing by finding none, which is A26's sine wave applied to
+a manifest.
+
+**AND ONE ARTEFACT MUST NEVER BE REBUILT, WHICH THE REPORT SAYS IN DIFFERENT
+WORDS.** `data/signals/emitted.csv.gz` is tracked in git and has to be: it is
+the append-only forward record, the only out-of-sample evidence this project
+will ever have, and **a prediction re-derived after its outcome is known is not
+a prediction.** If it is missing, the instruction is `git checkout`, never a
+rebuild — regenerating it would overwrite the record rather than restore it. A
+test asserts the report distinguishes those two cases in words, not just in a
+flag.
+
+**The one thing that genuinely cannot be rebuilt is named rather than omitted.**
+`broker_daily` needs a host in `data.broker_allowed_hosts`, which ships EMPTY
+and is the user's call after checking its licensing (A5). Gate 0 no longer
+depends on it. A bootstrap that quietly leaves out the one gap it cannot close
+is the more misleading design.
+
+**The lesson.** A41 through A45 are five findings of one kind: the research was
+audited to four decimal places and the machinery around it had never been read
+end to end. The scoring basis was wrong, the daily surface recorded nothing,
+three lists had no ranking, the repo's own prohibitions were broken in fourteen
+places, and the whole thing could not be restarted. **None of that is visible
+in a null, a half-split or a Bonferroni bar — and all of it is visible the
+first time you try to actually use the thing.**
+
+---
+
 ---
 
 # STANDING INSTRUCTION — the deliverable is a signal with three levels
