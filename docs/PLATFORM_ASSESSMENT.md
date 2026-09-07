@@ -159,7 +159,8 @@ every probe, so **every 403 below is destination-side, not egress policy.**
 | Google News / CNBC ID / Kontan / Detik RSS | **200** | RSS | live only | continuous | medium | free | none | **no point-in-time archive** |
 | Bisnis.com, idnfinancials | **403** | — | — | — | — | — | — | — |
 | Wayback CDX | **200** | JSON | archive-dependent | — | medium | free | none | — |
-| Yahoo fundamentals | **probe in flight** | — | — | — | — | — | — | see §F stage 3 |
+| Yahoo fundamentals (`quoteSummary`) | **429**, sustained | — | — | — | — | free | none | **DATA UNAVAILABLE from this IP.** Tried: `requests` through the agent proxy (429 on every retry with backoff), `yfinance` and `curl_cffi` (SSLError then connection reset — `curl_cffi` cannot use the proxy, and defeating a TLS fingerprint check is out of bounds per A5 regardless). The chart endpoint on the same host answers 200, so this is endpoint-level rate limiting, not a network block. Would change it: a licensed fundamentals feed, or a filing source with report dates |
+| `listed_shares` per bar (delisted-recovery dataset) | **200**, 1,078,040 rows | CSV | share count, 958 names, 2019-07-29 → 2025-02-21 | daily | high | free | personal-research ruling on file | **the one fundamental-shaped series that IS available** — see H57 |
 | PyPI | **200**, direct (in `NO_PROXY`) | — | — | — | — | free | none | installs persist across resumes; `requirements.txt` lists only 4 of 85 packages |
 
 ---
@@ -215,7 +216,7 @@ those tables are decoration.
 | **regime** | a *descriptive* label with an honest cluster count | a validated regime count — GMM/k-means must return k | A10: HDBSCAN found **zero** clusters where GMM forced to k returned partitions decaying to chance by k=5. Pair any k-method with one that can say "none" |
 | **technical** | cross-sectional ranks, calibrated touch probabilities | tradeable timing | H13: all 8 features significant, **all net-negative after cost**; the predicted-null `squeeze` fired at t=+3.55 — on 2m rows significance is free |
 | **broker** | crossing ratio (a stable firm attribute) | returns | H9 IC −0.0190; H11 best p 0.119 vs a 0.0018 bar; H12 powered null, bar missed by 33–55× |
-| **fundamental** | **untested** | nothing yet — blocked on filing dates | A25 named it the honest next instrument |
+| **fundamental** | **point-in-time market cap, 2019-2025 only** | earnings, book value, debt — no filing-date source is reachable | H57: 43% of names change their share count, up to **41×**, so a frozen count is severe look-ahead and A25's refusal was right. With a real cap ruler, H52's tier collapse **reproduces** (+0.0358 → +0.0185 against turnover's +0.0184) — the size conclusion is not an artefact of its proxy. But the collapse is **ten times larger in the early half**, and the statistic is gross |
 | **narrative** | live tagging today; **point-in-time volume if GDELT scales** | back-tested narrative alpha until the archive is collected | A12: quarantined by an AST test |
 | **multibagger** | base rates by horizon and cell | which name, with any confidence | H23: P(2x) 9.5%/27.0%/55.5% at 1/3/10y. Effective n **56** whole-panel, ~6 per decile, 30 distinct names ever in the top decile |
 | **ensemble** | — | — | H27: eleven collinear price features over one macro history — "the interaction space is empty" |
@@ -264,7 +265,7 @@ could kill a branch goes first.
 | 0 | **Fix `Cache.write` to merge on `ts`** | it is destroying data now | none | — | a test that a refresh preserves out-of-window bars | 1 h |
 | 1 | **Signal→outcome store (§38)** | costs nothing, compounds daily, and is the only thing that ever produces out-of-sample evidence now the holdout is spent | none | needs months to pay | schema + a test that every emitted signal is logged | 1 d |
 | 2 | **§39 metric completion + DuckDB** | pure plumbing, 13–28× faster, no migration | none | — | numbers must match the existing ones | 1 d |
-| 3 | **Fundamental point-in-time probe** | one question kills or opens §15, §22–28, §33 at once: *are filing dates available?* If no, six engines are unbuildable and we stop pretending otherwise | Yahoo or a filing source carries report dates | if absent, the branch dies here | reconstruct one known restatement | 1 d |
+| 3 | ~~**Fundamental point-in-time probe**~~ **DONE — and the answer is no.** Yahoo `quoteSummary` returns 429 from this IP on every retry; `yfinance`/`curl_cffi` cannot use the proxy and defeating a fingerprint check is out of bounds anyway. **§15, §22–28 and §33 stay unbuildable and this is now recorded rather than pending.** What the probe DID find is `listed_shares` **per bar** in the delisted-recovery dataset — the one point-in-time fundamental-shaped series available free — which unblocked market cap and re-tested H52 as **H57** | — | 5.6-year span only; no filing dates, so no earnings, book value or debt | H57's C0 positive control | done |
 | 4 | **FRED + BPS keys, ALFRED vintages** | same shape: one question decides whether §5–§6 can be backtested | vintages retrievable | revised-only series ⇒ macro stays descriptive | reproduce a known revision | 1 d, needs **user to register two free keys** |
 | 5 | **Regime engine (§7)** paired with a method that can return "no clusters" | cheap on existing data | regimes exist | A10 warns they may not | HDBSCAN alongside GMM; report if k=0 | 2 d |
 | 6 | **Sector rotation (§8)** | sector map already on disk, never used | frozen 2024-07-10 map is adequate | misses 41 post-July-2024 listings | permutation null on sector ranks | 2 d |

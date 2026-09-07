@@ -3269,3 +3269,96 @@ caught it before the output was read, which is what a regression test is for.
 overlaps) beyond H56's 6. Trials after H56b: 347.** Bonferroni bar 0.00014. The
 target is adopted on a COST curve reaching zero, not on a positive result, and
 nothing here is claimed against the bar.
+
+---
+
+## H57 — a point-in-time share count, and whether H52's "size effect" was its ruler
+
+**2026-09-07.** `scripts/shares_pit.py`, `reports/shares_pit.md`.
+Registered in the module docstring before any cell was scored.
+
+**WHAT WAS BLOCKED AND IS NOW NOT.** A25 records market capitalisation as
+unusable in this repo: the only share-count source found was frozen at
+2024-07-10, and applying a 2024 count to a 2010 bar is look-ahead — Indonesian
+rights issues are exactly what makes it wrong. So every study that needed SIZE
+proxied it with trailing turnover, H52 included.
+
+The delisted-recovery dataset (A2/0b, `scripts/delisted_collect.py`) carries
+`listed_shares` **per bar**. Measured: **405 of 949 names (43%) change their
+count**, ratios up to **41×** — PANI 410,000,000 → 16,883,595,500, PYFA 21×,
+BBKP 16× across 26 distinct values. A frozen count would misprice PANI's 2019
+capitalisation by a factor of forty. Window 2019-07-29 → 2025-02-21, the
+dataset's own span: **1,078,040 rows, 958 names**, covering **100% of eligible
+panel bars in that window**. Outside it there is still no point-in-time count,
+so this adds a column and replaces nothing.
+
+**P1 — CONFIRMED.** Spearman(turnover rank, cap rank) = **+0.650** within date,
+below the registered 0.7 but the disagreement is systematic as predicted:
+median |rank gap| 0.137, p90 0.414, and the names most misranked by turnover
+are large and thinly traded — **MYOR, CMRY, BYAN, BNGA, POLL, BELI, TBIG,
+GEMS**. 32 names are cap-top-20% and turnover-bottom-half.
+
+**C0 — THE POSITIVE CONTROL, AND IT FAILED ON THE FIRST STATISTIC.** P2 asks
+whether H52's tier collapse is a property of its RULER. That is only answerable
+if the turnover ruler — H52's own — reproduces H52's own collapse on whatever
+statistic is used. On the **arithmetic mean** of the 60-session forward return
+it does not: the ladder is hump-shaped, −0.0046 at `all`, +0.0092 at top 100,
++0.0024 at top 40. A market-cap arm differing from that would have said nothing
+about market cap. On the **mean log** it is there and monotone:
+
+| tier | n | screen | rest | edge | null | sd | z |
+|---|---|---|---|---|---|---|---|
+| all | 42,432 | +0.0312 | +0.0058 | **+0.0253** | −0.0001 | 0.0101 | +2.50 |
+| top 150 | 35,600 | +0.0245 | +0.0027 | +0.0217 | −0.0003 | 0.0101 | +2.19 |
+| top 100 | 29,708 | +0.0262 | +0.0043 | +0.0219 | −0.0004 | 0.0105 | +2.12 |
+| top 60 | 22,649 | +0.0293 | +0.0090 | +0.0203 | +0.0000 | 0.0121 | +1.67 |
+| top 40 | 18,901 | +0.0302 | +0.0139 | **+0.0164** | −0.0003 | 0.0140 | +1.19 |
+
+A36 records the arithmetic mean and the mean log disagreeing in SIGN on this
+repo's data. Here they disagree about whether an effect **exists at all**. The
+mean log is the arm P2 is scored on because it is the quantity H52 measured — a
+compounded portfolio — not because it is the arm that passed. Full panel
+2000-07-13 → 2026-09-04, 690,591 eligible bars, 741 names, H52's own tiers and
+H26's own screen, verbatim.
+
+**P2 — CONFIRMED, AND THE ANSWER IS "THE RULER DOES NOT MATTER".** Row-matched
+on an identical frame:
+
+| ruler | all | top 150 | top 100 | top 60 | top 40 |
+|---|---|---|---|---|---|
+| turnover (C1) | +0.0358 | +0.0250 | +0.0248 | +0.0207 | **+0.0184** |
+| point-in-time market cap | +0.0358 | +0.0307 | +0.0169 | +0.0161 | **+0.0185** |
+
+**H52's size conclusion is not an artefact of its proxy.** The predicted null
+held.
+
+**BUT THE COLLAPSE IS AN EARLY-HALF PHENOMENON, AND THE HALF-SPLIT IS WHY THAT
+IS SAYABLE.** Fall from `all` to `top 40`:
+
+| ruler | early | late |
+|---|---|---|
+| turnover | **+0.0292** | **+0.0029** |
+| market cap | **+0.0278** | **+0.0038** |
+
+Same sign in both halves and a factor of **ten** apart in size. A boolean
+"does it decline" returns True four times and hides that entirely — A33's
+lesson, so the code prints the magnitude. The two rulers also agree only to
+within **0.0199**, which is **68% of the largest fall being measured**.
+
+**P3 — NEITHER CONFIRMED NOR OVERTURNED.** Where the rulers disagree most,
+market cap marks a cell turnover misses: **cap ≫ turnover (thin big) carries
+edge +0.0460 at z +2.14** against a clustered null, larger than the pooled
++0.0358. The mirror cell (busy small) reads +0.0562 at z **+0.85** — a null sd
+of 0.0633 on 1,422 rows, i.e. unreadable. +2.14 is nowhere near the 0.00014 bar
+and the cell was chosen after seeing P1, so it is a **lead**.
+
+**WHAT THIS DOES NOT ESTABLISH, AND IT IS THE load-bearing paragraph.** A
+per-bar **gross** mean log is not a costed, quarterly-rebalanced,
+turnover-charged portfolio CAGR. This study reproduces the **shape** of H52's
+result and says nothing about its **level**: H52 reported +12.9% → +0.7%/yr, a
+95% collapse; this reproduces a ~35% one. So it answers the ruler question and
+does not independently establish the effect the two rulers agree about.
+
+**Trial count: 3 registered (P1–P3) plus 2 controls (C0, C1) that gate rather
+than claim = 3. Trials after H57: 350.** Bonferroni bar 0.00014. Nothing here
+is claimed against it; P2 is a replication check on an existing conclusion.
