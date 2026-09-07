@@ -428,3 +428,30 @@ def test_the_buffer_is_the_middle_of_its_family_not_the_argmax():
     src = open(rules.__file__).read()
     assert "WAS `KEEP_HI, KEEP_VOL = 0.80, 0.60`" in src, (
         "the superseded constant must stay visible as a retraction (A19)")
+
+
+def test_no_other_module_redeclares_the_shipped_constants():
+    """A26: 'the only thing worse than an unvalidated constant is two copies of
+    it that stop matching.'
+
+    `scripts/stoptest.py` held its own `KEEP_HI, KEEP_VOL = 0.80, 0.60`. When
+    H62 moved the buffer to 0.70 the copy did not move, so every stop and
+    take-profit figure the rule card quotes had been measured on a rule that is
+    no longer shipped — and nothing failed. The constants have ONE home and
+    everything else imports them.
+    """
+    import glob
+    import re
+    root = os.path.join(os.path.dirname(__file__), os.pardir)
+    home = os.path.abspath(rules.__file__)
+    bad = []
+    for f in sorted(glob.glob(os.path.join(root, "scripts", "*.py"))):
+        if os.path.abspath(f) == home:
+            continue
+        for i, ln in enumerate(open(f, errors="replace").read().splitlines()):
+            if re.match(r"^(KEEP_HI|KEEP_VOL|STOP|TP|TP_FRAC)\s*(,|=)", ln):
+                bad.append(f"{os.path.basename(f)}:{i + 1}  {ln.strip()}")
+    assert not bad, (
+        "these redeclare a shipped constant instead of importing it from "
+        "rules.py, so they will silently measure a rule that is no longer "
+        "shipped:\n  " + "\n  ".join(bad))

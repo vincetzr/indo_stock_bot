@@ -32,8 +32,12 @@ from idxbot.data.intraday import (                    # noqa: E402
     session_frame,
 )
 
-TARGET = 0.05
-STOP = 0.03
+#  PREFIXED, because a bare `STOP` in this repo means the shipped swing card's
+#  20% stop and this is an INTRADAY study with a 3% one. Two different things
+#  under one name is how a guard against duplicated constants ends up with an
+#  exemption list, and an exemption list is where a guard goes to die.
+INTRADAY_TARGET = 0.05
+INTRADAY_STOP = 0.03
 COST = 0.004
 
 
@@ -94,8 +98,8 @@ def main() -> int:
             continue
 
         entry = float(session["open"].iloc[0])
-        outcome = resolve_path(session, entry, entry * (1 + TARGET),
-                               entry * (1 - STOP))
+        outcome = resolve_path(session, entry, entry * (1 + INTRADAY_TARGET),
+                               entry * (1 - INTRADAY_STOP))
         rows.append({
             "ticker": candidate.ticker,
             "signal_date": pd.Timestamp(candidate.date).date(),
@@ -133,7 +137,7 @@ def main() -> int:
             print(f" target first      : {hit_target} of {hit_target + hit_stop} "
                   f"target/stop races ({share:.0%})")
             print()
-            print(" The daily-bar analysis assumed the STOP always won that race,")
+            print(" The daily-bar analysis assumed the stop always won that race,")
             print(" giving -0.56%/trade. The optimistic assumption gave +0.52%.")
             print(" This is the measured answer - on this sample.")
 

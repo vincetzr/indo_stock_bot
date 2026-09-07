@@ -66,10 +66,15 @@ sys.path.insert(0, os.path.dirname(__file__))
 from bhbench import IDX_YIELD, INDEX, MIN_BASKET, MIN_UNIV, load   # noqa: E402
 from paint_suite import tick_of                                    # noqa: E402
 
-ENTRY_HI, ENTRY_VOL = 0.90, 0.50
-KEEP_HI, KEEP_VOL = 0.80, 0.60
-K = 10
-FEE = 0.0056
+#  IMPORTED, NOT RE-DECLARED, AND THAT WAS A LIVE BUG FOR ONE DAY.
+#  This file held its own `KEEP_HI, KEEP_VOL = 0.80, 0.60` -- a SECOND COPY of
+#  the shipped constant. When H62 moved the buffer to 0.70/0.60 the copy did
+#  not move, so every stop and take-profit number the rule card and
+#  `today.py` quote was measured on a rule that is no longer shipped, and
+#  nothing failed. A26's drift guard exists for exactly this: "the only thing
+#  worse than an unvalidated constant is two copies of it that stop matching."
+from rules import (ENTRY_HI, ENTRY_VOL, FEE, K,                    # noqa: E402
+                   KEEP_HI, KEEP_VOL)
 SPREAD_MULT = 0.5
 FREQ = 63
 
