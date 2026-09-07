@@ -45,6 +45,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import subprocess
 from typing import Dict, List, Optional, Sequence
 
@@ -57,13 +58,14 @@ OUTCOMES = os.path.join(STORE_DIR, "outcomes.csv.gz")
 
 EMIT_COLUMNS = [
     "signal_id", "asof", "emitted_at", "ticker", "rule", "rule_version",
-    "code_version", "direction", "entry", "sl", "tp", "horizon_days",
-    "features",
+    "code_version", "direction", "entry", "sl", "tp", "tp_frac",
+    "horizon_days", "features",
 ]
 OUTCOME_COLUMNS = [
     "signal_id", "asof", "ticker", "rule", "horizon_days", "scored_at",
     "bars_seen", "settled", "exit_reason", "exit_date", "exit_px",
     "ret", "ret_net", "mfe", "mae", "hit_tp", "hit_sl", "last_px",
+    "adj_factor",
 ]
 
 
@@ -136,7 +138,8 @@ def emit(rows: Sequence[Dict], rule: str, rule_version: str,
             continue
         have.add(sid)
         feats = {k: v for k, v in r.items()
-                 if k not in ("ticker", "entry", "sl", "tp", "direction")}
+                 if k not in ("ticker", "entry", "sl", "tp", "tp_frac",
+                              "direction")}
         out.append({
             "signal_id": sid,
             "asof": pd.Timestamp(asof).normalize(),
@@ -149,6 +152,9 @@ def emit(rows: Sequence[Dict], rule: str, rule_version: str,
             "entry": float(r["entry"]),
             "sl": float(r["sl"]) if r.get("sl") is not None else np.nan,
             "tp": float(r["tp"]) if r.get("tp") is not None else np.nan,
+            #  1.0 = the target is a full exit. Below 1.0 it is a SCALE-OUT and
+            #  the remainder runs on, which is what `rules.py` actually ships.
+            "tp_frac": float(r.get("tp_frac", 1.0)),
             "horizon_days": int(horizon_days),
             #  Sorted keys so the same features serialise identically and a
             #  diff of two days' logs is readable.
@@ -163,6 +169,36 @@ def emit(rows: Sequence[Dict], rule: str, rule_version: str,
     os.replace(tmp, EMITTED)
     return {"written": len(new), "skipped": skipped,
             "total": len(allrows), "code_version": cv}
+
+
+def _tp_frac(s) -> float:
+    """The scale-out fraction for one recorded signal.
+
+    RECOVERED FROM `rule_version` WHEN THE COLUMN IS ABSENT, RATHER THAN
+    ASSUMED. `tp_frac` was added after signals had already been logged, and
+    defaulting those rows to 1.0 would score them as full exits — a different
+    rule from the one that produced them. But the information was never
+    actually lost: `rule_version` carries `...tp1.0x0.5`, which IS the
+    fraction. Reading it back is a recovery, not a rewrite of an append-only
+    store, and it is what lets the earliest rows stay in the record instead of
+    being silently reinterpreted.
+    """
+    v = s.get("tp_frac", np.nan)
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        f = float("nan")
+    if np.isfinite(f) and 0.0 < f <= 1.0:
+        return f
+    m = re.search(r"tp[0-9.]+x([0-9.]+)", str(s.get("rule_version", "")))
+    if m:
+        try:
+            f = float(m.group(1))
+            if 0.0 < f <= 1.0:
+                return f
+        except ValueError:
+            pass
+    return 1.0
 
 
 def score(panel: pd.DataFrame, cost: float = 0.0056,
@@ -187,6 +223,24 @@ def score(panel: pd.DataFrame, cost: float = 0.0056,
     P = panel[["ticker", "date", "adj_close", "close"]].copy()
     P = P.sort_values(["ticker", "date"])
     by = {tk: g for tk, g in P.groupby("ticker", sort=False)}
+    #  THE ADJUSTMENT FACTOR AT THE DECISION BAR IS WHAT MAKES THIS SCOREABLE
+    #  AT ALL, AND ITS ABSENCE WAS THE WORST BUG IN THIS REPO'S FORWARD RECORD.
+    #  `entry`, `sl` and `tp` are RAW prices — they have to be, they are the
+    #  numbers you give a broker. The forward path is `adj_close`, which is
+    #  BACK-adjusted: it anchors to the newest bar, so every dividend or split
+    #  after emission divides the whole history before it, including the
+    #  emission bar. Comparing a forward `adj_close` to a raw recorded `entry`
+    #  therefore drifts further wrong with every corporate action.
+    #
+    #  Measured on BBCA: a signal that actually returned **+1.09%** scored as
+    #  **-13.71%** — a 14.8-point error, from accumulated dividends alone. A
+    #  split would print a fake near-total loss. And on the day of emission the
+    #  two bases AGREE, so nothing looks wrong until months later. 59% of panel
+    #  bars already differ by more than 0.1%.
+    #
+    #  The fix is to carry the recorded raw levels onto the panel's CURRENT
+    #  adjusted basis with the factor at `asof`. Both sides then move together
+    #  whenever the panel is rebuilt, so the recorded return is stable.
 
     rows: List[Dict] = []
     for _, s in em.iterrows():
@@ -215,9 +269,28 @@ def score(panel: pd.DataFrame, cost: float = 0.0056,
             rec["exit_reason"] = "bad entry"
             rows.append(rec)
             continue
-        rel = px / entry - 1.0
-        sl = float(s["sl"]) if np.isfinite(s["sl"]) else None
-        tp = float(s["tp"]) if np.isfinite(s["tp"]) else None
+        #  factor = adj_close / close ON THE DECISION BAR, from today's panel.
+        at = g[g["date"] == s["asof"]]
+        if at.empty:
+            #  No bar on the decision date (a halt, or a name the panel does
+            #  not carry that day). Fall back to the nearest EARLIER bar rather
+            #  than to 1.0: assuming no adjustment is the bug, not the default.
+            at = g[g["date"] <= s["asof"]].tail(1)
+        if at.empty or not np.isfinite(float(at["close"].iloc[0])) \
+                or float(at["close"].iloc[0]) <= 0:
+            rec["exit_reason"] = "no basis bar"
+            rows.append(rec)
+            continue
+        f = float(at["adj_close"].iloc[0]) / float(at["close"].iloc[0])
+        if not np.isfinite(f) or f <= 0:
+            rec["exit_reason"] = "bad adjustment factor"
+            rows.append(rec)
+            continue
+        rec["adj_factor"] = f
+        entry_adj = entry * f
+        rel = px / entry_adj - 1.0
+        sl = float(s["sl"]) * f if np.isfinite(s["sl"]) else None
+        tp = float(s["tp"]) * f if np.isfinite(s["tp"]) else None
 
         #  Exit on the CLOSE that breaches, not at the level (A27): a bar
         #  breaching -20% often closes lower, and on IDX it can gap to
@@ -232,13 +305,36 @@ def score(panel: pd.DataFrame, cost: float = 0.0056,
             i, reason = len(px) - 1, "horizon"
         settled = reason in ("sl", "tp") or len(fwd) >= h
 
+        #  A SCALE-OUT IS NOT AN EXIT, AND SCORING IT AS ONE MEASURES A RULE
+        #  NOBODY IS TRADING. `rules.py` ships TP_FRAC = 0.5: sell half at the
+        #  target and let the rest run to the stop or the horizon. Treating the
+        #  target as a full exit caps the winner in the record while the live
+        #  book does not, which is the exact asymmetry H56b priced at 8.77%
+        #  CAGR against 10.24%. `tp_frac` defaults to 1.0 so a signal emitted
+        #  without one still scores as the full exit it was.
+        frac = _tp_frac(s)
+        if reason == "tp" and frac < 1.0:
+            #  half realised at the target, the remainder carried on to
+            #  whichever of the stop or the horizon comes first
+            tail = rel[i + 1:]
+            if sl is not None and len(tail) and (px[i + 1:] <= sl).any():
+                j = i + 1 + int(np.argmax(px[i + 1:] <= sl))
+                reason, k = "tp_then_sl", j
+            else:
+                reason, k = "tp_then_horizon", len(px) - 1
+            gross = frac * rel[i] + (1.0 - frac) * rel[k]
+            settled = (reason == "tp_then_sl") or len(fwd) >= h
+            i = k
+        else:
+            gross = rel[i]
+
         rec.update({
             "bars_seen": int(len(fwd)), "settled": bool(settled),
             "exit_reason": reason,
             "exit_date": pd.Timestamp(dts[i]),
             "exit_px": float(px[i]),
-            "ret": float(rel[i]),
-            "ret_net": float(rel[i] - cost),
+            "ret": float(gross),
+            "ret_net": float(gross - cost),
             #  MFE/MAE over the bars actually seen, so they are meaningful on an
             #  unsettled signal too.
             "mfe": float(np.max(rel)), "mae": float(np.min(rel)),

@@ -57,6 +57,8 @@ def todays_rows(P: pd.DataFrame):
             "entry": float(r["close"]),
             "sl": float(r["close"]) * (1.0 - rules.STOP),
             "tp": float(r["close"]) * (1.0 + rules.TP),
+            #  the shipped rule sells HALF at the target (H56b)
+            "tp_frac": float(rules.TP_FRAC),
             #  Everything below is the knowable state at `asof`, so an outcome
             #  can be attributed rather than merely counted.
             "hi52": float(r["hi52"]), "vol60": float(r["vol60"]),

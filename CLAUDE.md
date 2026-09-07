@@ -2962,6 +2962,62 @@ has a base rate, and they are all negative.
 
 ---
 
+## A41. The forward record was silently wrong, and it is the only out-of-sample evidence this project will ever have
+
+A40 closed the roadmap. What it did not do was check the one mechanism the
+standing instruction actually depends on. Every number in this repo is
+in-sample — the holdout was spent at H16 — so `src/idxbot/signal_store.py` is
+the sole route to out-of-sample evidence about ENTRY, SL and TP. It had two
+defects, both of which would have taken months to become visible.
+
+**THE ENTRY WAS A RAW PRICE AND THE FORWARD PATH WAS AN ADJUSTED ONE.**
+`entry`, `sl` and `tp` are recorded RAW — they have to be, they are the numbers
+you give a broker. The forward path is `adj_close`, which is BACK-adjusted and
+anchors to the newest bar, so **every dividend or split after emission divides
+the whole history before it, including the emission bar.** Comparing a forward
+`adj_close` to a raw recorded `entry` therefore drifts further wrong with every
+corporate action.
+
+Measured on BBCA: a signal that actually returned **+1.09%** scored as
+**−13.71%** — a 14.8-point error from accumulated dividends alone. A split
+would print a fake near-total loss, and the stop would fire on the ex-date
+rather than on a fall, closing every position in the book. **59% of panel bars
+already differ between the two bases by more than 0.1%.**
+
+**AND ON THE DAY OF EMISSION THE TWO BASES AGREE**, which is why nothing looked
+wrong. A record that is correct when you check it and wrong a quarter later is
+the worst shape a defect can take, because the checking happens at emission and
+the damage accrues afterwards. The fix carries the recorded raw levels onto the
+panel's current adjusted basis with the factor at `asof`, so both sides move
+together whenever the panel is rebuilt. A missing decision bar is refused
+rather than defaulted to a factor of 1.0 — **assuming no adjustment is the bug,
+not the safe default.**
+
+**AND THE SCALE-OUT WAS SCORED AS A FULL EXIT, i.e. A RULE NOBODY IS TRADING.**
+`rules.py` ships `TP_FRAC = 0.5`: sell half at the target, let the rest run.
+The store treated the target as a full exit, capping the winner in the record
+while the live book does not — the exact asymmetry H56b priced at 8.77% CAGR
+against 10.24%. `tp_frac` is now recorded, and the outcome carries
+`tp_then_horizon` / `tp_then_sl` rather than collapsing both into `tp`.
+
+**THE ROWS ALREADY ON DISK WERE RECOVERED, NOT REWRITTEN.** `tp_frac` was added
+after ten signals had been logged, and defaulting those to 1.0 would have
+reinterpreted them as a different rule. But the information was never lost:
+`rule_version` carries `...tp1.0x0.5`, which IS the fraction. Reading it back
+is a recovery and leaves the append-only store intact. **A field added late is
+not automatically a field that was missing** — check whether it was recorded
+somewhere else first.
+
+**The general lesson, and it is new here.** This repo has spent forty
+appendices getting *measurements* right. The forward record is not a
+measurement, it is a LEDGER, and a ledger has a different failure mode: it is
+verified once at write time and read years later, so a basis error between the
+two is invisible for exactly as long as it takes to matter. Anything written
+now and scored later needs a test that plants the event which will eventually
+occur — here, a split — rather than a test that the arithmetic is right today.
+
+---
+
 ---
 
 # STANDING INSTRUCTION — the deliverable is a signal with three levels

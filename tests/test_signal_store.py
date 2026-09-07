@@ -154,3 +154,157 @@ def test_the_summary_prints_power_before_it_concludes_anything():
 
 def test_an_empty_store_says_so_rather_than_printing_a_rate():
     assert "EMPTY" in ss.summary()
+
+
+# ===================================================== THE ADJUSTMENT BASIS ==
+#
+# THE WORST BUG THIS REPO'S FORWARD RECORD HAS HAD, and the one that would have
+# been invisible for months. `entry`, `sl` and `tp` are RAW prices — they have
+# to be, they are the numbers you give a broker. The forward path is
+# `adj_close`, which is BACK-adjusted and anchors to the newest bar, so every
+# dividend or split after emission divides the whole history before it,
+# INCLUDING the emission bar. Comparing a forward `adj_close` to a raw recorded
+# `entry` therefore drifts further wrong with every corporate action — and on
+# the day of emission the two bases agree, so nothing looks wrong at first.
+
+def _panel_with_split(n=120, split_at=60, factor=5.0):
+    """A name that splits 1:`factor` at `split_at`, back-adjusted like Yahoo."""
+    dates = pd.bdate_range("2020-01-01", periods=n)
+    raw = np.full(n, 1000.0)
+    raw[split_at:] = 1000.0 / factor        # the traded price halves/fifths
+    adj = np.full(n, 1000.0 / factor)       # back-adjusted: anchored at the end
+    return pd.DataFrame({"ticker": "AAAA", "date": dates,
+                         "close": raw, "adj_close": adj})
+
+
+def test_a_split_after_emission_does_not_print_a_fake_loss():
+    """Without the factor this scored -80% on a name that did not move."""
+    P = _panel_with_split()
+    asof = P["date"].iloc[10]
+    ss.emit([{"ticker": "AAAA", "entry": 1000.0, "sl": 800.0, "tp": 2000.0}],
+            "r", "v1", asof, 60)
+    out = ss.score(P)
+    r = out.iloc[0]
+    assert r["adj_factor"] == pytest.approx(0.2)
+    assert abs(float(r["ret"])) < 1e-6, (
+        f"a flat name across a 1:5 split recorded {float(r['ret']):+.2%} — the "
+        f"raw entry is being compared to an adjusted forward price")
+
+
+def test_the_stop_is_carried_onto_the_adjusted_basis_too():
+    """A raw stop tested against adjusted prices fires on the split, not on a
+    fall — which would close every position in the book on an ex-date."""
+    P = _panel_with_split()
+    asof = P["date"].iloc[10]
+    ss.emit([{"ticker": "AAAA", "entry": 1000.0, "sl": 800.0, "tp": 2000.0}],
+            "r", "v1", asof, 60)
+    out = ss.score(P)
+    assert not bool(out.iloc[0]["hit_sl"]), (
+        "the stop fired on a corporate action rather than on a price fall")
+
+
+def test_a_real_fall_still_hits_the_stop_on_an_adjusted_series():
+    """The control for the two tests above: the stop must still WORK."""
+    P = _panel_with_split()
+    #  inside the 60-bar horizon that starts at index 10
+    P.loc[P.index[40:], ["close", "adj_close"]] = [100.0, 100.0]
+    asof = P["date"].iloc[10]
+    ss.emit([{"ticker": "AAAA", "entry": 1000.0, "sl": 800.0, "tp": 2000.0}],
+            "r", "v1", asof, 60)
+    out = ss.score(P)
+    assert bool(out.iloc[0]["hit_sl"])
+    assert out.iloc[0]["exit_reason"] == "sl"
+
+
+def test_a_missing_decision_bar_is_refused_rather_than_assumed_unadjusted():
+    """Falling back to a factor of 1.0 is the bug, not the safe default."""
+    src = open(os.path.join(os.path.dirname(__file__), os.pardir, "src",
+                            "idxbot", "signal_store.py")).read()
+    assert "no basis bar" in src
+    assert "assuming no adjustment is the bug" in src
+
+
+# ========================================================== THE SCALE-OUT ==
+
+def _flat_then_double(n=120, up_at=40):
+    dates = pd.bdate_range("2020-01-01", periods=n)
+    px = np.full(n, 1000.0)
+    px[up_at:] = 2100.0
+    return pd.DataFrame({"ticker": "AAAA", "date": dates,
+                         "close": px, "adj_close": px})
+
+
+def test_a_scale_out_is_not_scored_as_a_full_exit():
+    """`rules.py` ships TP_FRAC = 0.5. Treating the target as a full exit caps
+    the winner in the record while the live book runs on — the exact asymmetry
+    H56b priced at 8.77% CAGR against 10.24%."""
+    P = _flat_then_double()
+    P.loc[P.index[80:], ["close", "adj_close"]] = [3000.0, 3000.0]
+    asof = P["date"].iloc[10]
+    ss.emit([{"ticker": "AAAA", "entry": 1000.0, "sl": 800.0, "tp": 2000.0,
+              "tp_frac": 0.5}], "r", "v1", asof, 100)
+    out = ss.score(P, cost=0.0)
+    r = out.iloc[0]
+    assert r["exit_reason"] == "tp_then_horizon"
+    #  half at +110% (the bar that breached 2000 closed at 2100), half at +200%
+    assert float(r["ret"]) == pytest.approx(0.5 * 1.10 + 0.5 * 2.00, abs=0.01)
+
+
+def test_a_scale_out_whose_remainder_stops_out_is_recorded_as_such():
+    P = _flat_then_double()
+    P.loc[P.index[80:], ["close", "adj_close"]] = [500.0, 500.0]
+    asof = P["date"].iloc[10]
+    ss.emit([{"ticker": "AAAA", "entry": 1000.0, "sl": 800.0, "tp": 2000.0,
+              "tp_frac": 0.5}], "r", "v1", asof, 100)
+    out = ss.score(P, cost=0.0)
+    r = out.iloc[0]
+    assert r["exit_reason"] == "tp_then_sl"
+    assert float(r["ret"]) == pytest.approx(0.5 * 1.10 + 0.5 * -0.50, abs=0.01)
+
+
+def test_a_signal_without_a_frac_still_scores_as_a_full_exit():
+    """Backward compatibility: rows emitted before `tp_frac` existed must not
+    change meaning when the column arrives."""
+    P = _flat_then_double()
+    asof = P["date"].iloc[10]
+    ss.emit([{"ticker": "AAAA", "entry": 1000.0, "sl": 800.0, "tp": 2000.0}],
+            "r", "v1", asof, 100)
+    out = ss.score(P, cost=0.0)
+    assert out.iloc[0]["exit_reason"] == "tp"
+    assert float(out.iloc[0]["ret"]) == pytest.approx(1.10, abs=0.01)
+
+
+def test_the_shipped_logger_records_the_scale_out_fraction():
+    """`rules.py` and the log must agree, or the record measures a rule nobody
+    is trading."""
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir,
+                                    "scripts"))
+    import rules                                              # noqa: PLC0415
+    src = open(os.path.join(os.path.dirname(__file__), os.pardir, "scripts",
+                            "signal_log.py")).read()
+    assert '"tp_frac": float(rules.TP_FRAC)' in src
+    assert 0.0 < rules.TP_FRAC < 1.0
+
+
+def test_the_scale_out_fraction_is_recovered_from_the_rule_version():
+    """`tp_frac` was added after signals had been logged. Defaulting those rows
+    to 1.0 would score them as full exits — a different rule from the one that
+    produced them — but the information was never lost: `rule_version` carries
+    `...tp1.0x0.5`, which IS the fraction."""
+    assert ss._tp_frac({"rule_version": "hi0.9/0.8_vol0.5/0.6_k10_sl0.2_tp1.0x0.5",
+                        "tp_frac": np.nan}) == pytest.approx(0.5)
+    #  an explicit column wins over the string
+    assert ss._tp_frac({"rule_version": "tp1.0x0.5", "tp_frac": 0.25}) == 0.25
+    #  and an unparseable version falls back to a full exit, not to a guess
+    assert ss._tp_frac({"rule_version": "whatever", "tp_frac": np.nan}) == 1.0
+    assert ss._tp_frac({"rule_version": "tp1.0x9.0",
+                        "tp_frac": np.nan}) == 1.0
+
+
+def test_the_existing_log_rows_recover_their_fraction():
+    """The rows already on disk must not silently change meaning."""
+    em = ss.load_emitted()
+    if em.empty:
+        pytest.skip("no emitted signals on disk")
+    fr = [ss._tp_frac(r) for _i, r in em.iterrows()]
+    assert all(0.0 < f <= 1.0 for f in fr)
