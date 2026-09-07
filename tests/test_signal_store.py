@@ -476,3 +476,99 @@ def test_a_rule_name_does_not_carry_a_parameter_value():
         assert word not in signal_log.RULE, signal_log.RULE
     #  and the parameters ARE in the version
     assert "hi" in signal_log.RULE_VERSION and "sl" in signal_log.RULE_VERSION
+
+
+# ------------------------------------------------------- THE REVIEW CADENCE
+
+def _panel_days(n=200, start="2026-01-05"):
+    d = pd.bdate_range(start, periods=n)
+    return pd.DataFrame({"date": d, "ticker": "AAAA", "close": 100.0,
+                         "adj_close": 100.0})
+
+
+def test_a_quarterly_rule_is_not_logged_daily(monkeypatch, tmp_path):
+    """THE DEFECT THIS GUARD EXISTS FOR.
+
+    `refresh.py --signals` runs every weekday and `signal_log.py` had no
+    cadence guard, so a rule that decides once every 63 sessions recorded a
+    fresh basket every session. That inflates the store ~63x, which is untidy
+    — and then `summary()` pools 63 overlapping near-identical predictions per
+    quarter as though they were independent, which is the effective-n error
+    this repo has recorded from A15 through A18, committed in the one place
+    the numbers are supposed to become out-of-sample.
+
+    Worse, it records the WRONG RULE: daily re-entry is H56's S2 arm, measured
+    at 4.29% CAGR against the quarterly 13.46%.
+    """
+    import signal_log as SL
+    monkeypatch.setattr(ss, "STORE_DIR", str(tmp_path))
+    monkeypatch.setattr(ss, "EMITTED", str(tmp_path / "e.csv.gz"))
+    monkeypatch.setattr(ss, "OUTCOMES", str(tmp_path / "o.csv.gz"))
+    P = _panel_days()
+    days = sorted(P["date"].unique())
+
+    #  nothing emitted yet -> due
+    assert SL.sessions_since_last(P, days[10]) is None
+
+    ss.emit([{"ticker": "AAAA", "entry": 100.0, "sl": 80.0, "tp": 200.0}],
+            SL.RULE, SL.RULE_VERSION, days[10], SL.HORIZON_DAYS)
+    #  the next session is NOT a review
+    assert SL.sessions_since_last(P, days[11]) == 1
+    assert SL.sessions_since_last(P, days[11]) < SL.REVIEW_EVERY
+    #  ...and neither is anything short of the full cadence
+    assert SL.sessions_since_last(P, days[10 + SL.REVIEW_EVERY - 1]) \
+        == SL.REVIEW_EVERY - 1
+    #  the review session itself is
+    assert SL.sessions_since_last(P, days[10 + SL.REVIEW_EVERY]) \
+        >= SL.REVIEW_EVERY
+
+
+def test_the_cadence_is_counted_in_SESSIONS_not_calendar_days(monkeypatch,
+                                                              tmp_path):
+    """A18 records a scheduler that converted held sessions to calendar days
+    and silently skipped whole cohorts, hitting hardest exactly the
+    short-holding arms the study existed to compare."""
+    import signal_log as SL
+    monkeypatch.setattr(ss, "STORE_DIR", str(tmp_path))
+    monkeypatch.setattr(ss, "EMITTED", str(tmp_path / "e.csv.gz"))
+    monkeypatch.setattr(ss, "OUTCOMES", str(tmp_path / "o.csv.gz"))
+    P = _panel_days()
+    days = sorted(P["date"].unique())
+    ss.emit([{"ticker": "AAAA", "entry": 100.0, "sl": 80.0, "tp": 200.0}],
+            SL.RULE, SL.RULE_VERSION, days[0], SL.HORIZON_DAYS)
+    #  63 business days is 88 calendar days; the count must be 63, not 88.
+    later = days[63]
+    assert (later - days[0]).days > SL.REVIEW_EVERY
+    assert SL.sessions_since_last(P, later) == SL.REVIEW_EVERY
+
+
+def test_a_version_change_starts_a_new_review_clock(monkeypatch, tmp_path):
+    """A46: a parameter change is a NEW prediction. Inheriting the old rule's
+    clock would make the new version wait out the old one's quarter before it
+    could ever be recorded."""
+    import signal_log as SL
+    monkeypatch.setattr(ss, "STORE_DIR", str(tmp_path))
+    monkeypatch.setattr(ss, "EMITTED", str(tmp_path / "e.csv.gz"))
+    monkeypatch.setattr(ss, "OUTCOMES", str(tmp_path / "o.csv.gz"))
+    P = _panel_days()
+    days = sorted(P["date"].unique())
+    ss.emit([{"ticker": "AAAA", "entry": 100.0, "sl": 80.0, "tp": 200.0}],
+            SL.RULE, "OLD_VERSION", days[0], SL.HORIZON_DAYS)
+    #  the live version has never been emitted, so it is due immediately
+    assert SL.sessions_since_last(P, days[1]) is None
+
+
+def test_the_guard_explains_itself_rather_than_failing_silently():
+    """A log that records nothing looks exactly like a log with nothing to
+    record (A42). A skipped review must SAY it was skipped and why."""
+    src = open(os.path.join(os.path.dirname(__file__), os.pardir, "scripts",
+                            "signal_log.py")).read()
+    assert "NOT DUE" in src
+    assert "4.29%" in src and "13.46%" in src
+    assert "--force" in src
+
+
+def test_force_exists_so_a_review_can_be_taken_early():
+    import signal_log as SL
+    src = open(SL.__file__).read()
+    assert 'args.force or n is None' in src

@@ -21,6 +21,8 @@ import argparse
 import os
 import sys
 
+from typing import Optional
+
 import pandas as pd
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir, "src"))
@@ -48,6 +50,49 @@ RULE_VERSION = (f"hi{rules.ENTRY_HI}/{rules.KEEP_HI}"
 #  Fixed AT EMISSION, per A20: choosing the horizon after seeing the outcome is
 #  the purest form of the error that appendix records.
 HORIZON_DAYS = 252
+
+#  THE CARD IS A QUARTERLY RULE AND THIS SCRIPT RUNS DAILY.
+#  `refresh.py --signals` fires from the scheduled job every weekday, and this
+#  logger had no cadence guard at all -- so a rule that makes one decision
+#  every 63 sessions was recording a fresh basket every session. Two things
+#  follow, and the second is worse than the first.
+#
+#  It inflates the store ~63x, which is merely untidy. But `summary()` would
+#  then pool 63 overlapping near-identical predictions per quarter as though
+#  they were independent, which is the effective-n error this repo has recorded
+#  from A15's cohort bootstrap through A17's clustered null to A18's
+#  overlapping slots -- committed, this time, in the ONE place where the
+#  numbers are supposed to become out-of-sample.
+#
+#  And it would record THE WRONG RULE. Re-entering daily is not the card; it is
+#  H56's S2 arm, which the same result file measures at 4.29% CAGR against the
+#  quarterly 13.46%. The ledger would be scoring a rule the repo has measured
+#  as losing nine points a year while the card tells the reader to trade the
+#  other one.
+REVIEW_EVERY = 63
+
+
+def sessions_since_last(P: pd.DataFrame, asof) -> Optional[int]:
+    """Trading sessions between this rule's last emission and `asof`.
+
+    `None` when nothing has been emitted for this (rule, version) yet. The
+    VERSION is part of the key deliberately: A46 established that a parameter
+    change is a NEW prediction, so its review clock starts at the change rather
+    than inheriting the old rule's. Counted in SESSIONS off the panel, not in
+    calendar days -- A18 records a scheduler that converted held sessions to
+    calendar days and silently skipped whole cohorts.
+    """
+    em = ss.load_emitted()
+    if em.empty:
+        return None
+    mine = em[(em["rule"] == RULE) & (em["rule_version"] == RULE_VERSION)]
+    if mine.empty:
+        return None
+    last_emit = pd.Timestamp(mine["asof"].max())
+    days = pd.Index(sorted(P["date"].unique()))
+    a = int(days.searchsorted(last_emit, side="left"))
+    b = int(days.searchsorted(pd.Timestamp(asof), side="left"))
+    return max(b - a, 0)
 
 
 def todays_rows(P: pd.DataFrame):
@@ -79,17 +124,40 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--emit", action="store_true")
     ap.add_argument("--score", action="store_true")
+    ap.add_argument("--force", action="store_true",
+                    help="emit even when the review is not due")
     args = ap.parse_args()
     do_all = not (args.emit or args.score)
 
     P = load()
     if args.emit or do_all:
         asof, rows = todays_rows(P)
-        res = ss.emit(rows, RULE, RULE_VERSION, asof, HORIZON_DAYS)
+        n = sessions_since_last(P, asof)
+        due = args.force or n is None or n >= REVIEW_EVERY
         print(f"EMIT  asof {pd.Timestamp(asof).date()}  rule {RULE}")
         print(f"      version {RULE_VERSION}")
-        print(f"      written {res['written']}, skipped {res.get('skipped', 0)}"
-              f", total {res.get('total', '?')}")
+        if not due:
+            #  NOT AN ERROR AND NOT A SKIPPED DUPLICATE. The rule genuinely
+            #  has no decision to make today, and saying so is the difference
+            #  between a log with nothing in it and a log that records the
+            #  rule it claims to.
+            print(f"      NOT DUE: {n} of {REVIEW_EVERY} sessions since the "
+                  f"last review.")
+            print(f"      The card decides every {REVIEW_EVERY} sessions and "
+                  f"holds in between; logging")
+            print(f"      it daily would record H56's S2 arm (daily re-entry, "
+                  f"measured at")
+            print(f"      4.29% CAGR against the quarterly 13.46%) instead of "
+                  f"the shipped rule.")
+            print(f"      Hold the existing basket; `--force` overrides.")
+        else:
+            res = ss.emit(rows, RULE, RULE_VERSION, asof, HORIZON_DAYS)
+            why = ("first emission for this rule version"
+                   if n is None else f"{n} sessions since the last review")
+            print(f"      DUE ({why})")
+            print(f"      written {res['written']}, "
+                  f"skipped {res.get('skipped', 0)}"
+                  f", total {res.get('total', '?')}")
     if args.score or do_all:
         o = ss.score(P)
         print(f"\nSCORE {len(o):,} signals walked forward")

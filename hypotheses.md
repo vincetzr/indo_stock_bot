@@ -3785,3 +3785,39 @@ predates the field makes the card **say the benchmark is missing rather than
 borrow the stored one**, which would price it over a different run's window.
 
 Suite: **2,682 → 2,713 collected.**
+
+---
+
+## 2026-09-07 — The card was being logged daily, and it is a quarterly rule
+
+**NOT A HYPOTHESIS. Trial count: 0. Trials remain 366.**
+
+`scripts/signal_log.py` had no cadence guard. `refresh.py --signals` runs from
+the weekday Routine and the card decides every **63 sessions**, so a quarterly
+rule was recording a fresh ten-name basket every session — new `asof`, new
+`signal_id`, into the append-only store.
+
+**Two consequences, and the second is much worse than the first.** The store
+inflates ~63×, which is untidy. But `summary()` then pools **63 overlapping
+near-identical predictions per quarter as if independent** — A15/A17/A18's
+effective-n error, committed in the one place this project's numbers are
+supposed to become out-of-sample.
+
+**And it records the wrong rule.** Daily re-entry is H56's S2 arm, which
+`reports/stoptest.json` measures at **4.29% CAGR against the quarterly
+13.46%**. The forward record would have been scoring a rule measured as losing
+nine points a year while the card told the reader to trade the other one.
+
+**The fix.** `sessions_since_last()` counts trading sessions off the panel —
+never calendar days, per A18's cohort-skipping scheduler — between this
+**(rule, rule_version)**'s last emission and today. The version is in the key
+because A46 established that a parameter change is a new prediction, so its
+clock starts at the change rather than inheriting the dead rule's quarter. A
+review that is not due prints why, names the rule it would otherwise have
+recorded, and points at `--force`.
+
+**Checked and NOT the same defect:** `daily_signal.py` logs daily and should —
+the bracket scan is a daily rule and A42 wired it to record the rows shown.
+Same schedule, different cadence, one of them wrong.
+
+Suite: 2,713 → 2,718 collected.

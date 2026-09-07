@@ -3393,6 +3393,57 @@ names them.
 
 ---
 
+## A48. A quarterly rule was being logged daily, into the one record that matters
+
+A47 finished the surfaces. This is about what the scheduled job was writing
+into the forward record — the only route to out-of-sample evidence this project
+will ever have, since the holdout was spent at H16.
+
+**`scripts/signal_log.py` HAD NO CADENCE GUARD AT ALL.** `refresh.py --signals`
+fires from the weekday Routine, and the card is a **63-session** rule. So a
+rule that makes one decision a quarter was recording a fresh ten-name basket
+every session, with a new `asof` and therefore a new `signal_id` each time.
+
+**The tidiness problem is the small half.** The store inflates ~63×. The real
+one is that `summary()` would then pool **63 overlapping near-identical
+predictions per quarter as though they were independent** — the effective-n
+error this repo has recorded from A15's cohort bootstrap through A17's
+clustered null to A18's twelve overlapping slots, committed this time in the
+one place the numbers are supposed to stop being in-sample.
+
+**AND IT WOULD HAVE RECORDED THE WRONG RULE.** Re-entering daily is not the
+card; it is H56's **S2 arm**, which the same result file the card now reads
+measures at **4.29% CAGR against the quarterly 13.46%**. The ledger would have
+been scoring a rule this repo has measured as losing nine points a year, while
+the card told the reader to trade the other one — and every number in it would
+have looked perfectly well-formed.
+
+**THE VERSION IS PART OF THE REVIEW KEY, WHICH MATTERS BECAUSE OF A46.** A
+parameter change is a new prediction, so its review clock starts at the change
+rather than inheriting the old rule's — otherwise a newly-shipped version waits
+out the dead one's quarter before it can be recorded at all. And the cadence is
+counted in **SESSIONS off the panel, never calendar days**: A18 records a
+scheduler that converted held sessions to calendar days and silently skipped
+whole cohorts, hitting hardest the exact arms the study existed to compare.
+
+**A skipped review SAYS it was skipped, and why.** A42's finding was that a log
+recording nothing looks exactly like a log with nothing to record. The output
+names the sessions elapsed, the cadence, the rule it would otherwise have
+recorded, and `--force` for taking a review early.
+
+**One thing checked and found NOT to be the same defect.** `daily_signal.py`
+logs daily and should: the bracket scan IS a daily rule, and A42 wired it to
+record the rows SHOWN. Same schedule, different cadence, and only one of them
+was wrong.
+
+**The lesson.** A41 through A47 fixed how the record SCORES, what reaches it,
+which of three lists to believe, and whether the printed costs are real. None
+of that helps if the thing being recorded is not the rule being traded. **A
+ledger can be correct in every mechanism and still record the wrong
+experiment.**
+
+---
+
 ---
 
 # STANDING INSTRUCTION — the deliverable is a signal with three levels
