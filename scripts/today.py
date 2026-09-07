@@ -148,9 +148,20 @@ def card_measured() -> Tuple[Dict, str]:
                       + ". Re-run scripts/stoptest.py; using stored values.")
     if not (base and ship):
         return CARD, "stoptest.json has no BASE/SHIPPED arm; using stored values"
-    out = dict(CARD)
-    out.update({"cagr": float(ship["cagr"]), "cagr_none": float(base["cagr"]),
-                "maxdd": float(ship["maxdd"]), "maxdd_none": float(base["maxdd"])})
+    #  THE FIELD NAMES ARE THE FILE'S, NOT ONES I ASSUMED. A first version read
+    #  `cagr` and `maxdd`; the writer emits `cagr_med` and `dd`, and the
+    #  KeyError was the GOOD outcome -- a silently wrong value would have been
+    #  the bad one. A schema mismatch now falls back with an explanation, like
+    #  every other unreadable case here.
+    try:
+        out = dict(CARD)
+        out.update({"cagr": float(ship["cagr_med"]),
+                    "cagr_none": float(base["cagr_med"]),
+                    "maxdd": float(ship["dd"]),
+                    "maxdd_none": float(base["dd"])})
+    except (KeyError, TypeError, ValueError) as exc:
+        return CARD, (f"stoptest.json arms do not carry the expected fields "
+                      f"({exc}); using stored values")
     return out, "measured on the live rule (reports/stoptest.json)"
 
 
@@ -204,9 +215,16 @@ def precedence() -> List[str]:
     L.append("")
     L.append("  AND WHAT THE CARD IS NOT:")
     if not CARD["cagr_both_halves"]:
-        L.append(f"    its CAGR edge ({CARD['cagr']:.2%} against "
-                 f"{CARD['cagr_none']:.2%} with no stop or target) is NOT "
-                 f"claimed —")
+        #  THE WORD FOLLOWS THE SIGN. This read "its CAGR edge" after the
+        #  effect turned negative -- H62 moved the buffer and the levels went
+        #  from a +0.76-point gain to a -0.49-point cost, and the prose did not
+        #  follow. Deriving the noun is the only version that survives the next
+        #  re-measurement.
+        gap = CARD["cagr"] - CARD["cagr_none"]
+        noun = "edge" if gap > 0 else "cost"
+        L.append(f"    its CAGR {noun} ({CARD['cagr']:.2%} against "
+                 f"{CARD['cagr_none']:.2%} with no stop or target, "
+                 f"{gap:+.2%}) is NOT claimed —")
         L.append("    worse in the early half, better in the late one, which "
                  "is regime noise (A18).")
         L.append(f"    What IS claimed is the drawdown: "

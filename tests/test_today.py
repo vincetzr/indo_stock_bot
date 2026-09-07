@@ -206,10 +206,10 @@ def test_a_result_file_from_a_different_rule_is_refused(tmp_path, monkeypatch):
     p.write_text(json.dumps({
         "rule": {"ENTRY_HI": rules.ENTRY_HI, "ENTRY_VOL": rules.ENTRY_VOL,
                  "KEEP_HI": rules.KEEP_HI + 0.10, "KEEP_VOL": rules.KEEP_VOL},
-        "arms": [{"arm": "BASE: quarterly keep-band only", "cagr": 0.99,
-                  "maxdd": -0.10},
+        "arms": [{"arm": "BASE: quarterly keep-band only",
+                  "cagr_med": 0.99, "dd": -0.10},
                  {"arm": "SHIPPED: stop 20% + sell HALF at +100%",
-                  "cagr": 0.99, "maxdd": -0.10}]}))
+                  "cagr_med": 0.99, "dd": -0.10}]}))
     monkeypatch.setattr(today, "STOPTEST", str(p))
     m, why = today.card_measured()
     assert "DIFFERENT rule" in why
@@ -223,10 +223,10 @@ def test_a_matching_result_file_is_adopted(tmp_path, monkeypatch):
     p.write_text(json.dumps({
         "rule": {"ENTRY_HI": rules.ENTRY_HI, "ENTRY_VOL": rules.ENTRY_VOL,
                  "KEEP_HI": rules.KEEP_HI, "KEEP_VOL": rules.KEEP_VOL},
-        "arms": [{"arm": "BASE: quarterly keep-band only", "cagr": 0.11,
-                  "maxdd": -0.40},
+        "arms": [{"arm": "BASE: quarterly keep-band only",
+                  "cagr_med": 0.11, "dd": -0.40},
                  {"arm": "SHIPPED: stop 20% + sell HALF at +100%",
-                  "cagr": 0.13, "maxdd": -0.38}]}))
+                  "cagr_med": 0.13, "dd": -0.38}]}))
     monkeypatch.setattr(today, "STOPTEST", str(p))
     m, why = today.card_measured()
     assert "measured on the live rule" in why
@@ -255,7 +255,7 @@ def test_an_unstamped_result_file_is_refused_not_crashed_on(tmp_path,
     import json
     p = tmp_path / "stoptest.json"
     p.write_text(json.dumps([{"arm": "BASE: quarterly keep-band only",
-                              "cagr": 0.99}]))
+                              "cagr_med": 0.99}]))
     monkeypatch.setattr(today, "STOPTEST", str(p))
     m, why = today.card_measured()
     assert "no rule stamp" in why
@@ -269,3 +269,35 @@ def test_an_empty_rule_stamp_is_refused(tmp_path, monkeypatch):
     monkeypatch.setattr(today, "STOPTEST", str(p))
     _m, why = today.card_measured()
     assert "empty rule stamp" in why
+
+
+def test_a_schema_mismatch_falls_back_rather_than_raising(tmp_path,
+                                                           monkeypatch):
+    """A first reader assumed `cagr`/`maxdd`; the writer emits `cagr_med`/`dd`.
+    The KeyError was the GOOD outcome -- a silently wrong value would have been
+    the bad one -- but a shipped surface must report, not crash."""
+    import json
+    import rules
+    p = tmp_path / "stoptest.json"
+    p.write_text(json.dumps({
+        "rule": {"ENTRY_HI": rules.ENTRY_HI, "ENTRY_VOL": rules.ENTRY_VOL,
+                 "KEEP_HI": rules.KEEP_HI, "KEEP_VOL": rules.KEEP_VOL},
+        "arms": [{"arm": "BASE: quarterly keep-band only", "wrong": 1},
+                 {"arm": "SHIPPED: stop 20% + sell HALF at +100%",
+                  "wrong": 1}]}))
+    monkeypatch.setattr(today, "STOPTEST", str(p))
+    m, why = today.card_measured()
+    assert "expected fields" in why
+    assert m["cagr"] == today.CARD["cagr"]
+
+
+def test_the_cagr_noun_follows_the_sign(monkeypatch):
+    """It read "its CAGR edge" after the effect turned negative: H62 moved the
+    buffer, the levels went from a +0.76-point gain to a -0.49-point cost, and
+    the prose did not follow. Deriving the noun is the only version that
+    survives the next re-measurement."""
+    monkeypatch.setitem(CARD, "cagr", 0.10)
+    monkeypatch.setitem(CARD, "cagr_none", 0.12)
+    assert "CAGR cost" in "\n".join(precedence())
+    monkeypatch.setitem(CARD, "cagr", 0.14)
+    assert "CAGR edge" in "\n".join(precedence())
