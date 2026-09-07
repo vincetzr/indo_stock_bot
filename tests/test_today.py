@@ -237,7 +237,12 @@ def test_a_matching_result_file_is_adopted(tmp_path, monkeypatch):
 def test_a_missing_result_file_falls_back_and_says_so(tmp_path, monkeypatch):
     monkeypatch.setattr(today, "STOPTEST", str(tmp_path / "nope.json"))
     m, why = today.card_measured()
-    assert "unavailable" in why and "stored values" in why
+    #  THE ASSERTION IS ON THE PROPERTY, NOT ON A PHRASE. The wording now
+    #  lives in `idxbot.measured` because `rules.py` needed the same reader
+    #  and two readers of one file drift; what this surface owes the reader is
+    #  that it falls back AND says the figures are not current, however that
+    #  sentence is worded.
+    assert "unavailable" in why and "last known-good" in why
     assert m["cagr"] == today.CARD["cagr"]
 
 
@@ -287,7 +292,7 @@ def test_a_schema_mismatch_falls_back_rather_than_raising(tmp_path,
                   "wrong": 1}]}))
     monkeypatch.setattr(today, "STOPTEST", str(p))
     m, why = today.card_measured()
-    assert "expected fields" in why
+    assert "cagr_med" in why and "last known-good" in why
     assert m["cagr"] == today.CARD["cagr"]
 
 

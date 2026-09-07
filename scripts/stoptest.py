@@ -377,6 +377,13 @@ def main() -> None:
         json.dump({"rule": {"ENTRY_HI": ENTRY_HI, "ENTRY_VOL": ENTRY_VOL,
                             "KEEP_HI": KEEP_HI, "KEEP_VOL": KEEP_VOL,
                             "K": K, "FEE": FEE, "FREQ": FREQ},
+                   #  THE BENCHMARK TRAVELS WITH THE ARMS. A19's error class is
+                   #  the missing comparison and its sibling is the comparison
+                   #  priced over a different window; the only span these arms
+                   #  were measured over is this one, so the index figure a
+                   #  reader quotes beside them has to come from here.
+                   "span": [str(a), str(b)],
+                   "index_cagr": float(index_cagr(a, b)),
                    "arms": rows}, f, indent=1, default=str)
     say(f"\nwrote {args.out}")
 

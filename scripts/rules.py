@@ -141,6 +141,8 @@ from beathold import Sticky                                       # noqa: E402
 from bhbench import MIN_TV, load                                  # noqa: E402
 from paint_suite import tick_of                                   # noqa: E402
 
+from idxbot import measured                                       # noqa: E402
+
 ENTRY_HI, ENTRY_VOL = 0.90, 0.50      # to BUY: top 10% on hi52, calmest half
 #  H62. WAS `KEEP_HI, KEEP_VOL = 0.80, 0.60` -- H54's "tight buffer" arm, which
 #  was the ARGMAX of a three-point sweep at ONE rebalance phase. A39 already
@@ -233,7 +235,7 @@ def main() -> None:
     #  today's close; for names already held, pass --held and use your own fill.
     d["stop_px"] = d["close"] * (1.0 - STOP)
     d["tp_px"] = d["close"] * (1.0 + TP)
-    print(f"{'ticker':<7}{'ENTRY':>9}{'SL -20%':>10}{'TP +100%':>11}"
+    print(f"{'ticker':<7}{'ENTRY':>9}{f'SL {-STOP:.0%}':>10}{f'TP {TP:+.0%}':>11}"
           f"{'band exit':>11}{'room':>7}{'vol60':>8}{'vol room':>10}"
           f"{'cost r/t':>10}{'Rp bn/d':>9}")
     print("-" * 92)
@@ -286,21 +288,59 @@ def main() -> None:
     print(f"  ENTRY      today's close. Buy line: hi52 >= {hi_entry:.4f} AND "
           f"vol60 <= {vol_entry:.4f}.")
     print("             Equal weight, %.0f%% each." % (100.0 / max(len(d), 1)))
+    #  --------------------------------------- THE FOURTH COLUMN, READ NOT TYPED
+    #  The standing instruction's fourth column is "the measured cost of each
+    #  level", and until now every figure below was a LITERAL in a format
+    #  string. H62 moved KEEP_HI and `stoptest.py` held its own copy that did
+    #  not move, so the card went on describing a rule nobody ships and nothing
+    #  failed -- a number copied out of a study has no link back to the study.
+    #  `measured.load()` is that link: it refuses the file when its rule stamp
+    #  disagrees with the constants above and says which one moved.
+    m = measured.load()
+    base = m.get(measured.BASE_ARM)
+    base_dd = m.get(measured.BASE_ARM, measured.F_DD)
+    base_worst = m.get(measured.BASE_ARM, measured.F_WORST)
+    stop_arm = measured.STOP_ARMS[STOP]
+    stops = measured.family(m, measured.STOP_ARMS)
+    tp_costs = measured.family_costs(m, measured.TP_ARMS)
+    half_cost = -m.cost(measured.HALF_ARM)
+    ship_gap = m.cost(measured.SHIPPED_ARM)
+
     print()
-    print("  SL  -20%   RESTING ORDER from your own fill, live every session.")
+    print(f"  SL {-STOP:>5.0%}   RESTING ORDER from your own fill, live every "
+          f"session.")
     print("             MEASURED on the SHIPPED buffer: portfolio drawdown")
-    print("             -40.2% -> -33.8%, worst single name -84% -> -41%,")
-    print("             at a cost of 0.70 points of CAGR (13.46% -> 12.76%).")
-    print("             The whole family -10% to -30% lands between 11.00%")
-    print("             and 12.79%, so -20% is the MIDDLE, not the argmax.")
+    print(f"             {base_dd:.1%} -> {m.get(stop_arm, measured.F_DD):.1%}, "
+          f"worst single name {base_worst:.0%} -> "
+          f"{m.get(stop_arm, measured.F_WORST):.0%},")
+    print(f"             at a {measured.noun(m.cost(stop_arm))} of "
+          f"{abs(m.cost(stop_arm)) * 100:.2f} points of CAGR "
+          f"({base:.2%} -> {m.get(stop_arm):.2%}).")
+    if stops:
+        #  Levels are stored positive and quoted negative, so the SMALLEST
+        #  level is the tightest stop and belongs first.
+        print(f"             The whole family {-min(stops):.0%} to "
+              f"{-max(stops):.0%} lands between {min(stops.values()):.2%}")
+        print(f"             and {max(stops.values()):.2%}, so "
+              f"{-measured.middle(stops):.0%} is the MIDDLE, not the argmax.")
     print()
-    print("  TP +100%   SELL HALF, let the rest run. RESTING ORDER.")
-    print("             MEASURED: a target's cost is monotone in how tight it")
-    print("             is -- +20% costs 6.84 points of CAGR a year, +30%")
-    print("             costs 5.17, +50% costs 3.78, +75% costs 2.73, and")
-    print("             +100% costs 1.49. Selling only HALF there costs 0.28")
-    print("             -- the cheapest target on a monotone curve. It measured")
-    print("             +0.01 (free) on the PRE-H62 buffer; that is withdrawn.")
+    print(f"  TP {TP:>+5.0%}   SELL {TP_FRAC:.0%}, let the rest run. RESTING "
+          f"ORDER.")
+    if tp_costs:
+        #  S3's predicted null: the cost RISES as the target TIGHTENS. Levels
+        #  ascend here, so that claim is "costs are non-increasing" -- and it
+        #  is CHECKED, because a claim about a shape can be.
+        shape = ("monotone" if measured.is_monotone(tp_costs.values())
+                 else "NOT monotone")
+        print(f"             MEASURED: a target's cost is {shape} in how tight")
+        print("             it is --")
+        for lvl, c in tp_costs.items():
+            print(f"                 {lvl:>+5.0%} costs {c * 100:>5.2f} points "
+                  f"of CAGR a year")
+        print(f"             Selling only {TP_FRAC:.0%} at {TP:+.0%} costs "
+              f"{half_cost * 100:.2f} -- the cheapest")
+        print("             target on that curve. It measured +0.01 (free) on")
+        print("             the PRE-H62 buffer; that is withdrawn.")
     print("             A TIGHTER TARGET IS YOURS TO SET -- the price of each")
     print("             is in the line above.")
     print()
@@ -308,23 +348,40 @@ def main() -> None:
     print("             only. The threshold is a percentile of the board, so")
     print("             it moves -- a name can be sold without falling a")
     print("             rupiah if the board rallies past it, if its 60-day")
-    print("             vol rises past the calmest-60% line ('vol room' is the")
+    print(f"             vol rises past the calmest-{KEEP_VOL:.0%} line "
+          f"('vol room' is the")
     print("             headroom), or if it leaves the universe.")
     print("             MEASURED: checking this line DAILY is a disaster --")
-    print("             CAGR 13.46% -> 4.29%, because it then sells on the")
+    print(f"             CAGR {base:.2%} -> {m.get(measured.DAILY_ARM):.2%}, "
+          f"because it then sells on the")
     print("             board's noise rather than the name's decline.")
     print()
-    print("  TOGETHER   12.97%/yr against 13.46% with none -- the levels now")
-    print("             COST 0.49 points -- drawdown -31.9% against -40.2%,")
-    print("             worst single name -41% against -84%, over 2000-2026")
-    print("             on 6 rebalance calendars. IHSG total return over the")
-    print("             same span: 6.81%.")
+    #  THE NOUN COMES FROM THE SIGN. The pre-H62 table showed these levels
+    #  GAINING 0.76 points; prose that says "edge" where the number says "cost"
+    #  is the drift this whole block exists to end.
+    print(f"  TOGETHER   {m.get(measured.SHIPPED_ARM):.2%}/yr against "
+          f"{base:.2%} with none -- the levels now")
+    print(f"             {measured.noun(ship_gap).upper()} "
+          f"{abs(ship_gap) * 100:.2f} points -- drawdown "
+          f"{m.get(measured.SHIPPED_ARM, measured.F_DD):.1%} against "
+          f"{base_dd:.1%},")
+    print(f"             worst single name "
+          f"{m.get(measured.SHIPPED_ARM, measured.F_WORST):.0%} against "
+          f"{base_worst:.0%}, on 6 rebalance")
+    if m.index_cagr is not None:
+        print(f"             calendars. IHSG total return over the same span: "
+              f"{m.index_cagr:.2%}.")
+    else:
+        print("             calendars. The IHSG over that exact span is not in")
+        print("             the result file, so it is not quoted here -- see")
+        print("             `python scripts/stoptest.py` for the paired figure.")
     print("             THE SIGN OF THE RETURN EFFECT FLIPPED when H62 moved")
     print("             the buffer: the pre-H62 table showed a 0.76-point")
     print("             GAIN. It was never claimed then and is not claimed")
     print("             now -- worse early, better late, A18's regime noise.")
     print("             The DRAWDOWN is the whole case for these levels.")
     print("             IN-SAMPLE: the holdout was spent at H16.")
+    print(f"             SOURCE: {m.provenance}.")
     print()
     print("  THE SEARCH  H58 computed the deflated Sharpe this repo's §11 has")
     print("             demanded since day one, and it is the caveat that")

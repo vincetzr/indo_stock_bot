@@ -41,7 +41,10 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir, "src"))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import rules                                                    # noqa: E402
+from idxbot import measured                                     # noqa: E402
 from idxbot.report import brief as B                            # noqa: E402
 from idxbot.report import monitor as M                          # noqa: E402
 from idxbot.spine import exits as X                             # noqa: E402
@@ -237,6 +240,54 @@ def main() -> int:
                   f"{', '.join(tags[r['ticker']])}")
         print()
 
+    #  --------------------------------------------- THE FOURTH COLUMN
+    #  The standing instruction's contract is ENTRY, SL, TP *and the measured
+    #  cost of each level*, and it calls the fourth column the non-negotiable
+    #  one. A42 wired the shipped levels into this screen and left their cost
+    #  off it, so the monitor printed two levels with no measurement beside
+    #  them and 169 catalogue rules with one. It is read from the study, never
+    #  typed -- `measured.load()` refuses the file if it measured a different
+    #  rule than the one those levels came from.
+    mm = measured.load()
+    base = mm.get(measured.BASE_ARM)
+    ship = mm.get(measured.SHIPPED_ARM)
+    gap = mm.cost(measured.SHIPPED_ARM)
+    stop_arm = measured.STOP_ARMS.get(rules.STOP)
+    print(" WHAT THESE TWO LEVELS COST, measured on the rule that shipped them:")
+    if ship == ship and base == base:
+        print(f"   together   {ship:.2%}/yr against {base:.2%} with neither -- "
+              f"a {measured.noun(gap)} of")
+        print(f"              {abs(gap) * 100:.2f} points of CAGR -- for a "
+              f"drawdown of "
+              f"{mm.get(measured.SHIPPED_ARM, measured.F_DD):.1%} against "
+              f"{mm.get(measured.BASE_ARM, measured.F_DD):.1%}")
+        print(f"              and a worst single name of "
+              f"{mm.get(measured.SHIPPED_ARM, measured.F_WORST):.0%} against "
+              f"{mm.get(measured.BASE_ARM, measured.F_WORST):.0%}.")
+    if stop_arm and mm.get(stop_arm) == mm.get(stop_arm):
+        print(f"   SL {-rules.STOP:.0%} alone  "
+              f"{mm.get(stop_arm):.2%}/yr, drawdown "
+              f"{mm.get(stop_arm, measured.F_DD):.1%}. The DRAWDOWN is the "
+              f"whole case;")
+        print("              the return effect is worse early and better late, "
+              "which is")
+        print("              A18's regime noise, so it is not claimed in "
+              "either direction.")
+    #  THE SHAPE IS CHECKED, NOT TYPED, for the same reason the figures are.
+    #  S3's predicted null is that a target's cost is monotone in how tight it
+    #  is; `rules.py` verifies that before printing the word and so does this.
+    half = -mm.cost(measured.HALF_ARM)
+    tpc = measured.family_costs(mm, measured.TP_ARMS)
+    if half == half:
+        shape = ("monotone" if tpc and measured.is_monotone(tpc.values())
+                 else "NOT monotone")
+        print(f"   TP {rules.TP:+.0%}    selling {rules.TP_FRAC:.0%} costs "
+              f"{half * 100:.2f} points; a target's cost is {shape}")
+        print("              in how tight it is, so a tighter one costs more.")
+    else:
+        print(f"   TP {rules.TP:+.0%}    no scale-out arm in the result file, "
+              f"so its cost is not quoted")
+    print(f"   SOURCE: {mm.provenance}. IN-SAMPLE: holdout spent at H16.\n")
     print(" The SL and TP rows are the levels the rule actually shipped and")
     print(" the ones the append-only store will SCORE. Everything under them")
     print(" is a catalogue: A34 records 169 exit configurations tested across")

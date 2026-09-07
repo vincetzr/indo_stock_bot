@@ -3736,3 +3736,52 @@ list format) is **refused, not crashed on** — which was itself a bug, since
 
 **Trial count: 0. Nothing new was hypothesised — an existing table was
 re-measured on the rule that actually ships. Trials after H63: 366.**
+
+---
+
+## 2026-09-07 — The fourth column, read from the study instead of typed
+
+**NOT A HYPOTHESIS. Trial count: 0. Trials remain 366.**
+
+H63 made `stoptest.py` stamp the rule it ran. This is the other half — the
+surfaces that quote it — and it changes no number.
+
+**WHAT WAS WRONG.** `scripts/rules.py` printed the standing instruction's
+fourth column, "the measured cost of each level", as **eleven percentage
+literals inside format strings**. Correct on the day they were typed and true
+only while somebody remembered to retype them. `scripts/positions.py` printed
+the two shipped levels with **no measured cost beside them at all**, while
+showing 169 catalogue rules that had one. And `today.py` held a **second full
+copy** of the file reader that `rules.py` needed — two readers of one file
+drift the way two copies of one constant did, which is the bug three commits
+earlier.
+
+**WHAT WAS DONE.** `src/idxbot/measured.py` is the single reader. It refuses
+the result file when it is missing, unstamped, stamped for a **different rule**
+(naming the constant that moved), or missing the fields it should carry, and
+returns the last known-good values **with a provenance line the caller prints**.
+`family()`, `family_costs()`, `is_monotone()` and `middle()` compute the stop
+family, the take-profit curve, S3's monotonicity claim and H56's middle-of-the-
+family rule rather than asserting them.
+
+**THE RESULT IS THAT NOTHING MOVED, AND THAT IS THE CHECK.** Every computed
+figure reproduces the typed one exactly — 13.46%, 12.76%, 6.84 / 5.17 / 3.77 /
+2.73 / 1.49, 0.28, 4.29%, 12.97%, −31.9%, −84% → −41%. **No correction is
+claimed.** Reproducing the hand figures is how you know the reader found the
+right arms; a rewrite that moved one would have needed explaining first.
+
+**AND THE NARRATIVE ABOVE THE CODE IS CHECKED TOO.** `rules.py`'s docstring
+carries three tables of the same run, sixteen rows. A docstring cannot be
+computed, so a test parses it and compares every row to the file. A19 records
+`brief.news_caveat()` being corrected while the docstring above it went on
+asserting the refuted claim; computing the output and leaving the narrative
+typed would have rebuilt that bug deliberately.
+
+**And the benchmark is now checkable.** The card's IHSG figure over the arms'
+own span was a literal the writer never persisted, so a reader could not verify
+it. `stoptest.py` now writes `span` and `index_cagr`, and the re-run reproduces
+the typed value: **+6.81% over 2007-10-26 → 2026-09-04**. A fresh file that
+predates the field makes the card **say the benchmark is missing rather than
+borrow the stored one**, which would price it over a different run's window.
+
+Suite: **2,682 → 2,713 collected.**

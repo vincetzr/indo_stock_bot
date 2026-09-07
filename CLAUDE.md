@@ -3303,6 +3303,82 @@ permanent and visible; that is what makes the rest of it worth anything.**
 
 ---
 
+## A47. Eleven typed figures, one surface with none at all, and a second reader
+
+A46 moved the buffer and H63 found `stoptest.py` holding its own copy of the
+constant that did not move. The fix there was to make the result file STAMP the
+rule it ran. This is the other half: the surfaces that quote that file.
+
+**THE FOURTH COLUMN WAS TYPED, WHICH IS THE ONE THE CONTRACT CALLS
+NON-NEGOTIABLE.** The standing instruction requires ENTRY, SL, TP *and the
+measured cost of each level*. `scripts/rules.py` printed that cost as **eleven
+percentage literals inside format strings** — the drawdown the stop buys, the
+CAGR it costs, the five-point take-profit curve, the daily-band disaster, the
+combined line. Every one was correct on the day it was typed and true only for
+as long as somebody remembered to retype it. Nobody did after H62, and nothing
+failed, because **a number copied out of a study has no link back to the
+study**.
+
+**AND THE LINK WAS ABOUT TO EXIST TWICE.** `today.py` already read the file —
+load, stamp check, drift report, schema fallback, about forty lines. `rules.py`
+needed the same thing. Two readers of one file drift exactly the way two copies
+of one constant did, which is the bug three commits earlier.
+`src/idxbot/measured.py` is the single reader; `today.py`'s copy is deleted and
+a test asserts it does not come back.
+
+**WHAT THE WIRING MEASURED IS THAT NOTHING CHANGED, AND THAT IS THE CHECK.**
+Every computed figure reproduces the typed one exactly — 13.46%, 12.76%, 6.84,
+5.17, 3.77, 2.73, 1.49, 0.28, 4.29%, 12.97%, −31.9%. No correction was made and
+none is claimed. Reproducing the hand figures is how you know the reader found
+the right arms; a rewrite that *moved* a number would have needed explaining
+before it could be believed.
+
+**THREE THINGS THE REFUSALS COVER, EACH ONE A CASE THAT HAS OCCURRED HERE.**
+The file is missing; the file is a bare list of arms with no rule stamp (the
+old format — and `except` around the load did not cover `.get` on a list); the
+file is stamped for a different rule, in which case the refusal **names the
+constant that moved**. In every case the caller gets the last known-good values
+*and a provenance line saying so*, which it prints. **A stale number the reader
+is told about is a different object from a stale number presented as current**,
+and that is the only thing separating a fallback from the literals it replaces.
+
+**`positions.py` PRINTED THE TWO SHIPPED LEVELS WITH NO COST BESIDE THEM AT
+ALL.** A42 wired the SL and TP into the monitor above the catalogue, and left
+the fourth column off — so the screen showed **169 catalogue rules with a
+measurement and the two live levels without one**, which is the omission A42
+was written to fix, one layer in. It now prints what the pair cost together,
+what the stop costs alone, and what the scale-out costs.
+
+**THE PROSE ABOVE THE CODE IS CHECKED NOW TOO.** `rules.py`'s docstring carries
+three narrative tables of the same run — sixteen rows. They cannot be computed,
+so a test parses them and compares each row to the file. A19 records
+`brief.news_caveat()` being corrected while the docstring above it went on
+asserting the refuted claim, and A44 found fourteen more of the same shape.
+**Computing the output and leaving the narrative typed would have rebuilt that
+bug on purpose.**
+
+**AND THE BENCHMARK NOW TRAVELS WITH THE ARMS.** The card quoted the IHSG over
+the arms' span from a literal; the writer did not persist it, so the reader
+could not check it. `stoptest.py` now writes `span` and `index_cagr` into the
+same file, and the re-run confirms the typed figure: **+6.81% over
+2007-10-26 → 2026-09-04**. A19's error class is the missing comparison, and its
+sibling is a comparison priced over a window you cannot verify — so the reader
+handles the two cases DIFFERENTLY. An unreadable file yields the stored
+benchmark with everything else, labelled. A **fresh** file that predates the
+field yields `None` and the card **says the benchmark is not in the file rather
+than borrowing one measured over a different run's window.**
+
+**The lesson, and it is A44's with the sign reversed.** A44 found the repo's own
+prohibitions broken in fourteen places and concluded that a rule in a brief is a
+wish while the same rule in a test is a rule. This is the constructive form:
+the contract's fourth column is now enforced by
+`test_the_fourth_column_is_read_from_the_study_not_typed`, which requires the
+figures to arrive through `measured` rather than requiring the word "measured"
+to appear. **A guard that checks for a word can be satisfied by typing the
+word.**
+
+---
+
 ---
 
 # STANDING INSTRUCTION — the deliverable is a signal with three levels

@@ -41,20 +41,34 @@ SURFACES = ("scripts/today.py", "scripts/rules.py", "scripts/daily_signal.py",
             "src/idxbot/signal_store.py")
 
 
+#: The directories a shipped surface can depend on. `reports/` was NOT here and
+#: the omission cost exactly what this file exists to prevent: `stoptest.json`
+#: became a dependency of three surfaces and the checker could not see it,
+#: because it only ever looked under `data/`. A list-checker that scans one
+#: directory is a list-checker for one directory, and the manifest it guards
+#: reads as a guarantee about all of them.
+ROOTS = ("data", "reports")
+
+#: Modules a surface imports for its data, which the surface itself never
+#: names. `measured.py` opens the result file on behalf of three of them.
+INDIRECT = ("src/idxbot/measured.py",)
+
+
 def _referenced() -> set:
-    """Concrete `data/...` FILE paths the surfaces open."""
+    """Concrete FILE paths under `ROOTS` that the surfaces open."""
     out = set()
-    for rel in SURFACES:
+    for rel in SURFACES + INDIRECT:
         p = os.path.join(ROOT, rel)
         if not os.path.exists(p):
             continue
         s = open(p).read()
-        for m in re.finditer(
-                r'os\.path\.join\(\s*"data"\s*,\s*"([^"]+)"\s*'
-                r'(?:,\s*"([^"]+)"\s*)?\)', s):
-            out.add("data/" + "/".join(x for x in m.groups() if x))
-        for m in re.finditer(r'"(data/[^"]+)"', s):
-            out.add(m.group(1))
+        for root in ROOTS:
+            for m in re.finditer(
+                    r'os\.path\.join\(\s*"%s"\s*,\s*"([^"]+)"\s*'
+                    r'(?:,\s*"([^"]+)"\s*)?\)' % root, s):
+                out.add(root + "/" + "/".join(x for x in m.groups() if x))
+            for m in re.finditer(r'"(%s/[^"]+)"' % root, s):
+                out.add(m.group(1))
     #  directories are not artefacts; only files can be missing in the sense
     #  this list is about
     return {p for p in out if os.path.splitext(p)[1]}
@@ -84,6 +98,30 @@ def test_the_guard_fires_on_an_undeclared_dependency(tmp_path, monkeypatch):
         found.add(m.group(1))
     assert found - {a[0] for a in bootstrap.ARTEFACTS} == {
         "data/spine/nonexistent_thing.parquet"}
+
+
+def test_the_scanner_reaches_beyond_data():
+    """THE OMISSION THIS WIDENING WAS FOR, PINNED.
+
+    `reports/stoptest.json` became a dependency of three shipped surfaces —
+    it carries the standing instruction's fourth column — and the scanner
+    could not see it, because it only ever looked under `data/`. If this
+    returns nothing, the widening has been undone and the manifest is once
+    again a guarantee about one directory dressed as a guarantee about all of
+    them.
+    """
+    seen = {p for p in _referenced() if not p.startswith("data/")}
+    assert seen, "the scanner only sees data/ again"
+    assert "reports/stoptest.json" in seen
+
+
+def test_a_dependency_reached_through_a_helper_is_still_seen():
+    """`measured.py` opens the result file on behalf of `rules.py`,
+    `today.py` and `positions.py`, none of which names the path. A scanner
+    that reads only the surfaces would call it undeclared-but-invisible —
+    which is indistinguishable from absent."""
+    assert any("measured" in m for m in INDIRECT)
+    assert "reports/stoptest.json" in _referenced()
 
 
 def test_nothing_declared_is_a_directory():

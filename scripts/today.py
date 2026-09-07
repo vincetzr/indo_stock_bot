@@ -53,6 +53,7 @@ import pandas as pd
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir, "src"))
 sys.path.insert(0, os.path.dirname(__file__))
 
+from idxbot import measured                                      # noqa: E402
 from idxbot import signal_store as ss                            # noqa: E402
 from idxbot.cone import BRACKET_VS_HOLD, MIN_RR                  # noqa: E402
 
@@ -114,55 +115,31 @@ def card_measured() -> Tuple[Dict, str]:
     rather than shown them. That check is the whole point: H62 changed the
     buffer and every hardcoded figure went on printing, because a number copied
     out of a study has no link back to the study.
+
+    THE READING ITSELF LIVES IN `idxbot.measured`, AND IT LIVES THERE BECAUSE
+    IT WAS ABOUT TO EXIST TWICE. This function had a full copy of the load,
+    the stamp check and the drift report; `rules.py` needed the same thing to
+    stop typing its level costs, and two readers of one file drift exactly the
+    way two copies of one constant did. What stays here is the mapping from
+    the file's field names onto the keys this script's own tables use.
     """
-    import json                                              # noqa: PLC0415
-    try:
-        import rules                                         # noqa: PLC0415
-        blob = json.load(open(STOPTEST))
-    except Exception as exc:                                 # noqa: BLE001
-        return CARD, f"stoptest.json unavailable ({exc}); using stored values"
-    #  AN UNSTAMPED FILE IS REFUSED, NOT CRASHED ON. The result file used to
-    #  be a bare list of arms with no record of which rule produced them --
-    #  which is exactly the case this function exists to catch, so it must
-    #  report it rather than raise. `except` around the load alone did not
-    #  cover `.get` on a list.
-    if not isinstance(blob, dict):
-        return CARD, ("stoptest.json carries no rule stamp (old format), so "
-                      "it cannot be checked against the live rule; re-run "
-                      "scripts/stoptest.py. Using stored values.")
-    ran = blob.get("rule") or {}
-    if not ran:
-        return CARD, ("stoptest.json has an empty rule stamp; re-run "
-                      "scripts/stoptest.py. Using stored values.")
-    live = {"ENTRY_HI": rules.ENTRY_HI, "ENTRY_VOL": rules.ENTRY_VOL,
-            "KEEP_HI": rules.KEEP_HI, "KEEP_VOL": rules.KEEP_VOL}
-    drift = {k: (ran.get(k), v) for k, v in live.items()
-             if ran.get(k) is not None and abs(float(ran[k]) - v) > 1e-9}
-    arms = {a.get("arm"): a for a in (blob.get("arms") or [])}
-    base = arms.get("BASE: quarterly keep-band only")
-    ship = arms.get("SHIPPED: stop 20% + sell HALF at +100%")
-    if drift:
-        return CARD, ("stoptest.json measured a DIFFERENT rule than ships — "
-                      + ", ".join(f"{k}: ran {a}, ships {b}"
-                                  for k, (a, b) in drift.items())
-                      + ". Re-run scripts/stoptest.py; using stored values.")
-    if not (base and ship):
-        return CARD, "stoptest.json has no BASE/SHIPPED arm; using stored values"
-    #  THE FIELD NAMES ARE THE FILE'S, NOT ONES I ASSUMED. A first version read
-    #  `cagr` and `maxdd`; the writer emits `cagr_med` and `dd`, and the
-    #  KeyError was the GOOD outcome -- a silently wrong value would have been
-    #  the bad one. A schema mismatch now falls back with an explanation, like
-    #  every other unreadable case here.
-    try:
-        out = dict(CARD)
-        out.update({"cagr": float(ship["cagr_med"]),
-                    "cagr_none": float(base["cagr_med"]),
-                    "maxdd": float(ship["dd"]),
-                    "maxdd_none": float(base["dd"])})
-    except (KeyError, TypeError, ValueError) as exc:
-        return CARD, (f"stoptest.json arms do not carry the expected fields "
-                      f"({exc}); using stored values")
-    return out, "measured on the live rule (reports/stoptest.json)"
+    m = measured.load(STOPTEST)
+    if not m.fresh:
+        return CARD, m.provenance
+    out = dict(CARD)
+    vals = {"cagr": m.get(measured.SHIPPED_ARM),
+            "cagr_none": m.get(measured.BASE_ARM),
+            "maxdd": m.get(measured.SHIPPED_ARM, measured.F_DD),
+            "maxdd_none": m.get(measured.BASE_ARM, measured.F_DD)}
+    #  A NaN here means the arm or the field was not there. `measured.load()`
+    #  already refuses that case, so this is belt-and-braces rather than the
+    #  primary guard -- but a NaN printed as "nan%/yr" beside a verdict is
+    #  worse than a labelled fallback, so it is caught.
+    if any(v != v for v in vals.values()):
+        return CARD, ("stoptest.json arms do not carry the expected fields; "
+                      "using stored values")
+    out.update(vals)
+    return out, m.provenance
 
 
 def _run(script: str, args: Optional[List[str]] = None) -> str:

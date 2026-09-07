@@ -54,6 +54,15 @@ ARTEFACTS: Tuple[Tuple[str, str, str, bool], ...] = (
      "the spine every surface reads", False),
     ("data/spine/indicator_panel.parquet", "build_indicators.py",
      "EMA/ATR/stochastic levels for the position monitor", False),
+    #  NOT UNDER data/, AND THAT IS WHY IT WAS MISSING FROM THIS LIST. The
+    #  manifest check parses the surfaces for `data/...` paths, so a
+    #  `reports/` dependency is invisible to it -- and three shipped surfaces
+    #  now read this one for the standing instruction's fourth column. Without
+    #  it they still run, on the labelled last-known-good values, which is the
+    #  designed behaviour and is worse than a rebuild.
+    ("reports/stoptest.json", "stoptest.py",
+     "the measured cost of the SL and TP -- the contract's fourth column; "
+     "without it the card prints last-known-good values", False),
 )
 
 #: The rebuild, in dependency order. Each reads the previous one's output.
@@ -70,6 +79,10 @@ STEPS: Tuple[Tuple[str, List[str], str], ...] = (
     ("today's signals, both rules, into the append-only store",
      ["refresh.py", "--signals"],
      "quarterly card + daily bracket scan"),
+    ("measured cost of the shipped SL and TP",
+     ["stoptest.py"],
+     "~20 min; 22 arms x 6 rebalance phases over the whole panel. Stamps the "
+     "rule it ran with, so the surfaces can refuse it if the rule moves"),
 )
 
 

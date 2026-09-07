@@ -154,3 +154,43 @@ def test_the_standing_contract_is_still_in_claude_md():
     assert "No per-trade mean without the mean LOG beside it" in md
     assert "No win rate without its horizon and its threshold" in md
     assert "No level quoted without the benchmark" in md
+
+
+#: Every surface that hands the user a level. The contract is ENTRY, SL, TP
+#: *and the measured cost of each* — four things, never fewer.
+LEVEL_SURFACES = ("rules.py", "positions.py")
+
+
+def test_the_fourth_column_is_read_from_the_study_not_typed():
+    """THE COLUMN THE CONTRACT CALLS NON-NEGOTIABLE, ENFORCED.
+
+    "A level without its measured consequence is the thing this repo exists to
+    avoid." Both halves of that have failed in practice: `rules.py` printed the
+    consequence as ELEVEN typed literals that went on describing the pre-H62
+    buffer after the buffer moved, and `positions.py` printed the two shipped
+    levels with no consequence beside them at all while showing 169 catalogue
+    rules that had one.
+
+    Typed is the failure mode, so the test is not "does the word 'measured'
+    appear" — it is that the figures come through `idxbot.measured`, which
+    refuses the result file when that file measured a different rule.
+    """
+    for name in LEVEL_SURFACES:
+        src = open(os.path.join(ROOT, "scripts", name)).read()
+        assert "measured.load()" in src, \
+            f"{name} does not read the measurement"
+        assert "measured.BASE_ARM" in src and "measured.SHIPPED_ARM" in src, \
+            f"{name} quotes no arm, so it quotes no cost"
+        assert "measured.noun(" in src, \
+            (f"{name} types the direction word; the sign of this effect has "
+             f"already flipped once")
+        assert "provenance" in src, \
+            f"{name} does not say where its figures came from"
+
+
+def test_the_fourth_column_check_can_actually_fire():
+    """A guard that cannot fire proves nothing by not firing (A26's sine wave,
+    A27's planted bump, A36's Q0, A44's own linter control)."""
+    typed = 'print("  SL -20%  costs 0.70 points of CAGR (13.46% -> 12.76%)")'
+    assert "measured.load()" not in typed
+    assert "measured.noun(" not in typed
