@@ -3429,3 +3429,105 @@ hypothesis from here on turns the deflation from a sweep into a measurement.
 **Trial count: 4 registered (D1–D4). Trials after H58: 354.** Bonferroni bar
 0.00014. Nothing is claimed against it; D1's arms are pre-existing results being
 re-read, not new claims.
+
+---
+
+## H59 — sector rotation (§8), on a map that had been on disk unused since A14
+
+**2026-09-07.** `scripts/sector.py`, `reports/sector_regime.md`. Registered in
+the module docstring before any cell was scored.
+
+**THE FROZEN-MAP WORRY DOES NOT BITE, AND IT WAS WORTH MEASURING.** A14 recorded
+the IDX-IC map as frozen at 2024-07-10. The obvious fear is fatal if true: a map
+of 2024 listings cannot name a company that delisted in 2012, so any study on it
+is survivorship-biased by construction. Measured: **136 of 140 dead names
+(97.1%) carry a sector**, against 798 of 828 live (96.4%), covering **99.5% of
+panel bars**. The map predates the current listing set by enough to carry recent
+delistings.
+
+Two limits that do stand. **IDX-IC launched 2021-01-25**, so 437 of 666
+sector-marks are a backward projection of a taxonomy that did not exist — not
+look-ahead in H57's sense, but real. And the file's `shares` column is **dropped
+at the source** rather than merely unused, because A25/H57 make a 2024 count on
+a 2010 bar look-ahead; a test fails if the guard is removed.
+
+**R1 — UNDER-POWERED, WHICH IS R3 CONFIRMED.** 94 marks, 11 sectors, 666
+sector-marks, 2002→2026. Rank IC **+0.0798** against a whole-date-reassignment
+null of +0.0077 ± 0.0480, **z +1.50**; half-split +0.1146 early, +0.0329 late,
+same sign. **POWER: 114 marks needed to tell this IC from zero at |t|=2, 75
+observed.** The point estimate is respectable and the sample cannot resolve it
+either way, before any multiple-testing correction.
+
+**R2 — PREDICTED NULL CONFIRMED, AND THE MATCHED COMPARISON SAYS SOMETHING
+ELSE.** No tilt arm beats the untilted screen on excess over its own index
+(+5.83% no tilt, +5.44% top 5, +1.85% top 3, −1.61% bottom 3, −3.20% random 3).
+But tilt-versus-no-tilt confounds sector CHOICE with CONCENTRATION. Holding the
+sector count fixed at three: **momentum-chosen +1.85% against random-chosen
+−3.20%, a difference of +5.05%**, and top minus bottom +3.46%. **Sector momentum
+carries about five points a year of information and is worth less than the
+diversification spent to exploit it** — A38's shape a second time.
+
+**AND THE FIRST RUN COMMITTED A19's ERROR CLASS A FOURTH TIME.** It printed the
+untilted screen at +12.01% against a top-3 tilt at +6.65% — with their INDEX
+benchmarks at +8.71% and +4.63%. A benchmark moving four points between arms is
+proof the windows differ: a tilt arm cannot trade until enough sectors carry
+five names, so it starts later. The difference was the calendar. Fixed with a
+scout pass fixing one window for every arm, plus an excess column.
+
+**Trial count: 3 registered (R1-R3). Trials after H59: 357.** Bonferroni bar
+0.00014; z +1.50 does not clear it and nothing is claimed against it.
+
+---
+
+## H60 — the regime engine (§7 / CLAUDE.md §10), paired with a method that can return "none"
+
+**2026-09-07.** `scripts/regime.py`, `reports/sector_regime.md`. Registered
+before any cell was scored.
+
+4,527 sessions 2007-10-26 → 2026-09-04 (the window `BZ=F` allows), twelve
+backward-looking state features: IHSG vol/trend/drawdown, breadth, and DXY,
+USDIDR, UST10 (**differenced — it is a rate**, A13), S&P, Brent, copper.
+
+**G1 — PREDICTED NULL CONFIRMED. HDBSCAN finds nothing.** At min_cluster_size
+5% and 10% it returns **0 clusters and labels 100% of sessions noise**; only at
+2% does it find 2. A10's rule is what makes this readable: a method forced to
+return k cannot tell you there are none. GMM's BIC falls monotonically to the
+largest k tried, which is what BIC does on autocorrelated data — it counts each
+of 4,527 days as independent. Printed, not obeyed.
+
+**G3 — CONFIRMED, AND STATED BEFORE THE EFFECT.** Contiguous episodes: **13 at
+k=2** (0.7/yr), 22 at k=3, 93 at k=6. An episode is the observation.
+
+**G2 — FAILED, WHICH IS THE OUTCOME REGISTERED AS THE VALUABLE ONE.** H26's
+screen edge (mean log, 63-session forward, screen minus rest) inside each
+regime, against a null that ROTATES the label series circularly rather than
+shuffling it — a day-level shuffle manufactures evenly-mixed pseudo-regimes and
+inflates every z.
+
+| k | spread | rotation null | z | inverts | clears 3.63 |
+|---|---|---|---|---|---|
+| 2 | +0.0074 | +0.0241 ± 0.0203 | −0.82 | no | no |
+| **3** | **+0.1853** | +0.0507 ± 0.0334 | **+4.03** | yes | **YES** |
+| 4 | +0.2157 | +0.0707 ± 0.0414 | +3.50 | yes | no |
+| 5 | +0.2300 | +0.0931 ± 0.0498 | +2.75 | yes | no |
+| 6 | +0.2130 | +0.0943 ± 0.0441 | +2.69 | yes | no |
+
+At k=3 the inverting regime is 258 days in **5 episodes**: screen +0.0038
+against rest **+0.1557**.
+
+**AND IT IS ONE HISTORICAL WINDOW.** The inverting regime's largest episode at
+every k where the sign flips is **2008-09 → 2009-03/04**, and dropping that
+single episode roughly halves the spread every time (k=3: +0.1853 → **+0.0996**).
+One window, four clusterings. The effect is a label on the GFC rebound. That
+drop-largest check exists because H11's headline was carried by one thin year;
+A8 records it earning its place twice, and this is the third.
+
+**What is true:** a strength-plus-calm screen underperforms violently in a sharp
+post-crash rebound, which is economically coherent. **What is not established:**
+that this is a usable regime effect. One clustering of five clears the bar, at
+z +4.03 against a 3.63 threshold, on five episodes of one crisis. CLAUDE.md §10
+warns by name that a regime split beautiful on three episodes is almost
+certainly overfit. **No trading arm is built on it.**
+
+**Trial count: 3 registered (G1-G3) plus a 5-cell k sweep reported in full = 3.
+Trials after H60: 360.** Bonferroni bar 0.00014.
