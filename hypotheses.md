@@ -3667,3 +3667,72 @@ occurrence of that drift in this repo. They are computed now.
 hypotheses, and its argmax is explicitly not adopted. Trials after H62: 366.**
 Bonferroni bar 0.00014. Nothing is claimed against it; the move is made on
 instability, not on a result.
+
+---
+
+## H63 — a second copy of the buffer, and the cascade H62 set off
+
+**2026-09-07.** `scripts/stoptest.py`, `scripts/rules.py`, `scripts/today.py`,
+`reports/stoptest.txt`.
+
+**THE BUG: `stoptest.py` HELD ITS OWN `KEEP_HI, KEEP_VOL = 0.80, 0.60`.** When
+H62 moved the shipped buffer to 0.70/0.60, the copy did not move — so every
+stop and take-profit figure the rule card and `today.py` quote had been
+measured on a rule that is no longer shipped, and **nothing failed**. A26 wrote
+the rule this breaks: *"the only thing worse than an unvalidated constant is
+two copies of it that stop matching."* The constants now have one home,
+`stoptest.py` imports them, and a test walks every script and fails on a
+module-level `KEEP_HI`/`KEEP_VOL`/`STOP`/`TP`/`TP_FRAC` outside `rules.py`.
+
+**IT FIRED IMMEDIATELY ON A FALSE POSITIVE, AND THE FALSE POSITIVE WAS FIXED
+RATHER THAN EXEMPTED.** `daytrade_path_study.py` declared `STOP = 0.03` for an
+INTRADAY study — a different rule under the same name. Renamed to
+`INTRADAY_STOP`, because two different things under one name is exactly how a
+guard acquires an exemption list, and an exemption list is where a guard goes
+to die.
+
+**RE-MEASURED ON THE SHIPPED BUFFER**, 6 rebalance calendars, portfolio
+accounting, 2000-09-21 → 2026-09-04:
+
+| arm | CAGR | maxDD | early / late | worst 1 |
+|---|---|---|---|---|
+| BASE, band only | **13.46%** | −40.2% | 12.71 / 11.60 | −84% |
+| daily band check (S2) | 4.29% | −36.5% | 3.86 / 4.07 | −42% |
+| stop −10% | 11.00% | −29.2% | 9.64 / 11.74 | −30% |
+| stop −15% | 12.01% | −31.8% | 9.04 / 13.86 | −30% |
+| **stop −20%** | **12.76%** | **−33.8%** | 10.51 / 12.30 | −41% |
+| stop −25% | 12.79% | −36.0% | 11.07 / 12.07 | −42% |
+| stop −30% | 12.72% | −36.3% | 12.80 / 12.32 | −44% |
+| TP +100% (full) | 11.97% | −36.2% | 11.97 / 12.40 | −84% |
+| **sell HALF at +100%** | **13.18%** | −38.4% | 12.96 / 11.89 | −84% |
+| sell THIRD at +100% | 13.28% | −39.5% | 12.77 / 11.79 | −84% |
+| trail 25% from peak | 11.77% | −34.3% | 10.15 / 11.33 | **−32%** |
+| **SHIPPED: stop 20% + half at +100%** | **12.97%** | **−31.9%** | 11.04 / 12.42 | −41% |
+| IHSG, total return, same span | **6.81%** | | | |
+
+**THE SIGN OF THE RETURN EFFECT FLIPPED.** On the pre-H62 buffer the shipped
+combination measured a **+0.76-point CAGR gain** (11.08% against 10.32%); on
+the shipped buffer it **costs 0.49 points** (12.97% against 13.46%). It was
+never claimed then — worse early, better late, A18's regime noise — and it is
+not claimed now. **What the levels buy is 8.3 points of portfolio drawdown
+(−40.2% → −31.9%) and a worst single name of −41% against −84%**, and that was
+always the only case for them.
+
+**AND H56b's JUSTIFICATION FOR THE TARGET NO LONGER HOLDS AS WRITTEN.** Its
+argument was that the +100% scale-out is FREE — measured at +0.01. On the
+shipped buffer it costs **0.28 points**. The curve is still monotone in
+tightness (+20% costs 6.84, +30% 5.17, +50% 3.78, +75% 2.73, +100% 1.49) and
+the half scale-out is still much the cheapest form of target, so the level
+stands — **but as a small price, not a free option.** Quoting "+0.01" would
+have been quoting a rule nobody ships.
+
+**THE STRUCTURAL FIX, WHICH MATTERS MORE THAN THE NUMBERS.** `today.py` now
+READS the card's figures from `reports/stoptest.json` instead of carrying
+copies, and the result file **stamps the constants it ran with**. If they
+differ from what `rules.py` ships, the numbers describe a different rule and
+the caller is told so rather than shown them. An unstamped file (the old bare-
+list format) is **refused, not crashed on** — which was itself a bug, since
+`except` around the load did not cover `.get` on a list.
+
+**Trial count: 0. Nothing new was hypothesised — an existing table was
+re-measured on the rule that actually ships. Trials after H63: 366.**

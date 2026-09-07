@@ -31,11 +31,15 @@ sys.path.insert(0, os.path.join(ROOT, "src"))
 TREES = ("scripts", os.path.join("src", "idxbot"))
 
 #: Identifiers and technical vocabulary. Not claims.
+#: CASE-INSENSITIVE, because it fired on the author's own `INVALIDATED` in an
+#: upper-case comment. `invalidated` is the OPPOSITE of the banned claim, so
+#: matching it only in lower case made the guard reject a retraction.
 IDENTIFIER = re.compile(
     r"validate_|_validate|\.validate\(|validation_|invalidat|"
     r"cross-validation|cross_validation|sectors_validate|"
     r'"validated":|validate\(|def validate|Validated categorical|'
-    r"validation slice|validation fraction|FAILS validation")
+    r"validation slice|validation fraction|fails validation",
+    re.IGNORECASE)
 
 #: A claim is taken back if the surrounding sentence says so.
 NEGATION = (

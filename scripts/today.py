@@ -58,15 +58,18 @@ from idxbot.cone import BRACKET_VS_HOLD, MIN_RR                  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-#: Measured, each with the hypothesis that produced it. These are the terms the
-#: precedence is computed from; changing one changes the verdict, which is the
-#: point of computing it rather than writing it down.
+#: Fallback only. READ `reports/stoptest.json` FIRST — see `card_measured()`.
+#:
+#: THESE WERE HARDCODED AND A RULE CHANGE INVALIDATED THEM SILENTLY. H62 moved
+#: `KEEP_HI` from 0.80 to 0.70 and these numbers, measured on the 0.80 buffer,
+#: kept printing as "what the card is measured to do". A constant copied out of
+#: a study is a claim with no link back to the study; the link is the fix.
 CARD = {
-    "label": "quarterly card (H54/H56)",
-    "cagr": 0.1108,          # with stop + half-scale-out
-    "cagr_none": 0.1032,     # band exit only
-    "maxdd": -0.352,
-    "maxdd_none": -0.420,
+    "label": "quarterly card (H54/H56, re-measured on the H62 buffer)",
+    "cagr": 0.1297,          # with stop + half-scale-out
+    "cagr_none": 0.1346,     # band exit only
+    "maxdd": -0.319,
+    "maxdd_none": -0.402,
     "beats_index_n": 6, "phases": 6,
     "dd_both_halves": True,
     "cagr_both_halves": False,     # worse early, better late — regime noise
@@ -96,6 +99,59 @@ INDEX = {
              "while ^JKSE is a PRICE index, so the index is corrected UP by "
              "the measured 1.77% top-decile yield before either comparison"),
 }
+
+
+STOPTEST = os.path.join(ROOT_DATA := os.path.dirname(HERE), "reports",
+                        "stoptest.json")
+
+
+def card_measured() -> Tuple[Dict, str]:
+    """The card's measured arms, READ FROM THE RESULT FILE, not copied out.
+
+    And the file must say it measured THE RULE THAT IS LIVE. `stoptest.json`
+    stamps the constants it ran with; if they differ from what `rules.py`
+    ships, the numbers describe a different rule and the caller is told so
+    rather than shown them. That check is the whole point: H62 changed the
+    buffer and every hardcoded figure went on printing, because a number copied
+    out of a study has no link back to the study.
+    """
+    import json                                              # noqa: PLC0415
+    try:
+        import rules                                         # noqa: PLC0415
+        blob = json.load(open(STOPTEST))
+    except Exception as exc:                                 # noqa: BLE001
+        return CARD, f"stoptest.json unavailable ({exc}); using stored values"
+    #  AN UNSTAMPED FILE IS REFUSED, NOT CRASHED ON. The result file used to
+    #  be a bare list of arms with no record of which rule produced them --
+    #  which is exactly the case this function exists to catch, so it must
+    #  report it rather than raise. `except` around the load alone did not
+    #  cover `.get` on a list.
+    if not isinstance(blob, dict):
+        return CARD, ("stoptest.json carries no rule stamp (old format), so "
+                      "it cannot be checked against the live rule; re-run "
+                      "scripts/stoptest.py. Using stored values.")
+    ran = blob.get("rule") or {}
+    if not ran:
+        return CARD, ("stoptest.json has an empty rule stamp; re-run "
+                      "scripts/stoptest.py. Using stored values.")
+    live = {"ENTRY_HI": rules.ENTRY_HI, "ENTRY_VOL": rules.ENTRY_VOL,
+            "KEEP_HI": rules.KEEP_HI, "KEEP_VOL": rules.KEEP_VOL}
+    drift = {k: (ran.get(k), v) for k, v in live.items()
+             if ran.get(k) is not None and abs(float(ran[k]) - v) > 1e-9}
+    arms = {a.get("arm"): a for a in (blob.get("arms") or [])}
+    base = arms.get("BASE: quarterly keep-band only")
+    ship = arms.get("SHIPPED: stop 20% + sell HALF at +100%")
+    if drift:
+        return CARD, ("stoptest.json measured a DIFFERENT rule than ships — "
+                      + ", ".join(f"{k}: ran {a}, ships {b}"
+                                  for k, (a, b) in drift.items())
+                      + ". Re-run scripts/stoptest.py; using stored values.")
+    if not (base and ship):
+        return CARD, "stoptest.json has no BASE/SHIPPED arm; using stored values"
+    out = dict(CARD)
+    out.update({"cagr": float(ship["cagr"]), "cagr_none": float(base["cagr"]),
+                "maxdd": float(ship["maxdd"]), "maxdd_none": float(base["maxdd"])})
+    return out, "measured on the live rule (reports/stoptest.json)"
 
 
 def _run(script: str, args: Optional[List[str]] = None) -> str:
@@ -200,9 +256,12 @@ def main() -> int:
     print("   and not in a footnote (A19).")
 
     #  ------------------------------------------------------- the precedence
+    measured, provenance = card_measured()
+    CARD.update(measured)
     print("\n" + "-" * 78)
     print(" WHICH LIST TO ACT ON")
     print("-" * 78)
+    print(f"  card figures: {provenance}")
     for line in precedence():
         print(line)
 

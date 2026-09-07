@@ -10,8 +10,8 @@ sits TODAY", not a stop you leave resting with your broker — and the differenc
 matters, because a resting stop would fire on days the rule would not sell and
 would sit idle on days it would.
 
-WHAT IS MEASURED (H54, `reports/beathold.md`):
-  * this rule beat the IHSG in 6 of 6 rebalance calendars, median +6.50%/yr;
+WHAT IS MEASURED (H54, `reports/beathold.md`; re-measured on the H62 buffer):
+  * this rule beat the IHSG in 6 of 6 rebalance calendars;
   * it beat a random basket from its own universe in essentially every
     calendar, which is the strongest selection result in this project;
   * it did NOT clear the full H54 bar, and the four arms that cleared the
@@ -22,20 +22,27 @@ WHAT IS MEASURED (H54, `reports/beathold.md`):
 THERE IS A HARD STOP, AND IT IS HERE BECAUSE I WAS WRONG TO LEAVE IT OUT.
 H56 bolted stops onto THIS rule, with portfolio accounting and daily exit
 checks, and its pre-registered S1 — "a hard stop will not cut the PORTFOLIO's
-maximum drawdown" — FAILED. Every stop level tested cut it, in both halves:
+maximum drawdown" — FAILED. Every stop level tested cut it.
 
-    arm              maxDD    DD early   DD late    CAGR early / late
-    no stop          -42.0%    -37.2%    -39.9%       10.83% / 11.43%
-    stop -10%        -30.7%    -27.1%    -23.4%        8.92% / 11.42%
-    stop -15%        -34.1%    -25.7%    -25.6%       10.35% / 13.03%
-    stop -20%        -36.3%    -26.9%    -29.4%        9.87% / 11.82%
-    stop -30%        -40.0%    -31.2%    -34.9%        9.47% / 11.24%
+RE-MEASURED ON THE H62 BUFFER (0.70/0.60), because the numbers below were taken
+on the 0.80 one and `stoptest.py` held its own copy of that constant which did
+not move when the shipped one did:
 
-Worst single-name loss falls from -91% to -30%. And on RETURN no stop beats the
-base in both halves — every one is worse early and better late, which A18 records
-as the signature of regime noise rather than skill. So the stop is a RISK
-decision that costs approximately nothing, not a return edge, and that is the
-only basis on which it is shipped.
+    arm              CAGR     maxDD    early / late    worst 1
+    no stop         13.46%    -40.2%   12.71 / 11.60     -84%
+    stop -10%       11.00%    -29.2%    9.64 / 11.74     -30%
+    stop -15%       12.01%    -31.8%    9.04 / 13.86     -30%
+    stop -20%       12.76%    -33.8%   10.51 / 12.30     -41%
+    stop -25%       12.79%    -36.0%   11.07 / 12.07     -42%
+    stop -30%       12.72%    -36.3%   12.80 / 12.32     -44%
+
+AND THE SIGN OF THE RETURN EFFECT FLIPPED WHEN THE BUFFER MOVED. On the old
+buffer the stop looked approximately free; here it costs 0.70 points of CAGR
+(13.46 -> 12.76) and buys 6.4 points of drawdown and a worst single name of
+-41% against -84%. That is a clearer version of what H56 always claimed — a
+RISK decision, not a return edge — and it is the only basis on which it ships.
+The family is still flat: every level from -10% to -30% lands between 11.00%
+and 12.79%, so -20% remains the MIDDLE and not the argmax.
 
 WHY H20 SAID THE OPPOSITE AND WHY BOTH ARE RIGHT. H20 measured `stop 25%`
 producing the WORST portfolio drawdown in its table, -68.7%. Its entry rule was
@@ -49,34 +56,46 @@ about this one — which is an argument, not a measurement.
 
 THE TAKE-PROFIT IS A WIDE ONE, AND THE COST CURVE IS WHY.
 S3's predicted null was CONFIRMED — a target costs money — but the first sweep
-stopped at +50% and so could not say WHICH target costs least. Extended (H56b):
+stopped at +50% and so could not say WHICH target costs least. Extended (H56b)
+and RE-MEASURED on the H62 buffer:
 
-    target        CAGR     cost vs no target
-    +20%         6.51%          -3.81
-    +30%         7.90%          -2.42
-    +50%         8.86%          -1.46
-    +75%         9.79%          -0.53
-    +100%       10.31%          -0.01   <- the cost curve flattens to zero here
-    +150%       10.21%          -0.11
-    sell HALF at +100%    10.33%   +0.01
-    sell THIRD at +100%   10.30%   -0.02
+    target                 CAGR     cost vs no target (13.46%)
+    +20%                  6.62%          -6.84
+    +30%                  8.29%          -5.17
+    +50%                  9.68%          -3.78
+    +75%                 10.73%          -2.73
+    +100%                11.97%          -1.49
+    +150%                12.18%          -1.28
+    sell HALF at +50%    12.49%          -0.97
+    sell THIRD at +100%  13.28%          -0.18
+    sell HALF at +100%   13.18%          -0.28   <- what ships
 
-So the level is NOT an argmax: it is where a monotone cost curve reaches zero.
-A tighter target is available on request and its price is in the table above —
-+30% costs 2.4 points of CAGR a year, which is most of the edge.
+THE COST CURVE NO LONGER REACHES ZERO, and that matters: on the old buffer the
++100% scale-out measured +0.01, i.e. free, and that was H56b's whole
+justification for the level. On the shipped buffer it costs 0.28 points. The
+curve is still monotone in tightness and the scale-out is still by far the
+cheapest form of target, so the level stands — but it is now a small PRICE
+rather than a free option, and quoting the old "+0.01" would have been quoting
+a rule nobody ships. Selling a THIRD is marginally cheaper still (-0.18) and
+banks less; both are printed rather than one chosen silently.
 
 WHAT SHIPS, and each leg was chosen on its own curve rather than as a
 combination: stop -20% (middle of a flat family) plus SELL HALF AT +100%
-(where the target's cost curve flattens). Measured together:
+(the cheapest target on a monotone cost curve). Measured together on the H62
+buffer:
 
     arm                              CAGR    maxDD   early / late   worst 1
-    BASE, band only                 10.32%  -42.0%  10.87 / 11.40    -91%
-    SHIPPED, stop + half at +100%   11.08%  -35.2%   9.96 / 12.40    -41%
+    BASE, band only                 13.46%  -40.2%  12.71 / 11.60    -84%
+    SHIPPED, stop + half at +100%   12.97%  -31.9%  11.04 / 12.42    -41%
+    IHSG, total return, same span    6.81%
 
-Better CAGR, 7 points less drawdown, worst single name less than half as bad.
-BUT the early half is WORSE (9.96 against 10.87) and the late half better, which
-A18 records as the signature of regime noise, so the CAGR gain is not claimed —
-only the drawdown, which improves in both halves.
+The CAGR now COSTS 0.49 points where the old buffer's table showed a 0.76-point
+gain — the sign of that effect flipped when the buffer moved, which is why no
+CAGR claim was ever made for it. What is bought is 8.3 points of portfolio
+drawdown and a worst single name of -41% against -84%. The early half is worse
+(11.04 against 12.71) and the late half better, A18's signature of regime
+noise, so the return effect stays unclaimed in either direction and the
+drawdown is the whole case.
 
 Every prior measurement of TIGHT targets still stands and is why the level is
 wide rather than conventional:
@@ -155,8 +174,10 @@ FEE = 0.0056
 STOP = 0.20
 #  H56b. The target's cost curve is monotone in tightness and reaches zero at
 #  +100%, so this is a curve-shape choice, not an argmax. Selling only HALF
-#  there is free (+0.01) because it banks a double while leaving the rest to
-#  run -- the only form of profit-taking that does not cap the winner.
+#  there costs 0.28 points on the shipped buffer -- it measured +0.01, i.e.
+#  free, on the pre-H62 one, and that number is withdrawn -- because it banks a
+#  double while leaving the rest to run, the only form of profit-taking that
+#  does not cap the winner.
 TP = 1.00
 TP_FRAC = 0.5
 
@@ -267,17 +288,19 @@ def main() -> None:
     print("             Equal weight, %.0f%% each." % (100.0 / max(len(d), 1)))
     print()
     print("  SL  -20%   RESTING ORDER from your own fill, live every session.")
-    print("             MEASURED: portfolio drawdown -42.0% -> -36.3%, and in")
-    print("             BOTH halves (-37/-40 -> -27/-29). Worst single name")
-    print("             -91% -> -41%. Costs nothing in return.")
+    print("             MEASURED on the SHIPPED buffer: portfolio drawdown")
+    print("             -40.2% -> -33.8%, worst single name -84% -> -41%,")
+    print("             at a cost of 0.70 points of CAGR (13.46% -> 12.76%).")
+    print("             The whole family -10% to -30% lands between 11.00%")
+    print("             and 12.79%, so -20% is the MIDDLE, not the argmax.")
     print()
     print("  TP +100%   SELL HALF, let the rest run. RESTING ORDER.")
     print("             MEASURED: a target's cost is monotone in how tight it")
-    print("             is -- +20% costs 3.81 points of CAGR a year, +30%")
-    print("             costs 2.42, +50% costs 1.46, +75% costs 0.53, and")
-    print("             +100% costs 0.01. This is where the curve reaches")
-    print("             zero, not where a sweep peaked. Selling only half")
-    print("             there measures +0.01, i.e. free.")
+    print("             is -- +20% costs 6.84 points of CAGR a year, +30%")
+    print("             costs 5.17, +50% costs 3.78, +75% costs 2.73, and")
+    print("             +100% costs 1.49. Selling only HALF there costs 0.28")
+    print("             -- the cheapest target on a monotone curve. It measured")
+    print("             +0.01 (free) on the PRE-H62 buffer; that is withdrawn.")
     print("             A TIGHTER TARGET IS YOURS TO SET -- the price of each")
     print("             is in the line above.")
     print()
@@ -288,14 +311,19 @@ def main() -> None:
     print("             vol rises past the calmest-60% line ('vol room' is the")
     print("             headroom), or if it leaves the universe.")
     print("             MEASURED: checking this line DAILY is a disaster --")
-    print("             CAGR 10.32% -> 2.41%, because it then sells on the")
+    print("             CAGR 13.46% -> 4.29%, because it then sells on the")
     print("             board's noise rather than the name's decline.")
     print()
-    print("  TOGETHER   11.08%/yr against 10.32% with none, drawdown -35.2%")
-    print("             against -42.0%, over 2000-2026 on 6 rebalance")
-    print("             calendars. The CAGR gain is NOT claimed: it is worse")
-    print("             in the early half and better in the late one, which is")
-    print("             regime noise. The drawdown gain holds in both halves.")
+    print("  TOGETHER   12.97%/yr against 13.46% with none -- the levels now")
+    print("             COST 0.49 points -- drawdown -31.9% against -40.2%,")
+    print("             worst single name -41% against -84%, over 2000-2026")
+    print("             on 6 rebalance calendars. IHSG total return over the")
+    print("             same span: 6.81%.")
+    print("             THE SIGN OF THE RETURN EFFECT FLIPPED when H62 moved")
+    print("             the buffer: the pre-H62 table showed a 0.76-point")
+    print("             GAIN. It was never claimed then and is not claimed")
+    print("             now -- worse early, better late, A18's regime noise.")
+    print("             The DRAWDOWN is the whole case for these levels.")
     print("             IN-SAMPLE: the holdout was spent at H16.")
     print()
     print("  THE SEARCH  H58 computed the deflated Sharpe this repo's §11 has")

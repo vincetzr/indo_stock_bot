@@ -368,8 +368,16 @@ def main() -> None:
     os.makedirs("reports", exist_ok=True)
     with open(args.out, "w") as f:
         f.write("\n".join(L) + "\n")
+    #  THE RULE IDENTITY GOES IN THE FILE. Downstream readers (today.py) quote
+    #  these numbers as "what the card is measured to do", and after H62 moved
+    #  KEEP_HI the hardcoded copies described a rule nobody ships. A result
+    #  file that does not say which rule produced it cannot be checked against
+    #  the rule that is live.
     with open(args.out.replace(".txt", ".json"), "w") as f:
-        json.dump(rows, f, indent=1, default=str)
+        json.dump({"rule": {"ENTRY_HI": ENTRY_HI, "ENTRY_VOL": ENTRY_VOL,
+                            "KEEP_HI": KEEP_HI, "KEEP_VOL": KEEP_VOL,
+                            "K": K, "FEE": FEE, "FREQ": FREQ},
+                   "arms": rows}, f, indent=1, default=str)
     say(f"\nwrote {args.out}")
 
 

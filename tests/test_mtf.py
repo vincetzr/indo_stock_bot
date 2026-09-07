@@ -342,7 +342,7 @@ def test_the_cost_of_each_level_is_printed_with_it():
     its measured consequence is what this repo exists to avoid."""
     src = open(rules.__file__).read()
     assert "MEASURED" in src
-    for token in ("-42.0%", "10.32%", "3.81", "0.01"):
+    for token in ("-40.2%", "13.46%", "6.84", "0.28"):
         assert token in src, token
 
 

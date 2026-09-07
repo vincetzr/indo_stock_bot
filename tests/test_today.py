@@ -183,3 +183,89 @@ def test_the_closing_disclaimer_is_present_and_unconditional():
 def test_a_failing_subprocess_is_reported_rather_than_swallowed():
     src = open(SRC).read()
     assert "exited" in src and "returncode" in src
+
+
+# ============================================ THE FIGURES COME FROM THE FILE ==
+
+def test_the_card_figures_are_read_from_the_result_file():
+    """H62 moved KEEP_HI from 0.80 to 0.70 and every hardcoded figure went on
+    printing as "what the card is measured to do" — describing a rule nobody
+    ships. A number copied out of a study has no link back to the study."""
+    src = open(SRC).read()
+    assert "def card_measured(" in src
+    assert "stoptest.json" in src
+
+
+def test_a_result_file_from_a_different_rule_is_refused(tmp_path, monkeypatch):
+    """The file stamps the constants it ran with. If they differ from what
+    ships, the numbers describe a different rule and the caller must be told
+    rather than shown them."""
+    import json
+    import rules
+    p = tmp_path / "stoptest.json"
+    p.write_text(json.dumps({
+        "rule": {"ENTRY_HI": rules.ENTRY_HI, "ENTRY_VOL": rules.ENTRY_VOL,
+                 "KEEP_HI": rules.KEEP_HI + 0.10, "KEEP_VOL": rules.KEEP_VOL},
+        "arms": [{"arm": "BASE: quarterly keep-band only", "cagr": 0.99,
+                  "maxdd": -0.10},
+                 {"arm": "SHIPPED: stop 20% + sell HALF at +100%",
+                  "cagr": 0.99, "maxdd": -0.10}]}))
+    monkeypatch.setattr(today, "STOPTEST", str(p))
+    m, why = today.card_measured()
+    assert "DIFFERENT rule" in why
+    assert m["cagr"] != 0.99, "figures from the wrong rule were adopted"
+
+
+def test_a_matching_result_file_is_adopted(tmp_path, monkeypatch):
+    import json
+    import rules
+    p = tmp_path / "stoptest.json"
+    p.write_text(json.dumps({
+        "rule": {"ENTRY_HI": rules.ENTRY_HI, "ENTRY_VOL": rules.ENTRY_VOL,
+                 "KEEP_HI": rules.KEEP_HI, "KEEP_VOL": rules.KEEP_VOL},
+        "arms": [{"arm": "BASE: quarterly keep-band only", "cagr": 0.11,
+                  "maxdd": -0.40},
+                 {"arm": "SHIPPED: stop 20% + sell HALF at +100%",
+                  "cagr": 0.13, "maxdd": -0.38}]}))
+    monkeypatch.setattr(today, "STOPTEST", str(p))
+    m, why = today.card_measured()
+    assert "measured on the live rule" in why
+    assert m["cagr"] == 0.13 and m["cagr_none"] == 0.11
+    assert m["maxdd"] == -0.38 and m["maxdd_none"] == -0.40
+
+
+def test_a_missing_result_file_falls_back_and_says_so(tmp_path, monkeypatch):
+    monkeypatch.setattr(today, "STOPTEST", str(tmp_path / "nope.json"))
+    m, why = today.card_measured()
+    assert "unavailable" in why and "stored values" in why
+    assert m["cagr"] == today.CARD["cagr"]
+
+
+def test_the_provenance_line_is_printed_with_the_verdict():
+    src = open(SRC).read()
+    assert 'print(f"  card figures: {provenance}")' in src
+
+
+def test_an_unstamped_result_file_is_refused_not_crashed_on(tmp_path,
+                                                             monkeypatch):
+    """The file used to be a bare LIST of arms with no record of which rule
+    produced them — exactly the case this check exists to catch, so it must
+    report rather than raise. `except` around the load alone did not cover
+    `.get` on a list."""
+    import json
+    p = tmp_path / "stoptest.json"
+    p.write_text(json.dumps([{"arm": "BASE: quarterly keep-band only",
+                              "cagr": 0.99}]))
+    monkeypatch.setattr(today, "STOPTEST", str(p))
+    m, why = today.card_measured()
+    assert "no rule stamp" in why
+    assert m["cagr"] == today.CARD["cagr"]
+
+
+def test_an_empty_rule_stamp_is_refused(tmp_path, monkeypatch):
+    import json
+    p = tmp_path / "stoptest.json"
+    p.write_text(json.dumps({"rule": {}, "arms": []}))
+    monkeypatch.setattr(today, "STOPTEST", str(p))
+    _m, why = today.card_measured()
+    assert "empty rule stamp" in why
