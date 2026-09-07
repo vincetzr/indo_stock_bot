@@ -363,3 +363,38 @@ def test_rules_actually_runs_its_main():
     src = open(rules.__file__).read()
     assert src.rstrip().endswith("main()")
     assert '__name__ == "__main__"' in src
+
+
+def test_the_sector_mix_is_a_disclosure_and_not_a_tilt():
+    """H59 measured sector momentum as worth ~+5.05%/yr against a random
+    sector choice at MATCHED concentration -- and measured that restricting the
+    universe to three sectors costs MORE than that. So the sector map may be
+    PRINTED and must not enter the selection. A future edit that filters on it
+    would be trading a measured loss.
+    """
+    src = open(rules.__file__).read()
+    body = src.split('"""', 2)[2]
+    assert "SECTOR MIX" in body
+    assert "DISCLOSURE, not a tilt" in body
+    #  the map is read, and only read
+    assert "idx_classification.parquet" in body
+    for forbidden in ('d[d["sector"]', 'day["sector"]', "nlargest(.*sector"):
+        assert forbidden not in body, (
+            f"the sector map is being used to FILTER ({forbidden}) — H59 "
+            f"measured that restricting to a few sectors costs more than "
+            f"choosing them well is worth")
+
+
+def test_the_rule_card_carries_the_deflated_sharpe_caveat():
+    """H58: a permutation null asks whether the LABEL carries information and
+    cannot ask whether this is the best of 350 attempts. The CAGR line is the
+    one a reader quotes, so the search correction belongs next to it."""
+    src = open(rules.__file__).read()
+    body = src.split('"""', 2)[2]
+    assert "THE SEARCH" in body
+    assert "0.947" in body and "FAILS" in body, (
+        "the DSR caveat must carry the number that fails, not only the one "
+        "that passes")
+    assert body.index("TOGETHER") < body.index("THE SEARCH"), (
+        "the caveat must come after the claim it qualifies, where a reader "
+        "who stops early still meets it")

@@ -197,6 +197,40 @@ def main() -> None:
               f"{r['tp_px']:>11,.0f}{r['sell_px']:>11,.0f}{r['room']:>7.1%}"
               f"{r['vol60']:>8.2%}"
               f"{r['vol_head']:>10.0%}{r['rt_cost']:>10.2%}{r['tvbn']:>9,.1f}")
+    #  ------------------------------------------------ SECTOR CONCENTRATION
+    #  A DISCLOSURE, NOT A TILT. H59 measured sector momentum as worth about
+    #  +5.05%/yr against a random sector choice at MATCHED concentration -- and
+    #  measured that restricting the universe to three sectors costs MORE than
+    #  that, so no sector rule enters the selection here. But this screen has
+    #  no diversification constraint of any kind, and the IDX-IC map covers
+    #  96.5% of the panel, so what the basket actually holds is knowable and is
+    #  printed. A reader who sees four of ten names in two commodity sectors
+    #  can size accordingly; one who is never told cannot.
+    try:
+        S = pd.read_parquet(os.path.join("data", "reference",
+                                         "idx_classification.parquet"))
+        smap = dict(zip(S["ticker"], S["sector"]))
+    except Exception:                                       # noqa: BLE001
+        smap = {}
+    if smap:
+        vc = pd.Series([smap.get(t, "unmapped")
+                        for t in d["ticker"]]).value_counts()
+        top = vc.iloc[0] / max(len(d), 1)
+        print()
+        print("SECTOR MIX — a DISCLOSURE, not a tilt. No sector rule enters "
+              "the selection:")
+        print("H59 measured that restricting to a few sectors costs more than "
+              "choosing them")
+        print("well is worth. This screen has NO diversification constraint, "
+              "so what it")
+        print("happens to hold is worth knowing.")
+        print("  " + ",  ".join(f"{k} {int(v)}" for k, v in vc.items()))
+        if top >= 0.30:
+            print(f"  *** {top:.0%} of the basket sits in ONE sector "
+                  f"({vc.index[0]}). A shock there hits")
+            print("      that share of the book at once, and nothing in the "
+                  "rule prevents it.")
+
     print()
     print(f"equal weight = {1 / max(len(d), 1):.1%} each; "
           f"basket round-trip cost {d['rt_cost'].mean():.2%}")
@@ -239,6 +273,18 @@ def main() -> None:
     print("             in the early half and better in the late one, which is")
     print("             regime noise. The drawdown gain holds in both halves.")
     print("             IN-SAMPLE: the holdout was spent at H16.")
+    print()
+    print("  THE SEARCH  H58 computed the deflated Sharpe this repo's §11 has")
+    print("             demanded since day one, and it is the caveat that")
+    print("             belongs on the line above. This family's Sharpe is")
+    print("             +0.73 and its PSR against zero is 0.999 -- but charged")
+    print("             for having searched 350 times, the DSR is 0.974 on the")
+    print("             most flattering dispersion assumption available and")
+    print("             0.947 on the very next one, which FAILS. It survives 1")
+    print("             of 7 assumptions. A permutation null asks whether the")
+    print("             label carries information; it cannot ask whether this")
+    print("             is the best of 350 attempts, and that is the question")
+    print("             a reader of the CAGR above should be asking.")
 
 
 if __name__ == "__main__":
