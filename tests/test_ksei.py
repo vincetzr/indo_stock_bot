@@ -250,3 +250,18 @@ def test_the_manifest_carries_no_holdings(tmp_path):
     held = set(ksei.LOCAL + ksei.FOREIGN + ["local_total", "foreign_total",
                                             "ticker", "price", "sec_num"])
     assert not held & set(man.columns)
+
+
+def test_fractional_fund_units_pass_but_fractional_shares_do_not():
+    """MUTUAL FUND units are fractional; their float noise is not a break."""
+    fund = ("29-OCT-2021|710902|MUTUAL FUND|100000000|1|52541809.7586|"
+            "5179237.4106|0|0|0|0|0|0|0|57721047.1692|0|0|0|0|0|0|0|0|0|0")
+    head = "|".join(ksei.HEADER)
+    eq = _row("AADI", L1, F1, day="29-OCT-2021")
+    df = ksei.parse("\n".join([head, eq, fund]), equity_only=False)
+    assert len(df) == 2
+    assert ksei.parse("\n".join([head, eq, fund]))["local_total"].dtype == "int64"
+    bad = eq.replace("|300|", "|300.5|", 1)     # half a share of local ID
+    bad = bad.replace(f"|{sum(L1)}|", f"|{sum(L1) + 0.5}|", 1)
+    with pytest.raises(ksei.ParseError, match="fractional"):
+        ksei.parse("\n".join([head, bad]))

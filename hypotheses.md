@@ -3961,3 +3961,29 @@ its AR(1) within name, and its correlation with `f_foreign`.
 **Trial count: 2 registered (H64, H64b) plus 1 control (P0) that gates rather
 than claims = 2. Trials after H64: 368.** Bonferroni bar 0.05/368 = 0.000136,
 two-sided normal equivalent |t| > 3.81.
+
+### H64 — AMENDMENT A, 2026-11-15, BEFORE ANY RETURN WAS JOINED
+
+**The coverage ≥ 0.90 filter is dropped from the confirmatory test, and its
+premise was a factual error about the file, not a choice to revisit.** It was
+registered on the belief that `held / sec_num` < 1 means scrip certificates.
+Building the panel showed otherwise: the gap is the CONTROLLING BLOCK. BBCA
+reads 0.4255, TLKM 0.4786, BBRI 0.4681, UNVR 0.1453 — one minus the
+government's or the parent's stake, to within a point — and 46.4% of all
+equity rows sit below 0.90. Large blocks move in and out of the balance
+(BBCA 0.9995 → 0.4255 by 2022; BREN 1.0 at listing → 0.3868; GOTO 0.043 at
+listing → 0.9551 as lock-ups expired).
+
+So the registered filter would have removed the largest, most liquid names —
+precisely the ones a long-only holder can trade — on a premise that does not
+hold. And it is redundant for its real purpose: a block moving into or out of
+the balance moves `held`, which the registered `|Δlog held| ≤ 0.005` filter
+already excludes. Dividing by `held` is also the better normalisation once its
+meaning is known: it is flow relative to the depository-tracked float, not to
+a share count dominated by an owner who does not trade.
+
+**What did and did not inform this.** Seen: coverage by year, and for nine
+named large caps. Not seen: any return, any IC, any spread. **The registered
+version is still run and printed beside the amended one as a sensitivity**,
+so a reader can see whether the amendment moved the answer. Trial count
+unchanged: one confirmatory specification per signal.

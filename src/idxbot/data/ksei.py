@@ -34,10 +34,14 @@ actor.
 THE TWO IDENTITIES EVERY FILE MUST PASS
 ---------------------------------------
 ``Total`` (local) equals the sum of the nine local types, and the second
-``Total`` equals the sum of the nine foreign types — exactly, in integer units.
-A file that fails either is refused rather than half-parsed: a misaligned column
-produces numbers that look perfectly plausible. Measured on 2026-10-30: 3,733
-rows, zero violations on either side.
+``Total`` equals the sum of the nine foreign types. A file that fails either is
+refused rather than half-parsed: a misaligned column produces numbers that look
+perfectly plausible. EQUITY rows are whole shares and must also be integral;
+MUTUAL FUND units are fractional (``52541809.7586``), so the identity carries a
+tolerance of a hundredth of a unit. The first version cast everything to
+integers, truncated those fund units, and refused the 2018-01 file over five
+"breaks" that were its own rounding. With the tolerance, all 106 files pass on
+every row, equity and otherwise.
 
 ``Total + Total.1`` does NOT equal ``Sec. Num``. The gap is units outside the
 scripless system (scrip certificates, unlisted tranches); the median EQUITY row
@@ -118,6 +122,8 @@ LOCAL = [f"local_{c}" for c in CATEGORIES]
 FOREIGN = [f"foreign_{c}" for c in CATEGORIES]
 TIDY = (["month_end", "ticker", "type", "sec_num", "price"] + LOCAL
         + ["local_total"] + FOREIGN + ["foreign_total"])
+#: Identity tolerance, in units. See :func:`parse` for why it is not zero.
+UNIT_TOL = 0.01
 
 
 class HostNotAllowed(RuntimeError):
@@ -306,16 +312,27 @@ def parse(text: str, equity_only: bool = True) -> pd.DataFrame:
                               errors="coerce")
     if df[num].isna().any().any():
         raise ParseError("non-numeric holdings")
-    # Integer units throughout, so the identities are exact, not approximate.
     hold = LOCAL + ["local_total"] + FOREIGN + ["foreign_total"]
-    df[hold] = df[hold].astype("int64")
+    # MUTUAL FUND units are fractional (52541809.7586), so their sums carry
+    # float noise of ~1e-8; the first version cast everything to int64, which
+    # truncated those units and then "found" an identity break in 5 rows of
+    # the 2018-01 file that did not exist. The tolerance is a hundredth of a
+    # unit: float noise passes it, a shifted column or a mangled digit cannot.
     dl = (df[LOCAL].sum(axis=1) - df["local_total"]).abs()
     dfo = (df[FOREIGN].sum(axis=1) - df["foreign_total"]).abs()
-    if (dl > 0).any() or (dfo > 0).any():
-        raise ParseError(f"identity broken: {int((dl > 0).sum())} local rows, "
-                         f"{int((dfo > 0).sum())} foreign rows")
+    if (dl > UNIT_TOL).any() or (dfo > UNIT_TOL).any():
+        raise ParseError(f"identity broken: {int((dl > UNIT_TOL).sum())} local "
+                         f"rows, {int((dfo > UNIT_TOL).sum())} foreign rows")
+    eq = df["type"] == "EQUITY"
+    frac = (df.loc[eq, hold] % 1 != 0).any(axis=1)
+    if frac.any():
+        raise ParseError(f"{int(frac.sum())} EQUITY rows carry fractional "
+                         f"shares — shares are whole units, so the columns "
+                         f"are not what this parser thinks they are")
     if equity_only:
-        df = df[df["type"] == "EQUITY"]
+        df = df[eq].copy()
+        # Whole shares, so from here on the identities are exact integers.
+        df[hold] = df[hold].astype("int64")
     return df.reset_index(drop=True)
 
 

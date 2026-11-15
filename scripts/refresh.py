@@ -64,6 +64,8 @@ from idxbot.data.ohlcv import YahooOHLCV                       # noqa: E402
 WIB = dt.timezone(dt.timedelta(hours=7))
 LIVE = os.path.join("data", "cache", "ohlcv")
 TICKER_FILE = os.path.join("data", "idx_all_tickers.txt")
+#: The benchmark every result is measured against (A19). Cached as _JKSE.csv.gz.
+INDEX = "^JKSE"
 
 
 def universe() -> List[str]:
@@ -151,6 +153,14 @@ def main() -> int:
     print("=" * 78)
     r = refresh(U, a.max_age)
     stamps = r["stamps"]
+    # THE BENCHMARK IS NOT A UNIVERSE MEMBER, SO THE LOOP ABOVE NEVER FETCHED
+    # IT. bootstrap.py declares data/cache/ohlcv/_JKSE.csv.gz as THIS script's
+    # product; on the cold rebuild of 2026-11-15 it was missing after a clean
+    # run and stoptest.py died on an empty benchmark window. A manifest that
+    # names a producer which does not produce is A45's stale-list failure.
+    idx = refresh([INDEX], a.max_age, report_every=10 ** 9)["stamps"]
+    print(f" index {INDEX}: last bar "
+          f"{idx[INDEX].date() if INDEX in idx else 'NONE - fetch failed'}")
     print(f"\n {len(stamps)}/{len(U)} returned bars in "
           f"{r['seconds']/60:.1f} min")
 
