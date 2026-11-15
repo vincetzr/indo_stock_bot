@@ -3854,3 +3854,110 @@ defined on an unsettled sample.
 
 Store state: 33 signals, 13 names, 4 rule versions kept apart, 0 settled,
 33 open.
+
+---
+
+## H64 — the depository publishes the account-type split §12 needed, so does retail flow lose? (REGISTERED 2026-11-15, BEFORE ANY RETURN WAS JOINED)
+
+`scripts/ksei_flow.py` (to be written after this entry is committed),
+`src/idxbot/data/ksei.py`, `scripts/ksei_collect.py`.
+
+**WHY THIS IS A NEW INSTRUMENT AND NOT A RESCUE.** A6 and A8 closed §12 by
+saying the Taiwan and Finland results rest on account TYPES, "which those
+exchanges publish and IDX does not". True of IDX; false of Indonesia. KSEI,
+the central depository, publishes `BalanceposEfekYYYYMMDD.zip` monthly: every
+security's depository-held units split into nine investor types (insurance,
+corporate, pension fund, financial institution, INDIVIDUAL, mutual fund,
+securities company, foundation, other) on each side of the local/foreign line.
+It is a POSITION, so the month-on-month change in a type's units IS that
+type's net flow — exact, uncensored, no starting-inventory problem. Archive:
+January 2018 onward is served (2017 candidates all 302), 36 files are listed
+on the page and the rest are reachable but unlinked.
+
+**What had been looked at before this entry, all of it non-return:** one
+file's structure (both identities hold exactly on 3,733 rows) and the
+creation stamps of the first 29 files. Nothing from KSEI has been joined to a
+price.
+
+**THE PIT FINDING THAT SHAPES THE SAMPLE.** Files from 2019-03 onward carry
+a 06:00 creation stamp 1–4 days after the state date (one at 10, over
+Lebaran). The 14 files for 2018-01 … 2019-02 were ALL created on 2020-04-13 —
+a backfill. Whether that data was public in 2018 cannot be established from
+here (archive.org reset the connection twice). The confirmatory rule therefore
+treats a file as available only from its own stamp, which makes the first
+usable signal the April 2019 state.
+
+### Registration
+
+**Signal (H64, primary).** `f_retail(i,m) = (local_ID(i,m) − local_ID(i,m−1))
+/ held(i,m−1)`, with `held = local_total + foreign_total`: the individual
+type's net flow over month m as a fraction of depository-held units.
+**H64b.** `f_foreign` — the same with `foreign_total`.
+
+**Exclusions, fixed now.** m and m−1 consecutive in the archive; both
+`|Δlog sec_num|` and `|Δlog held|` ≤ 0.005 (no issuance, split, buyback or
+scrip conversion that month — each moves a type's units without a trade);
+coverage `held / sec_num` ≥ 0.90 at both ends; `mom12_1` defined (≥ 252
+sessions of history); `tradeable` with a bar on the decision date; 60-session
+median traded value ≥ Rp 1bn; ≥ 30 names in the month.
+
+**Decision date.** `ksei.available_on(stamp, sessions, lag=1)` — the first
+session strictly after the creation stamp's day — taken as the later of the
+two files' dates; an observation more than 31 calendar days after its state
+date is stale and dropped. Entry at that session's close; label = total return
+(adj_close) to the close k sessions later. Sensitivity, not confirmatory:
+lag = 5.
+
+**Horizons.** k ∈ {21, 63, 126}; **confirmatory k = 63**, matching the shipped
+card's quarterly cadence. The full curve is printed.
+
+**Controls (per-month OLS neutralisation, §7).** `mom12_1`, `rev1` (the
+21-session return — the contrarian confound, since retail is expected to buy
+recent losers), `log_turnover`, `vol60`, log market cap (`sec_num × price`
+from the same KSEI file), the class's share LEVEL at m−1, and IDX-IC sector
+dummies (unmapped names in their own bucket).
+
+**Statistics.** Per-month Spearman IC of the neutralised signal against the
+label; mean with Newey-West HAC t, lags ⌈k/21⌉; **10,000** within-month
+permutation draws through the identical pipeline (A21: the draw count must be
+able to resolve the bar); IC by liquidity tercile; first-half / second-half
+by month count; drop-the-largest-year (A8, A11); and long-only economics
+(A5 forbids shorting, so "the other side" of retail means HOLDING what retail
+sold): equal-weighted quintile with the most negative neutralised signal,
+minus the equal-weighted universe, charged a full 0.56% round trip plus twice
+the point-in-time fraksi-harga half-spread every rebalance. The Q5 − Q1
+spread is printed for information.
+
+**Holdout — fresh for this instrument.** In-sample: observations whose whole
+label window closes on or before 2024-11-13 (the price panel's own holdout
+cut); straddlers are purged; later decisions are the holdout. The holdout is
+spent ONCE, by the same code, only if the in-sample gate passes. Caveat stated
+in advance: its returns are not pristine (H16 spent the price panel's
+holdout), and I know about the early-2026 free-float sell-off, which is about
+ownership concentration. Neither touches the in-sample period.
+
+**Predictions.**
+- **H64: IC < 0** — what retail accumulated underperforms what it sold
+  (§12's premise; Barber–Odean, Frazzini–Lamont). Expected |IC| 0.02–0.04.
+  Expected verdict, stated now: a real tilt that does not survive cost, or
+  nothing.
+- **H64b: IC > 0** for foreign flow. Low conviction: H12 found the foreign
+  fortnightly margin indistinguishable from zero.
+- **P0, predicted-null control (gates, not counted): `sec_num mod 2`** through
+  the identical pipeline. If |t| > 3.81 the pipeline is manufacturing signal
+  and H64/H64b are void.
+
+**GATE, per signal, all required:** predicted sign; permutation p below the
+Bonferroni bar AND |HAC t| > 3.81; the sign in both halves; no sign flip
+across liquidity terciles; dropping the largest year keeps the sign with
+|t| > 2; long-only quintile excess NET of cost > 0 in both halves. Fail any
+and the holdout stays unspent, reserved for a later registered hypothesis on
+this instrument.
+
+**Mechanism checks, printed whatever happens, not trials:** the same-month
+correlation of `f_retail` with the month's return (contrarian or chasing?),
+its AR(1) within name, and its correlation with `f_foreign`.
+
+**Trial count: 2 registered (H64, H64b) plus 1 control (P0) that gates rather
+than claims = 2. Trials after H64: 368.** Bonferroni bar 0.05/368 = 0.000136,
+two-sided normal equivalent |t| > 3.81.

@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "IDX bandarmology engine: broker-flow reverse engineering, accumulation screener and trading plans"
 requires-python = ">=3.9"
 dependencies = [
-    "pandas>=2.0",
+    "pandas>=2.0,<3",
     "numpy>=1.24",
     "requests>=2.28",
     "PyYAML>=6.0",
