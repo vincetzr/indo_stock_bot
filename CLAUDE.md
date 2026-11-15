@@ -46,8 +46,10 @@ When I ask for a result, give effect size and uncertainty, not a p-value alone.
 | **News / narrative** | **Free** | *Added 2026-08-24, after this table's silence was misread as absence.* Public RSS: Google News (per-query and per-ticker), CNBC Indonesia, Kontan, Detik finance. Verified 200-OK with parseable items; Bisnis.com and idnfinancials 403. `src/idxbot/data/news.py`. **No point-in-time archive, so it may never enter a statistic** |
 | **Overnight / global** | **Free** | *Added 2026-08-25.* The same unauthenticated Yahoo chart endpoint the `.JK` names use also serves ^GSPC, ^IXIC, DX-Y.NYB, IDR=X, ^TNX, BZ=F, CL=F, GC=F, HG=F, ALI=F, TIO=F, GLEN.L, BHP, RIO — and `^JKSE` itself. `src/idxbot/data/overnight.py`. **Palm oil `CPO=F` added 2026-08-25 after the claim that it did not exist was disproved (A14).** Thermal coal and LME nickel genuinely have no free front-month series; the listed miners stand in, labelled |
 | Foreign net flow | Free | IDX trading summary |
+| **Holdings by investor TYPE** | **Free** | *Added 2026-11-15.* KSEI, the depository, publishes `BalanceposEfekYYYYMMDD.zip` monthly: every security's depository-held units split into 9 types (individual, corporate, mutual fund, insurance, pension, bank, securities co., foundation, other) × local/foreign. **2018-01 onward, 106 files; only 36 are linked, the rest are served at the same path.** Positions, so a month's change IS that type's flow, uncensored. `src/idxbot/data/ksei.py`. Three traps: backfilled files (2018-01…2019-02 created 2020-04-13), "held" excludes the controlling block, and type-to-type re-registrations read as flow (A51). Named holders above 1% are a separate monthly IDX publication since 2026-03-03, 403 from here |
+| Market-wide spread & turnover | Free | *Added 2026-11-15.* OJK weekly xlsx: average quoted bid-ask spread and turnover ratio, daily within the month. Aggregate only; used once as a cost-model check (A51) |
 | Macro (USDIDR, BI rate, DXY, UST) | Free | BI, FRED |
-| Real-time tick / running trade | **Licensed** | IDX Data Services. Free route is scraping my own broker session — brittle, ToS-grey |
+| Real-time tick / running trade | **Licensed** | IDX Data Services. Free route is scraping my own broker session — brittle, ToS-grey. *Re-checked 2026-11-15:* no Growin' API or export; the one new API found (idxpro.id) was unofficial and has shut down |
 | Order execution | **Does not exist** | No Indonesian retail broker offers a public order API |
 
 Two consequences that shape the whole architecture:
@@ -3528,6 +3530,97 @@ comparison), a computed verdict, thirteen open positions, the card with entry /
 SL / TP / measured cost, the watchlist explicitly marked do-not-act, and the
 in-sample closer. Every number on it is read from a measurement file or
 computed from the panel; none is typed.
+
+---
+
+## A51. The depository publishes the account types §12 needed, and retail does not lose
+
+Asked to use KSEI's ownership data, to find a running-trade connection through
+Mandiri or another platform, and to use every free BEI/OJK source. Memo
+`reports/ksei_ownership.md`, logged H64 (registered `f5b1ac5`, amendment A
+`979f4a8`, both before any KSEI number met a return).
+
+**THE A12 SHAPE A SEVENTH TIME, AND IT HAD CLOSED A BRANCH.** A6 and A8 ended
+§12 by saying the Taiwan and Finland results rest on account TYPES, "which
+those exchanges publish and IDX does not". True of IDX. KSEI, the depository,
+publishes every security's held units split into nine investor types × local/
+foreign, monthly, at `www.ksei.co.id/storage/Download/BalanceposEfekYYYYMMDD.zip`.
+The page links 36 files; **January 2018 onward is served at the same path**,
+found by probing, 106 files, none missing. Positions, so a month's change is a
+type's net flow — exact, uncensored, no starting inventory.
+
+**Three traps, each found before or instead of a result:**
+
+*Backfills.* Each zip member carries a creation stamp. From 2019-03 it is
+06:00, median 3 days after the state date; the 14 files for 2018-01 … 2019-02
+were all created **2020-04-13**, and 2020-12 on **2021-10-19**. Availability is
+taken from the stamp, so those months cannot be signals. archive.org reset
+twice, so whether 2018's data was public in 2018 is open.
+
+*"Held" is not the shareholder base.* `held / sec_num` < 0.90 on 46.4% of
+equity rows, and it is the controlling block: BBCA 0.4255, TLKM 0.4786, BBRI
+0.4681, UNVR 0.1453. The registered coverage filter assumed scrip and would have
+dropped the most liquid names; amendment A removed it before the run, and the
+registered spec still prints.
+
+*Type-to-type re-registration reads as flow.* BYAN, October 2026: 10.75bn
+shares from individual to corporate — retail "selling" Rp 98 trillion, 88% of
+that month's absolute retail flow from three names. `ksei.transfer_flags`
+catches a mirrored move (2.84% of name-months). Found while building the
+display, after H64 ran, so it is a robustness line, not a filter.
+
+**H64 FAILED, WITH THE SIGN REVERSED.** Retail flow → next 63 sessions:
+IC **+0.0275** (HAC t +2.58, permutation p 0.0069 against a 0.000136 bar), the
+same sign at 21 and 126 sessions, in both halves and every liquidity tercile.
+Holding what retail SOLD — §12's trade, long-only — nets **−7.9%/yr**. Without
+transfers the tilt is +0.0203 (t 1.87); holding what retail BOUGHT is −1.9%/yr
+(t −0.76) at 63 sessions, +2.7% (t +1.04) at 126. H64b foreign: −0.0167
+(t −1.75). The parity control was silent. **Retail is contrarian within the
+month (−0.253, negative in 98% of months) and is the foreigners'
+counterparty (−0.479)** — Kaniel–Saar–Titman, not Barber–Odean. The holdout is
+unspent: a reversed-sign test would be a new hypothesis with about a coin's
+power on 24 months and no economics to win.
+
+**§12 HAS NOW BEEN ASKED OF FIVE INSTRUMENTS** — aggregate flow, broker
+identity, domicile, price structure, investor type — and none identifies a
+losing cohort a long-only holder can fade after cost. The door it leaves open
+is intramonth: monthly positions cannot see the round trips where the
+literature finds retail's losses.
+
+**SURVIVORSHIP, MEASURED WITH THE INSTRUMENT ITSELF.** The delisted price store
+still awaits the user's CC BY-NC call, so unpriced names drop out. KSEI lists
+them anyway: 197 of 996 in-sample codes, mean within-month retail-flow
+percentile 0.490 against 0.504. They did not lean toward retail buying.
+
+**THE COST MODEL CHECKED AGAINST AN OFFICIAL NUMBER, ONCE.** OJK's weekly
+workbook gives the market-wide average quoted spread: 1.517% in October 2026,
+against 0.952% for one fraksi-harga tick averaged over the same names. Every
+net figure here is, if anything, optimistic — as `half_spread_frac` said.
+
+**RUNNING TRADE: NOTHING NEW IS FREE.** No Growin' API or export in Mandiri's
+2026 material. The one new route, idxpro.id, an MCP server selling live IDX
+prices, orderbook and running trade, now reads *"idxpro telah tutup …
+Unofficial, tidak berafiliasi dengan PT Bursa Efek Indonesia"*. §3's deferral
+still binds: no end-of-day signal exists whose edge is intraday, and the one
+measured intraday quantity — execution, ~1.1%/yr (A38) — needs a limit order,
+not a feed.
+
+**THE COLD CONTAINER, AND A DIAGNOSIS I GOT WRONG FIRST.** The rebuild found
+no scientific stack and pandas 3.0.5. `price_panel_build.py` died in
+`repairs.py` (a fractional repair factor into an int64 volume column), and I
+pinned pandas < 3 as "the version the code was written for". **It was not:**
+the tracked parquets carry `pandas_version 3.0.5` in their metadata. Under 2.x
+the panel's dates are nanosecond, `.tolist()` returns integers, and
+`stoptest.py`'s rebalance marks silently never matched — every arm "no path".
+The pin is reverted, `repairs.py` casts to float first, and `refresh.py` now
+fetches `^JKSE`, which bootstrap named as its product and a clean run did not
+produce. **Check the artefacts' own metadata before diagnosing a version.**
+
+**AND THE FORWARD RECORD HAS A HOLE.** No signal rows between 2026-09-04 and
+2026-11-13, and no scheduled task is visible from this session. A49 found the
+Routine calling the wrong flags; this time nothing visible is calling anything,
+or what runs does not persist its rows. The only out-of-sample evidence this
+project will have stopped accumulating for ten weeks and nothing said so.
 
 ---
 

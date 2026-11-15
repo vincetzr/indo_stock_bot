@@ -3987,3 +3987,49 @@ named large caps. Not seen: any return, any IC, any spread. **The registered
 version is still run and printed beside the amended one as a sensitivity**,
 so a reader can see whether the amendment moved the answer. Trial count
 unchanged: one confirmatory specification per signal.
+
+### H64 — RESULT, 2026-11-15: FAILS, the retail sign came back reversed
+
+`scripts/ksei_flow.py`, `reports/ksei_ownership.md`, `reports/ksei_flow.json`.
+
+| | H64 retail | H64b foreign | P0 parity |
+|---|---|---|---|
+| predicted | − | + | 0 |
+| IC, k = 63 (62 months, 11,130 rows) | **+0.0275** | −0.0167 | +0.0137 |
+| HAC t / permutation p (10,000 draws) | +2.58 / 0.0069 | −1.75 / 0.1075 | +0.81 / 0.1555 |
+| halves | +0.0238 / +0.0313 | −0.0114 / −0.0219 | +0.0455 / −0.0181 |
+| registered long-only leg, net of cost | hold what retail SOLD **−7.9%/yr** | hold what foreigners BOUGHT −3.5%/yr | — |
+| gate | **FAILS (wrong sign; not at the bar)** | **FAILS** | silent: pipeline clean |
+
+**The prediction was wrong in sign and is logged as failed, not reframed.**
+What retail accumulated did slightly BETTER over the next quarter than what it
+sold, in all three horizons, both halves and every liquidity tercile — and not
+at the bar (p 0.0069 against 0.000136). Retail is strongly contrarian within
+the month (same-month rank correlation −0.253, negative in 98% of months) and
+is the foreigners' counterparty (−0.479): the Kaniel–Saar–Titman picture, not
+the Barber–Odean one §12 assumed.
+
+**After the result, labelled:** dropping 306 type-to-type transfer rows
+(re-registrations like BYAN's 10.75bn-share individual→corporate move in
+2026-10, found while building the display) takes retail to **+0.0203
+(t 1.87)** — a quarter of the tilt was not trading. Holding what retail
+BOUGHT, exploratory: −1.9%/yr at 63 sessions (t −0.76), +2.7%/yr at 126
+(t +1.04). The pre-amendment spec (coverage ≥ 0.90) reads +0.0505 (t 4.07,
+p 0.0007), +0.0412 (t 2.82) without transfers, and −10.8%/yr against retail.
+
+**Survivorship, measured with KSEI itself:** 197 of 996 in-sample codes have
+no price in this container (the delisted store awaits the user's licensing
+call), and their mean within-month retail-flow percentile is 0.490 against
+0.504 — the missing names did not lean toward retail buying.
+
+**The holdout stays unspent.** A reversed-sign test would be a new
+hypothesis, ~24 months gives it about a coin's chance against the in-sample
+effect, and the economics are already ~zero in-sample.
+
+**§12 now has five instruments and five non-answers:** aggregate flow (H9),
+broker identity (H10/H11), domicile (H12), price structure (H13), investor
+type (H64). Monthly holdings cannot see intramonth round trips, which is where
+the literature finds most of retail's losses; that is the one door this does
+not close.
+
+**Trials after H64: 368.** Bonferroni bar 0.000136. Nothing clears it.

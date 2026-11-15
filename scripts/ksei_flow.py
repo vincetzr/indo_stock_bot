@@ -51,10 +51,11 @@ it is stated, not fixed.
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import os
 import sys
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import numpy as np
 import pandas as pd
@@ -69,6 +70,9 @@ from flow_ic import newey_west_t                                # noqa: E402
 
 # ------------------------------------------------------------ CONSTANTS ---- #
 PANEL = os.path.join("data", "spine", "price_panel.parquet")
+#: Written every run; scripts/ownership.py reads its caveat from here rather
+#: than from numbers typed into a format string (A47).
+RESULT = os.path.join("reports", "ksei_flow.json")
 SECTORS = os.path.join("data", "reference", "idx_classification.parquet")
 HORIZONS = (21, 63, 126)
 CONFIRM_K = 63
@@ -122,6 +126,8 @@ def ksei_frame(P: pd.DataFrame, sessions: pd.DatetimeIndex,
         out["log_mcap"] = np.log(P["sec_num"].astype(float)
                                  * P["price"].astype(float))
     out["parity"] = (P["sec_num"].astype("int64") % 2).astype(float)
+    # Not a registered filter: printed as a post-result robustness line only.
+    out["xfer"] = ksei.transfer_flags(P)
     a_now = P["month_end"].map(avail)
     a_prev = prev["month_end"].map(avail)
     out["decision"] = pd.to_datetime(
@@ -364,7 +370,7 @@ def mechanism(X: pd.DataFrame, D: pd.DataFrame) -> Dict[str, float]:
             "n_ar": len(ar)}
 
 
-def report(sig: str, A, null, k: int, H, Y) -> bool:
+def report(sig: str, A, null, k: int, H, Y) -> tuple:
     pred = SIGNALS[sig]
     v = null
     p = float((np.abs(v - v.mean()) >= abs(A["ic_mean"] - v.mean())).sum()
@@ -375,7 +381,7 @@ def report(sig: str, A, null, k: int, H, Y) -> bool:
     flip = bool(len(fin) > 1 and not np.all(np.sign(fin) == np.sign(fin[0])))
     print(f"   null mean {v.mean():+.4f}  95% [{lo:+.4f}, {hi:+.4f}]  over "
           f"{len(v):,} draws   permutation p {p:.5f}")
-    print(f"   IC by liquidity tercile  " + "  ".join(
+    print("   IC by liquidity tercile  " + "  ".join(
         f"T{i+1} {x:+.4f}" for i, x in enumerate(terc))
         + ("   SIGN FLIPS" if flip else "   sign stable"))
     for (a, b, mu, t, nm) in H:
@@ -385,10 +391,10 @@ def report(sig: str, A, null, k: int, H, Y) -> bool:
     print(f"   dropping {wy} (largest |IC sum|): IC {wm:+.4f} (t {wt:+.2f})")
     if pred == 0:
         fired = abs(A["ic_t"]) > T_BAR or p < BONFERRONI
-        print(f"   PREDICTED-NULL CONTROL: "
+        print("   PREDICTED-NULL CONTROL: "
               + ("FIRED — the pipeline manufactures signal; H64/H64b are VOID"
                  if fired else "silent, as predicted — the pipeline is clean"))
-        return not fired
+        return not fired, p
     checks = {
         "predicted sign": np.sign(A["ic_mean"]) == pred,
         "p < bar and |t| > 3.81": (p < BONFERRONI) and abs(A["ic_t"]) > T_BAR,
@@ -401,7 +407,7 @@ def report(sig: str, A, null, k: int, H, Y) -> bool:
         print(f"     [{'PASS' if ok else 'FAIL'}] {c}")
     passed = all(checks.values())
     print(f"   GATE: {'PASSES' if passed else 'FAILS'}")
-    return passed
+    return passed, p
 
 
 def main() -> int:
@@ -458,6 +464,7 @@ def main() -> int:
           f"{me['ar1']:+.3f}  (n {me['n_ar']:,})\n")
 
     passed = {}
+    results: Dict[str, Dict[str, object]] = {}
     for sig, pred in SIGNALS.items():
         print("-" * 78)
         label = {"f_retail": "H64 retail flow", "f_foreign": "H64b foreign flow",
@@ -476,9 +483,42 @@ def main() -> int:
                 keep = (months, A)
         months, A = keep
         null = null_test(months, a.draws, a.seed)
-        passed[sig] = report(sig, A, null, CONFIRM_K,
-                             halves(A, CONFIRM_K),
-                             drop_largest_year(A, CONFIRM_K))
+        passed[sig], pval = report(sig, A, null, CONFIRM_K,
+                                   halves(A, CONFIRM_K),
+                                   drop_largest_year(A, CONFIRM_K))
+        results[sig] = {"predicted": pred, "ic": A["ic_mean"], "t": A["ic_t"],
+                        "p": pval, "months": A["n"],
+                        "net_annual_predicted_leg": A["net_ex"] * A["annual"],
+                        "gate": bool(passed[sig])}
+        if sig != "parity":
+            # ROBUSTNESS, ADDED AFTER THE RESULT WAS SEEN, NOT A TRIAL. A
+            # type-to-type re-registration (BYAN 2026-10: 10.75bn shares from
+            # individual to corporate) passes every registered filter and reads
+            # as flow. Ranks bound its influence; this line shows by how much.
+            Xr = ins[~ins["xfer"].astype(bool)]
+            Ar = analyse(build_months(Xr, sig, CONFIRM_K), CONFIRM_K, pred)
+            results[sig]["robust_no_transfers"] = {
+                "ic": Ar["ic_mean"], "t": Ar["ic_t"],
+                "rows_dropped": int(ins["xfer"].astype(bool).sum())}
+            print(f"   ROBUSTNESS (post-result, not a trial): without "
+                  f"{int(ins['xfer'].astype(bool).sum())} type-to-type transfer "
+                  f"rows: IC {Ar['ic_mean']:+.4f} (t {Ar['ic_t']:+.2f})")
+        if sig == "f_retail":
+            # EXPLORATORY, ADDED AFTER THE CONFIRMATORY RESULT WAS SEEN. The
+            # registered leg holds what retail SOLD; the sign came back the
+            # other way, so the opposite leg is priced here for the record. It
+            # is not a trial, enters no gate, and is labelled wherever printed.
+            for kk in (CONFIRM_K, 126):
+                Ik = ins[ins[f"exit{kk}"] <= cut]
+                Ao = analyse(build_months(Ik, sig, kk), kk, +1)
+                results[sig][f"exploratory_hold_retail_bought_net_annual_k{kk}"] = (
+                    Ao["net_ex"] * Ao["annual"])
+                results[sig][f"exploratory_hold_retail_bought_net_t_k{kk}"] = (
+                    Ao["net_t"])
+                print(f"   EXPLORATORY (post-result, not a trial): hold what "
+                      f"retail BOUGHT, k={kk}: net {Ao['net_ex']*100:+.2f}%/"
+                      f"period = {Ao['net_ex']*Ao['annual']*100:+.1f}%/yr "
+                      f"(t {Ao['net_t']:+.2f})")
         if sig != "parity":
             Ks = ksei_frame(P, sessions, LAG_SENSITIVITY)
             Xs = attach_prices(Ks, D)
@@ -514,6 +554,21 @@ def main() -> int:
                       f"net long-only {Ah['net_ex']*100:+.2f}%/period")
     else:
         print(f"\n holdout UNTOUCHED ({len(hold):,} rows reserved).")
+    out = {"run": pd.Timestamp.now().isoformat(timespec="seconds"),
+           "spec": "registered" if a.registered else "amendment A",
+           "confirm_k": CONFIRM_K, "trials_after": TRIALS_AFTER,
+           "bonferroni": BONFERRONI, "draws": a.draws,
+           "in_sample": [str(ins.decision.min().date()),
+                         str(ins.decision.max().date())],
+           "holdout_spent": bool(a.spend_holdout),
+           "mechanism": me, "null_control_clean": bool(clean),
+           "signals": results}
+    path = RESULT if not a.registered else RESULT.replace(".json",
+                                                          "_registered.json")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as fh:
+        json.dump(out, fh, indent=1, default=float)
+    print(f" wrote {path}")
     return 0
 
 

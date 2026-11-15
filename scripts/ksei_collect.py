@@ -112,8 +112,8 @@ def main() -> int:
           f"{man.month_end.max().date()}")
     print(f" {len(P):,} EQUITY rows, {P.ticker.nunique():,} distinct codes, "
           f"{P.groupby('month_end').size().median():.0f} a month at the median")
-    print(f" both identities held on every row of every file (parse refuses "
-          f"otherwise)")
+    print(" both identities held on every row of every file (parse refuses "
+          "otherwise)")
     print(f" creation stamp minus state date, calendar days: "
           f"median {lag.median():.0f}, max {lag.max():.0f}, "
           f"min {lag.min():.0f}")

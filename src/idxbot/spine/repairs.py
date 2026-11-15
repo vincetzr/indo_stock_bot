@@ -258,13 +258,21 @@ def apply_repairs(df: pd.DataFrame, ticker: str,
         m = r.covers(d["date"]) & ~d["repaired"].astype(bool)
         if not m.any():
             continue
+        # FLOAT FIRST. IDX prices are whole rupiah and volumes whole shares, so
+        # a fresh cache can load either column as int64 — and a repair factor
+        # is fractional. pandas 3 refuses to write floats into an int64 column
+        # (LossySetitemError; pandas 2 only warned and silently upcast). It
+        # surfaced on the cold rebuild of 2026-11-15: a freshly fetched cache
+        # gave a repaired name an int64 volume column, and the one failed
+        # assignment took the whole panel build down with it.
         for c in price_columns:
             if c in d:
-                d.loc[m, c] = pd.to_numeric(d.loc[m, c],
-                                            errors="coerce") * r.price_factor
+                d[c] = pd.to_numeric(d[c], errors="coerce").astype(float)
+                d.loc[m, c] = d.loc[m, c] * r.price_factor
         if volume_column in d and r.volume_factor != 1.0:
-            d.loc[m, volume_column] = pd.to_numeric(
-                d.loc[m, volume_column], errors="coerce") * r.volume_factor
+            d[volume_column] = pd.to_numeric(d[volume_column],
+                                             errors="coerce").astype(float)
+            d.loc[m, volume_column] = d.loc[m, volume_column] * r.volume_factor
         d.loc[m, "repaired"] = True
     return d
 

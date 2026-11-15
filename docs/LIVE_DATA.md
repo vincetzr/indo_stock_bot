@@ -375,6 +375,8 @@ Recorded so this is not re-litigated. Every one of these was actually attempted:
 | GitHub datasets (wildangunawan, faisalburhanudin, nichsedge) | Per-stock *foreign flow* yes (shares, to 2025-02); per-broker rekap no |
 | GoAPI / Invezgo / OHLC.dev / Sectors | Live and key-gated |
 | **indopremier.com public module** | ✅ **works — see section 0b** |
+| idxpro.id (MCP server: live prices, orderbook, running trade) — *checked 2026-11-15* | closed: *"idxpro telah tutup … Unofficial, tidak berafiliasi dengan PT Bursa Efek Indonesia"* |
+| Growin' (Mandiri Sekuritas) API or export — *re-checked 2026-11-15* | none found in Mandiri's 2026 material; Smart Running Trade is in-app only |
 
 The old conclusion here was "every legitimate route runs through an account
 someone holds". That was wrong, and wrong in an instructive way: the search had

@@ -108,8 +108,10 @@ def test_a_backfilled_previous_file_makes_the_signal_stale():
                         (pd.Timestamp("2021-01-29"), dt.datetime(2021, 2, 1, 6)),
                         (pd.Timestamp("2021-02-26"), dt.datetime(2021, 3, 1, 6))):
         row = {"month_end": me, "ticker": "AAAA", "sec_num": 1000, "price": 100,
-               "local_total": 800, "foreign_total": 200, "local_ID": 300,
+               "local_total": 800, "foreign_total": 200,
                "created": pd.Timestamp(created)}
+        row.update({c: 0 for c in kf.ksei.LOCAL})
+        row.update({"local_ID": 300, "local_CP": 500})
         P.append(row)
     K = kf.ksei_frame(pd.DataFrame(P), sess, lag=1).set_index("month_end")
     assert K.loc["2020-12-30", "stale_days"] > kf.STALE_DAYS

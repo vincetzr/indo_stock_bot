@@ -89,7 +89,7 @@ import time
 import urllib.parse
 import zipfile
 from dataclasses import dataclass
-from typing import Callable, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -453,3 +453,41 @@ def changes(S: pd.DataFrame, cols: Sequence[str] = tuple(GROUPS)) -> pd.DataFram
         d = S[c] - S.groupby("ticker")[c].shift(1)
         S[f"d_{c}"] = d.where(ok)
     return S.drop(columns="_k")
+
+
+# --------------------------------------------------------------------------- #
+# transfers between types, which are not trades
+# --------------------------------------------------------------------------- #
+
+#: A month is a probable TRANSFER when the individual type moves more than
+#: this share of the balance ...
+TRANSFER_MIN = 0.01
+#: ... and some other local type moves the opposite way by an amount within
+#: this relative distance of it.
+TRANSFER_MATCH = 0.10
+
+
+def transfer_flags(P: pd.DataFrame) -> pd.Series:
+    """True where local_ID's change is mirrored by another local type's.
+
+    WHY THIS EXISTS. In October 2026 BYAN's individual holding fell by
+    10,751,166,170 shares while its corporate holding rose by 10,751,301,170 —
+    the controlling holder moving a stake into a company. The balance barely
+    moved, so the share-count and balance filters let it through, and read as
+    flow it was retail "selling" Rp 98 trillion in one month: 88% of that
+    month's absolute retail flow across the whole market came from three names.
+    A type-to-type move of matching size is a re-registration, not the crowd.
+
+    Consecutive months only, within ticker; a name's first month is False.
+    """
+    P = P.sort_values(["ticker", "month_end"])
+    held = (P["local_total"] + P["foreign_total"]).astype(float)
+    prev_held = held.groupby(P["ticker"]).shift(1)
+    d = P[LOCAL].astype(float).groupby(P["ticker"]).diff()
+    did = d["local_ID"]
+    others = d.drop(columns="local_ID")
+    big = did.abs() > TRANSFER_MIN * prev_held
+    mirror = ((np.sign(others).mul(-np.sign(did), axis=0) > 0)
+              & ((others.abs().sub(did.abs(), axis=0)).abs()
+                 .le(TRANSFER_MATCH * did.abs(), axis=0))).any(axis=1)
+    return (big & mirror).reindex(P.index).fillna(False).astype(bool)

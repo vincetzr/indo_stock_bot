@@ -7,11 +7,13 @@
 # explicitly flagged "does this survive a COLD build?" as unknown. It does not.
 # A requirements file that is a subset of what the code imports is not a
 # manifest, it is a decoration.
-pandas>=2.0,<3      # 2026-11-15: a cold container arrived with pandas 3.0.5 and
-                    # price_panel_build.py died in repairs.py with LossySetitemError.
-                    # pandas 3 also makes copy-on-write the default, which turns
-                    # chained assignment into a SILENT no-op - the worse failure,
-                    # because it raises nothing. The code was written against 2.x.
+pandas>=3.0          # The tracked parquets carry pandas_version 3.0.5 in their
+                     # metadata: that is what this code was developed and tested
+                     # on. Under 2.x the panel's dates come back at nanosecond
+                     # resolution, `.tolist()` turns them into integers, and
+                     # stoptest.py's rebalance marks silently never match --
+                     # every arm reads "no path". (A pin to <3 was briefly
+                     # added on 2026-11-15 on the wrong diagnosis; reverted.)
 numpy>=1.24
 requests>=2.28
 PyYAML>=6.0
