@@ -26,23 +26,27 @@ maximum drawdown" — FAILED. Every stop level tested cut it.
 
 RE-MEASURED ON THE H62 BUFFER (0.70/0.60), because the numbers below were taken
 on the 0.80 one and `stoptest.py` held its own copy of that constant which did
-not move when the shipped one did:
+not move when the shipped one did — and RE-MEASURED AGAIN on the panel extended
+from 2026-09-04 to 2026-11-13, ten weeks in which the IHSG fell 19.5%
+(2026-11-16; the drift guard in tests/test_measured.py caught the stale table):
 
     arm              CAGR     maxDD    early / late    worst 1
-    no stop         13.46%    -40.2%   12.71 / 11.60     -84%
-    stop -10%       11.00%    -29.2%    9.64 / 11.74     -30%
-    stop -15%       12.01%    -31.8%    9.04 / 13.86     -30%
-    stop -20%       12.76%    -33.8%   10.51 / 12.30     -41%
-    stop -25%       12.79%    -36.0%   11.07 / 12.07     -42%
-    stop -30%       12.72%    -36.3%   12.80 / 12.32     -44%
+    no stop         13.19%    -39.4%   13.31 / 12.21     -84%
+    stop -10%       11.13%    -29.8%    9.81 / 10.46     -30%
+    stop -15%       11.60%    -33.0%    9.24 / 13.04     -30%
+    stop -20%       11.81%    -33.5%   11.34 / 11.98     -41%
+    stop -25%       12.09%    -35.5%   11.87 / 11.82     -42%
+    stop -30%       12.04%    -33.9%   12.55 / 11.92     -44%
 
-AND THE SIGN OF THE RETURN EFFECT FLIPPED WHEN THE BUFFER MOVED. On the old
-buffer the stop looked approximately free; here it costs 0.70 points of CAGR
-(13.46 -> 12.76) and buys 6.4 points of drawdown and a worst single name of
--41% against -84%. That is a clearer version of what H56 always claimed — a
-RISK decision, not a return edge — and it is the only basis on which it ships.
-The family is still flat: every level from -10% to -30% lands between 11.00%
-and 12.79%, so -20% remains the MIDDLE and not the argmax.
+THE RETURN EFFECT HAS NOW TAKEN THREE VALUES. On the old buffer the stop looked
+approximately free; on the H62 buffer through 2026-09-04 it cost 0.70 points
+of CAGR; through 2026-11-13 it costs 1.38 (13.19 -> 11.81), while still buying
+5.9 points of drawdown and a worst single name of -41% against -84%. Ten weeks
+moving a cost by 0.68 points is what an estimate inside its own noise looks
+like, which is why it was never claimed. That is what H56 always said — a RISK
+decision, not a return edge — and it is the only basis on which it ships.
+The family is still flat: every level from -10% to -30% lands between 11.13%
+and 12.09%, so -20% remains the MIDDLE and not the argmax.
 
 WHY H20 SAID THE OPPOSITE AND WHY BOTH ARE RIGHT. H20 measured `stop 25%`
 producing the WORST portfolio drawdown in its table, -68.7%. Its entry rule was
@@ -59,25 +63,25 @@ S3's predicted null was CONFIRMED — a target costs money — but the first swe
 stopped at +50% and so could not say WHICH target costs least. Extended (H56b)
 and RE-MEASURED on the H62 buffer:
 
-    target                 CAGR     cost vs no target (13.46%)
-    +20%                  6.62%          -6.84
-    +30%                  8.29%          -5.17
-    +50%                  9.68%          -3.78
-    +75%                 10.73%          -2.73
-    +100%                11.97%          -1.49
-    +150%                12.18%          -1.28
-    sell HALF at +50%    12.49%          -0.97
-    sell THIRD at +100%  13.28%          -0.18
-    sell HALF at +100%   13.18%          -0.28   <- what ships
+    target                 CAGR     cost vs no target (13.19%)
+    +20%                  6.15%          -7.03
+    +30%                  7.91%          -5.28
+    +50%                 10.37%          -2.82
+    +75%                 11.28%          -1.91
+    +100%                12.52%          -0.67
+    +150%                12.91%          -0.28
+    sell HALF at +50%    12.10%          -1.09
+    sell THIRD at +100%  13.24%          +0.05
+    sell HALF at +100%   13.25%          +0.06   <- what ships
 
-THE COST CURVE NO LONGER REACHES ZERO, and that matters: on the old buffer the
-+100% scale-out measured +0.01, i.e. free, and that was H56b's whole
-justification for the level. On the shipped buffer it costs 0.28 points. The
-curve is still monotone in tightness and the scale-out is still by far the
-cheapest form of target, so the level stands — but it is now a small PRICE
-rather than a free option, and quoting the old "+0.01" would have been quoting
-a rule nobody ships. Selling a THIRD is marginally cheaper still (-0.18) and
-banks less; both are printed rather than one chosen silently.
+THE SCALE-OUT'S COST HAS SWUNG BY A THIRD OF A POINT ON TEN WEEKS OF DATA: free
+on the old buffer (+0.01), -0.28 on the shipped buffer through 2026-09-04, and
++0.06 through 2026-11-13. So the honest statement is that the +100% scale-out
+costs somewhere between nothing and a third of a point, and the level rests on
+neither value. What has held in every run is the SHAPE: the curve is monotone
+in tightness and the scale-out is by far the cheapest form of target, so the
+level stands. Selling a THIRD measures the same (+0.05) and banks less; both
+are printed rather than one chosen silently.
 
 WHAT SHIPS, and each leg was chosen on its own curve rather than as a
 combination: stop -20% (middle of a flat family) plus SELL HALF AT +100%
@@ -85,17 +89,21 @@ combination: stop -20% (middle of a flat family) plus SELL HALF AT +100%
 buffer:
 
     arm                              CAGR    maxDD   early / late   worst 1
-    BASE, band only                 13.46%  -40.2%  12.71 / 11.60    -84%
-    SHIPPED, stop + half at +100%   12.97%  -31.9%  11.04 / 12.42    -41%
-    IHSG, total return, same span    6.81%
+    BASE, band only                 13.19%  -39.4%  13.31 / 12.21    -84%
+    SHIPPED, stop + half at +100%   11.72%  -30.8%  11.18 / 11.66    -41%
+    IHSG, total return, same span    5.57%
 
-The CAGR now COSTS 0.49 points where the old buffer's table showed a 0.76-point
-gain — the sign of that effect flipped when the buffer moved, which is why no
-CAGR claim was ever made for it. What is bought is 8.3 points of portfolio
-drawdown and a worst single name of -41% against -84%. The early half is worse
-(11.04 against 12.71) and the late half better, A18's signature of regime
-noise, so the return effect stays unclaimed in either direction and the
-drawdown is the whole case.
+The CAGR COSTS 1.47 points through 2026-11-13, against 0.49 through 2026-09-04
+and a 0.76-point GAIN on the old buffer — three values, both signs, which is
+why no CAGR claim was ever made for it. What is bought is 8.6 points of
+portfolio drawdown and a worst single name of -41% against -84%. ~~The early
+half is worse and the late half better, A18's signature of regime noise~~:
+on the extended panel the shipped arm trails in BOTH halves (11.18 v 13.31,
+11.66 v 12.21), so the cost is now consistent in sign, though still smaller
+than the +6.57-point spread across rebalance phases that A46 measured on this
+rule. The return effect stays unclaimed and the drawdown is the whole case.
+The index fell 19.5% in the ten weeks the panel gained, which is why its
+same-span CAGR dropped from 6.81% to 5.57%.
 
 Every prior measurement of TIGHT targets still stands and is why the level is
 wide rather than conventional:

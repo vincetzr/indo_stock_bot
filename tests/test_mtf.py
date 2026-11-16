@@ -339,10 +339,28 @@ def test_all_three_levels_ship_and_the_target_is_wide():
 
 def test_the_cost_of_each_level_is_printed_with_it():
     """CLAUDE.md's fourth column, and the non-negotiable one: a level without
-    its measured consequence is what this repo exists to avoid."""
+    its measured consequence is what this repo exists to avoid.
+
+    The figures are READ from the measurement, not typed here. The first
+    version hardcoded "-40.2%" and "13.46%": when the stop study was re-run on
+    a longer panel (2026-11-16), this test demanded the stale figures while
+    test_measured demanded the re-run's, so no docstring could pass both. A
+    typed copy of a measured figure is exactly the drift A47 removed from the
+    surfaces, rebuilt inside a test.
+    """
+    from idxbot import measured as M                            # noqa: PLC0415
     src = open(rules.__file__).read()
     assert "MEASURED" in src
-    for token in ("-40.2%", "13.46%", "6.84", "0.28"):
+    real = os.path.join(os.path.dirname(__file__), os.pardir, "reports",
+                        "stoptest.json")
+    if not os.path.exists(real):
+        pytest.skip("no stoptest.json here; test_measured covers the fallback")
+    m = M.load(real)
+    tokens = (f"{m.get(M.BASE_ARM, M.F_DD) * 100:.1f}%",
+              f"{m.get(M.BASE_ARM) * 100:.2f}%",
+              f"{abs(m.cost(M.TP_ARMS[0.20])) * 100:.2f}",
+              f"{abs(m.cost(M.HALF_ARM)) * 100:.2f}")
+    for token in tokens:
         assert token in src, token
 
 
