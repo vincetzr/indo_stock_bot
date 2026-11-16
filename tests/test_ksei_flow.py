@@ -110,8 +110,8 @@ def test_a_backfilled_previous_file_makes_the_signal_stale():
         row = {"month_end": me, "ticker": "AAAA", "sec_num": 1000, "price": 100,
                "local_total": 800, "foreign_total": 200,
                "created": pd.Timestamp(created)}
-        row.update({c: 0 for c in kf.ksei.LOCAL})
-        row.update({"local_ID": 300, "local_CP": 500})
+        row.update({c: 0 for c in kf.ksei.LOCAL + kf.ksei.FOREIGN})
+        row.update({"local_ID": 300, "local_CP": 500, "foreign_IS": 200})
         P.append(row)
     K = kf.ksei_frame(pd.DataFrame(P), sess, lag=1).set_index("month_end")
     assert K.loc["2020-12-30", "stale_days"] > kf.STALE_DAYS
@@ -234,3 +234,102 @@ def test_the_mechanism_pairs_only_adjacent_archive_months():
     assert list(Z["prev_me"]) == [pd.NaT, grid[0], grid[2]]
     ar = kf.adjacent_pairs(Z)
     assert len(ar) == 1 and ar.iloc[0]["f_prev"] == 0.1   # Feb<-Jan only
+
+
+# --------------------------------------------------------------------------- #
+# the second review's fixes (2026-11-16), each with the case that exposed it
+# --------------------------------------------------------------------------- #
+
+def _px_panel(end: str) -> pd.DataFrame:
+    d = pd.bdate_range("2024-01-01", end)
+    D = pd.DataFrame({"date": d, "ticker": "AAAA", "tradeable": True})
+    D["holdout"] = D["date"] > D["date"].max() - pd.DateOffset(months=24)
+    return D
+
+
+def test_the_in_sample_cut_is_pinned_and_does_not_roll_with_the_panel():
+    """The first version took the cut from the panel's rolling holdout column:
+    from a panel end of 2026-12-03 a re-run pulled registered-holdout labels
+    into the in-sample, and from 2027-03-11 whole holdout months."""
+    X = pd.DataFrame({
+        "decision": pd.to_datetime(["2024-08-02", "2024-09-03", "2024-12-03"]),
+        "exit63": pd.to_datetime(["2024-11-01", "2024-12-03", "2025-03-11"])})
+    ins, hold = kf.split_sample(X)
+    assert list(ins.index) == [0] and list(hold.index) == [2]   # 1 is purged
+    for end in ("2026-11-13", "2026-12-15", "2027-06-15"):
+        rolling = kf.panel_cut(_px_panel(end))
+        assert rolling >= kf.IN_SAMPLE_CUT
+    assert kf.panel_cut(_px_panel("2027-06-15")) > kf.IN_SAMPLE_CUT
+    assert kf.IN_SAMPLE_CUT == pd.Timestamp("2024-11-13")       # registered
+    with pytest.raises(SystemExit, match="before the registered cut"):
+        kf.panel_cut(_px_panel("2024-06-28"))
+
+
+def test_main_never_reads_the_rolling_cut_for_the_split():
+    """The split goes through split_sample(X, cut) with cut = IN_SAMPLE_CUT."""
+    import inspect
+    src = inspect.getsource(kf.main)
+    assert "cut = IN_SAMPLE_CUT" in src
+    assert 'D.loc[~D["holdout"], "date"].max()' not in src
+
+
+def test_trading_sessions_drop_zero_volume_filler_dates():
+    D = pd.DataFrame({"date": pd.to_datetime(["2018-12-31", "2019-01-01",
+                                              "2019-01-01", "2019-01-02"]),
+                      "tradeable": [True, False, False, True]})
+    s = kf.trading_sessions(D)
+    assert list(s) == list(pd.to_datetime(["2018-12-31", "2019-01-02"]))
+    # a file stamped on the holiday's eve is actionable on the next REAL day
+    stamp = dt.datetime(2018, 12, 31, 6, 0)
+    assert kf.ksei.available_on(stamp, s, 1) == pd.Timestamp("2019-01-02")
+
+
+def test_a_missing_archive_month_breaks_consecutive_in_the_frame():
+    sess = pd.bdate_range("2024-01-01", "2024-07-31")
+    P = []
+    for me in ("2024-01-31", "2024-02-29", "2024-04-30"):      # no March file
+        row = {"month_end": pd.Timestamp(me), "ticker": "AAAA",
+               "sec_num": 1000, "price": 100, "local_total": 800,
+               "foreign_total": 200,
+               "created": pd.Timestamp(me) + pd.Timedelta(days=2, hours=6)}
+        row.update({c: 0 for c in kf.ksei.LOCAL + kf.ksei.FOREIGN})
+        row.update({"local_ID": 300, "local_CP": 500, "foreign_IS": 200})
+        P.append(row)
+    K = kf.ksei_frame(pd.DataFrame(P), sess, lag=1).set_index("month_end")
+    assert bool(K.loc["2024-02-29", "consecutive"])
+    assert not bool(K.loc["2024-04-30", "consecutive"])
+
+
+def _sector_month(order, seed=2):
+    """Two rows alone in their sector: their own dummies fit them exactly."""
+    rng = np.random.default_rng(seed)
+    n = 40
+    sec = np.array([0] * 19 + [1] * 19 + [2, 3])
+    S = np.column_stack([(sec == k).astype(float) for k in (1, 2, 3)])
+    C = rng.normal(size=(n, 2))
+    y = rng.normal(size=n)
+    r = rng.normal(size=n)
+    o = np.asarray(order)
+    return kf.Month(y[o], r[o], np.column_stack([C, S])[o], np.zeros(n),
+                    np.zeros(n))
+
+
+def test_rows_alone_in_their_sector_tie_at_exactly_zero():
+    """45 such rows made the registered spec's IC and p move with the QR
+    routine (p 0.0007 / 0.0008 / 0.0009 across runs): their residuals were
+    ~1e-17 and floating-point noise decided their ranks."""
+    n = 40
+    M = _sector_month(np.arange(n))
+    e = M.resid()
+    assert (e[-2:] == 0.0).all()
+    assert (np.abs(e[:-2]) > 1e-6).all()
+    ics = [_sector_month(np.random.default_rng(s).permutation(n)).ic()
+           for s in range(6)]
+    assert max(ics) - min(ics) < 1e-12
+    # the null ranks ties by their average, as the observed IC does
+    rng = np.random.default_rng(3)
+    fast = M.null_ics(30, rng)
+    rng = np.random.default_rng(3)
+    perm = np.argsort(rng.random((30, n)), axis=1)
+    slow = np.array([spearmanr(M.resid(M.y[p]), M.r)[0] for p in perm])
+    assert np.allclose(fast, slow, atol=1e-12)

@@ -5,7 +5,8 @@
     python3 scripts/ownership.py                  # the open book's names
     python3 scripts/ownership.py --market         # all equities, by class
 
-Needs ``scripts/ksei_collect.py`` first (five minutes cold, no network warm).
+Needs ``scripts/ksei_collect.py`` first (about an hour cold at KSEI's courtesy
+delay, no network warm).
 
 DESCRIPTIVE, AND MEASURED AS SUCH. H64 tested whether a class's monthly flow
 predicts the next quarter and found nothing tradeable — and the retail result
@@ -25,11 +26,15 @@ THREE THINGS EVERY READER OF THIS NEEDS
    a point. Shares of the balance are shares of what actually trades.
 3. Two kinds of month carry "flows" that are not trades. One where the
    balance itself moved by more than 0.5% — a block entering or leaving, an
-   issuance, a split (flagged; H64 excluded them). And one where the
-   individual type's change is mirrored by another local type's: BYAN in
-   October 2026 moved 10.75bn shares from "individual" to "corporate", which
-   read as flow is retail selling Rp 98 trillion in a month (flagged;
-   ``ksei.transfer_flags``; H64 prints its result with and without them).
+   issuance, a split (flagged; H64 excluded them). And one where a type's
+   change is mirrored by a single type on the other side: BYAN in October 2026
+   moved 10.75bn shares from "individual" to "corporate", which read as flow
+   is retail selling Rp 98 trillion in a month; PNGO in May 2026 moved 98% of
+   its balance from "individual" to "foreign corporate", which read as flow is
+   foreigners buying Rp 2.7 trillion (flagged; ``ksei.transfer_flags`` for the
+   retail column, ``ksei.foreign_transfer_flags`` for the foreign one; H64
+   prints its result with and without them). The first version searched only
+   LOCAL types for the mirror and missed every cross-domicile move.
 
 Named holders above 1% are a different publication: IDX posts "Pemegang Saham
 di atas 1% (KSEI)" monthly since 2026-03-03, behind the same Cloudflare check
@@ -78,13 +83,15 @@ def composition(P: pd.DataFrame) -> pd.DataFrame:
 def flows(P: pd.DataFrame) -> pd.DataFrame:
     """Retail and foreign net flow as a share of the previous balance.
 
-    Consecutive months only, within ticker. ``moved`` flags a month whose
-    balance or share count changed by more than 0.5%, where a "flow" is a
-    block or an issuance rather than trading.
+    Calendar-consecutive months only, within ticker. ``moved`` flags a month
+    whose balance or share count changed by more than 0.5%, where a "flow" is
+    a block or an issuance rather than trading. ``transfer`` and
+    ``transfer_foreign`` flag a mirrored type-to-type move on each side; each
+    removes the month from ITS column's rupiah sum only.
     """
     P = P.sort_values(["ticker", "month_end"]).copy()
-    grid = pd.Index(sorted(P["month_end"].unique()))
-    k = P["month_end"].map(pd.Series(np.arange(len(grid)), index=grid))
+    k = ksei.month_index(P["month_end"]).to_numpy()
+    k = pd.Series(k, index=P.index)
     held = (P["local_total"] + P["foreign_total"]).astype(float)
     g = P.groupby("ticker")
     prev_held = held.groupby(P["ticker"]).shift(1)
@@ -99,11 +106,13 @@ def flows(P: pd.DataFrame) -> pd.DataFrame:
             (np.log(P["sec_num"] / g["sec_num"].shift(1))).abs() > DLOG_FLAG)
     out["moved"] = moved.where(ok, False).astype(bool)
     out["transfer"] = ksei.transfer_flags(P).reindex(P.index).astype(bool)
-    clean = ok & ~out["moved"] & ~out["transfer"]
+    out["transfer_foreign"] = (ksei.foreign_transfer_flags(P)
+                               .reindex(P.index).astype(bool))
+    clean = ok & ~out["moved"]
     out["retail_rp"] = ((P["local_ID"] - g["local_ID"].shift(1))
-                        * P["price"]).where(clean)
+                        * P["price"]).where(clean & ~out["transfer"])
     out["foreign_rp"] = ((P["foreign_total"] - g["foreign_total"].shift(1))
-                         * P["price"]).where(clean)
+                         * P["price"]).where(clean & ~out["transfer_foreign"])
     return out
 
 
@@ -194,16 +203,23 @@ def ticker_report(t: str, C: pd.DataFrame, F: pd.DataFrame,
             out.append(f"    {lab:<21}" + "".join(
                 ("n/a" if not np.isfinite(v) else f"{v*100:+.2f}%").rjust(11)
                 for v in f[col]))
-        for d, m, x in zip(f["month_end"], f["moved"], f["transfer"]):
+        for d, m, x, xf, ok in zip(f["month_end"], f["moved"], f["transfer"],
+                                   f["transfer_foreign"],
+                                   np.isfinite(f["retail_flow"])):
+            if not ok:
+                continue       # no flow that month, so nothing to qualify
             if m:
                 out.append(f"  ! {d:%b %Y}: the balance or share count moved "
                            f">0.5% — a block, an issuance or a split. That "
                            f"month's flows are not trades.")
-            if x:
-                out.append(f"  ! {d:%b %Y}: the individual type's change is "
-                           f"mirrored by another local type's — a stake "
-                           f"re-registered (e.g. a founder moving shares into a "
-                           f"company), not the crowd trading.")
+            if x or xf:
+                side = ("retail and foreign" if x and xf else
+                        "retail" if x else "foreign")
+                out.append(f"  ! {d:%b %Y}: the {side} change is mirrored by a "
+                           f"single other type's, to within 10% — consistent "
+                           f"with one block re-registered between types "
+                           f"(KSEI carries no holder identity), not the crowd "
+                           f"trading.")
     return out
 
 
@@ -212,8 +228,9 @@ def market_report(F: pd.DataFrame, C: pd.DataFrame, n: int = 6) -> List[str]:
     held = C.assign(rv=C["retail"] * C["held"], fv=C["foreign"] * C["held"])
     share = held.groupby("month_end")[["rv", "fv", "held"]].sum()
     out = ["NET FLOW BY CLASS, all equities, Rp trillion (Δunits × month-end "
-           "price; a name-month is excluded when its balance moved >0.5% or "
-           "its individual-type change is mirrored by another local type)",
+           "price; a name-month is excluded when its balance moved >0.5%, and "
+           "from a column when that column's change is mirrored by a single "
+           "type on the other side)",
            f"  {'month':<10}{'retail':>10}{'foreign':>10}"]
     for d, r in m.iterrows():
         out.append(f"  {d:%Y-%m}   {r['retail_rp']:>+9.2f} {r['foreign_rp']:>+9.2f}")

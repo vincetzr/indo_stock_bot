@@ -19,8 +19,9 @@ usual here, because every file before November 2023 is served but no longer
 linked from any page, and can vanish without notice.
 
 Cost: one request per month when the calendar is right, a few more when a
-month ends on a holiday. ~106 months at a 2-second courtesy delay is about
-five minutes cold and no network at all warm.
+month ends on a holiday. ~106 months at the 30-second courtesy delay
+(``ksei.DELAY_SECONDS``, raised from 2 s by the second review) is about an
+hour cold, and no network at all warm.
 """
 
 from __future__ import annotations
@@ -108,15 +109,26 @@ def main() -> int:
     man.to_csv(ksei.MANIFEST_PATH, index=False)
 
     lag = (man["created"].dt.normalize() - man["month_end"]).dt.days
+    # The median over ALL files mixes the regular regime with the files KSEI
+    # regenerated a year or more later; that mixture printed "median 3", which
+    # was then quoted as the regular regime's median (it is 2). Split them.
+    regen = lag > 31
     print(f" {len(man)} files, {man.month_end.min().date()} … "
           f"{man.month_end.max().date()}")
     print(f" {len(P):,} EQUITY rows, {P.ticker.nunique():,} distinct codes, "
           f"{P.groupby('month_end').size().median():.0f} a month at the median")
     print(" both identities held on every row of every file (parse refuses "
           "otherwise)")
-    print(f" creation stamp minus state date, calendar days: "
-          f"median {lag.median():.0f}, max {lag.max():.0f}, "
-          f"min {lag.min():.0f}")
+    reg = lag[~regen]
+    hhmm = man.loc[~regen, "created"].dt.strftime("%H:%M")
+    print(f" creation stamp minus state date, calendar days, {len(reg)} "
+          f"regular files: median {reg.median():.0f}, range "
+          f"{reg.min():.0f}–{reg.max():.0f}; stamped at 06:00 "
+          f"{int(hhmm.str.startswith('06:0').sum())} of {len(reg)}")
+    print(f" regenerated later (stamp > 31 days after the state date, so "
+          f"unusable as a signal): {int(regen.sum())} — "
+          + ", ".join(f"{m:%Y-%m} ({c:%Y-%m-%d})" for m, c in
+                      zip(man.loc[regen, "month_end"], man.loc[regen, "created"])))
     gaps = sorted(set(pd.period_range(man.month_end.min(), man.month_end.max(),
                                       freq="M"))
                   - set(man.month_end.dt.to_period("M")))

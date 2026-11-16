@@ -20,18 +20,20 @@ from idxbot.data import ksei                                    # noqa: E402
 
 
 def _panel(rows):
-    """rows: (month_end, ticker, local dict, foreign_total)."""
+    """rows: (month_end, ticker, local dict, foreign) where ``foreign`` is a
+    total (all of it in foreign_IS) or a dict by foreign type."""
     out = []
-    for me, t, loc, ft in rows:
+    for me, t, loc, fo in rows:
         r = {"month_end": pd.Timestamp(me), "ticker": t, "sec_num": 0,
-             "price": 1000.0, "foreign_total": ft}
+             "price": 1000.0}
         for c in ksei.LOCAL:
             r[c] = loc.get(c, 0)
+        fo = fo if isinstance(fo, dict) else {"foreign_IS": fo}
         for c in ksei.FOREIGN:
-            r[c] = 0
-        r["foreign_IS"] = ft
+            r[c] = fo.get(c, 0)
+        r["foreign_total"] = sum(r[c] for c in ksei.FOREIGN)
         r["local_total"] = sum(r[c] for c in ksei.LOCAL)
-        r["sec_num"] = r["local_total"] + ft
+        r["sec_num"] = r["local_total"] + r["foreign_total"]
         out.append(r)
     return pd.DataFrame(out)
 
@@ -48,10 +50,53 @@ def test_a_founder_moving_a_stake_is_a_transfer_not_retail_selling():
     assert list(f) == [False, False, True]
 
 
-def test_the_crowd_selling_to_foreigners_is_not_a_transfer():
-    P = _panel([(M[0], "AAAA", {"local_ID": 1000, "local_CP": 500}, 500),
-                (M[1], "AAAA", {"local_ID": 900, "local_CP": 500}, 600)])
+def test_the_crowd_selling_to_several_foreign_types_is_not_a_transfer():
+    """Retail −100 spread over three foreign types: no single mirror."""
+    P = _panel([(M[0], "AAAA", {"local_ID": 1000, "local_CP": 500},
+                 {"foreign_IS": 200, "foreign_IB": 200, "foreign_MF": 100}),
+                (M[1], "AAAA", {"local_ID": 900, "local_CP": 500},
+                 {"foreign_IS": 240, "foreign_IB": 235, "foreign_MF": 125})])
     assert not ksei.transfer_flags(P).any()
+    assert not ksei.foreign_transfer_flags(P).any()
+
+
+def test_a_cross_domicile_block_is_a_transfer():
+    """PNGO, May 2026, in miniature: 98% of the balance from individual to
+    foreign corporate. The first version searched only LOCAL types and called
+    this "the crowd selling to foreigners"; 122 such mirrors match to within a
+    millionth in the archive against 0-1 by chance, and the EMTK and MTDL
+    blocks travel back the next months."""
+    P = _panel([(M[0], "PNGO", {"local_ID": 768, "local_CP": 13},
+                 {"foreign_IS": 1}),
+                (M[1], "PNGO", {"local_ID": 1, "local_CP": 13},
+                 {"foreign_IS": 1, "foreign_CP": 767})])
+    assert list(ksei.transfer_flags(P)) == [False, True]
+    assert list(ksei.foreign_transfer_flags(P)) == [False, True]
+    # the first version, kept for comparison, cannot see it
+    assert not ksei.transfer_flags(P, partners="local").any()
+    F = ow.flows(P)
+    may = F[F["month_end"] == pd.Timestamp(M[1])].iloc[0]
+    assert np.isnan(may["retail_rp"]) and np.isnan(may["foreign_rp"])
+
+
+def test_a_local_transfer_leaves_the_foreign_column_alone():
+    """BYAN moved individual -> corporate; foreigners did not trade it, so
+    the foreign column keeps that month."""
+    P = _panel([(M[0], "BYAN", {"local_ID": 1450, "local_CP": 330}, 1450),
+                (M[1], "BYAN", {"local_ID": 375, "local_CP": 1405}, 1460)])
+    F = ow.flows(P).set_index("month_end")
+    assert bool(F.loc[pd.Timestamp(M[1]), "transfer"])
+    assert not bool(F.loc[pd.Timestamp(M[1]), "transfer_foreign"])
+    assert F.loc[pd.Timestamp(M[1]), "foreign_rp"] == pytest.approx(10 * 1000.0)
+
+
+def test_a_missing_archive_month_is_not_bridged():
+    """No file at all for September: October's flow is NaN, not a two-month
+    flow labelled as one, and no transfer is flagged across the gap."""
+    P = _panel([(M[0], "BYAN", {"local_ID": 1450, "local_CP": 330}, 1450),
+                (M[2], "BYAN", {"local_ID": 375, "local_CP": 1405}, 1450)])
+    F = ow.flows(P)
+    assert F["retail_flow"].isna().all() and not F["transfer"].any()
 
 
 def test_a_small_mirrored_move_is_not_flagged():
@@ -71,8 +116,11 @@ def test_composition_partitions_the_balance():
 def test_transfer_months_are_out_of_the_market_sum_and_flagged():
     P = _panel([(M[0], "BYAN", {"local_ID": 1450, "local_CP": 330}, 1450),
                 (M[1], "BYAN", {"local_ID": 375, "local_CP": 1405}, 1450),
-                (M[0], "AAAA", {"local_ID": 1000}, 1000),
-                (M[1], "AAAA", {"local_ID": 1100}, 900)])
+                # the crowd buying from several foreign types: a trade
+                (M[0], "AAAA", {"local_ID": 1000},
+                 {"foreign_IS": 500, "foreign_IB": 500}),
+                (M[1], "AAAA", {"local_ID": 1100},
+                 {"foreign_IS": 440, "foreign_IB": 460})])
     F = ow.flows(P)
     oct_ = F[F["month_end"] == pd.Timestamp(M[1])].set_index("ticker")
     assert bool(oct_.loc["BYAN", "transfer"])

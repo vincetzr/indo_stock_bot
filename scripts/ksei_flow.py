@@ -26,7 +26,7 @@ hypothesis, not a fix.
     gate      predicted sign, p < 0.000136 AND |t| > 3.81, both halves, no
               tercile flip, drop-largest-year keeps sign with |t| > 2, net
               long-only excess > 0 in both halves
-    holdout   decisions after the price panel's own holdout cut; straddling
+    holdout   decisions after 2024-11-13 (IN_SAMPLE_CUT, pinned); straddling
               label windows purged; spent once and only if the gate passes
 
 Usage
@@ -76,6 +76,15 @@ PANEL = os.path.join("data", "spine", "price_panel.parquet")
 RESULT = os.path.join("reports", "ksei_flow.json")
 SECTORS = os.path.join("data", "reference", "idx_classification.parquet")
 HORIZONS = (21, 63, 126)
+#: The REGISTERED split (hypotheses.md, H64): in-sample label windows close on
+#: or before this date, later decisions are the holdout. The first version
+#: read the price panel's own ``holdout`` column instead, which is the panel's
+#: last date minus 24 months and so ROLLS FORWARD with every rebuild: from a
+#: panel end of 2026-12-03 a re-run would silently pull registered-holdout
+#: labels into the in-sample, and from 2027-03-11 whole holdout months, while
+#: still printing "holdout UNTOUCHED" (review, 2026-11-16). It was exactly
+#: right on the day it ran, which is why nothing looked wrong.
+IN_SAMPLE_CUT = pd.Timestamp("2024-11-13")
 CONFIRM_K = 63
 LAG = 1
 LAG_SENSITIVITY = 5
@@ -96,19 +105,34 @@ LEVEL = {"f_retail": "retail_lvl", "f_foreign": "foreign_lvl", "parity": None}
 PRICE_CONTROLS = ["mom12_1", "rev1", "log_turnover", "vol60"]
 # --------------------------------------------------------------------------- #
 
+#: Post-result robustness only, never a filter: which transfer flags each
+#: signal is printed against (ksei.transfer_flags, ksei.foreign_transfer_flags).
+TRANSFER_VARIANTS = {
+    "f_retail": ("xfer_local", "xfer", "xfer_exact"),
+    "f_foreign": ("xfer_local", "xfer_f", "xfer_f_exact"),
+}
+TRANSFER_LABEL = {
+    "xfer_local": "first review's flag (local partners only, 10%)",
+    "xfer": "retail mirrored by ANY type within 10%",
+    "xfer_exact": "retail mirrored by any type within 1%",
+    "xfer_f": "foreign mirrored by a local type within 10%",
+    "xfer_f_exact": "foreign mirrored by a local type within 1%",
+}
+
 
 def ksei_frame(P: pd.DataFrame, sessions: pd.DatetimeIndex,
                lag: int) -> pd.DataFrame:
     """One row per (ticker, state month) with flows, levels and a decision date."""
     P = P.sort_values(["ticker", "month_end"]).reset_index(drop=True)
     grid = pd.DatetimeIndex(sorted(P["month_end"].unique()))
-    pos = pd.Series(np.arange(len(grid)), index=grid)
     created = P.groupby("month_end")["created"].first()
     avail = pd.Series({m: ksei.available_on(created[m].to_pydatetime(),
                                             sessions, lag) for m in grid})
 
     P["held"] = (P["local_total"] + P["foreign_total"]).astype(float)
-    P["_k"] = P["month_end"].map(pos).astype(int)
+    # CALENDAR months, not archive positions: a missing file must break the
+    # chain, not bridge it (review, 2026-11-16; ksei.month_index).
+    P["_k"] = ksei.month_index(P["month_end"]).to_numpy()
     g = P.groupby("ticker")
     prev = {c: g[c].shift(1) for c in ("_k", "local_ID", "foreign_total",
                                        "held", "sec_num", "month_end")}
@@ -127,8 +151,15 @@ def ksei_frame(P: pd.DataFrame, sessions: pd.DatetimeIndex,
         out["log_mcap"] = np.log(P["sec_num"].astype(float)
                                  * P["price"].astype(float))
     out["parity"] = (P["sec_num"].astype("int64") % 2).astype(float)
-    # Not a registered filter: printed as a post-result robustness line only.
+    # Not registered filters: post-result robustness lines only. ``xfer`` is
+    # the retail-side flag with the mirror searched on BOTH sides of the
+    # domicile line; ``xfer_local`` is the first review's local-only version;
+    # ``xfer_f`` is the foreign-side flag. ``_exact`` = within 1%, not 10%.
     out["xfer"] = ksei.transfer_flags(P)
+    out["xfer_local"] = ksei.transfer_flags(P, partners="local")
+    out["xfer_exact"] = ksei.transfer_flags(P, match=ksei.TRANSFER_EXACT)
+    out["xfer_f"] = ksei.foreign_transfer_flags(P)
+    out["xfer_f_exact"] = ksei.foreign_transfer_flags(P, match=ksei.TRANSFER_EXACT)
     a_now = P["month_end"].map(avail)
     a_prev = prev["month_end"].map(avail)
     out["decision"] = pd.to_datetime(
@@ -204,6 +235,40 @@ def apply_filters(X: pd.DataFrame, registered: bool = False
     return X[m].copy(), log
 
 
+def trading_sessions(D: pd.DataFrame) -> pd.DatetimeIndex:
+    """Dates on which at least one name was TRADEABLE.
+
+    The panel's date union also carries 181 zero-volume filler dates —
+    exchange holidays such as 2019-01-01 and the Lebaran weeks of 2018 and
+    2019 — and a decision that lands on one fails the tradeable filter for
+    every name at once. No real KSEI stamp lands on one today; a file stamped
+    on the eve of a holiday would (review, 2026-11-16).
+    """
+    return pd.DatetimeIndex(sorted(
+        D.loc[D["tradeable"].astype(bool), "date"].unique()))
+
+
+def panel_cut(D: pd.DataFrame) -> pd.Timestamp:
+    """The in-sample cut, which is IN_SAMPLE_CUT and nothing else.
+
+    Refuses a panel that ends before the registered cut, because the
+    registered sample cannot be rebuilt from it. The panel's own rolling cut is
+    returned for printing only.
+    """
+    if D["date"].max() < IN_SAMPLE_CUT:
+        raise SystemExit(f"price panel ends {D['date'].max().date()}, before "
+                         f"the registered cut {IN_SAMPLE_CUT.date()}: the "
+                         f"registered in-sample cannot be rebuilt from it")
+    return D.loc[~D["holdout"].astype(bool), "date"].max()
+
+
+def split_sample(X: pd.DataFrame, cut: pd.Timestamp = IN_SAMPLE_CUT
+                 ) -> (pd.DataFrame, pd.DataFrame):
+    """(in-sample, holdout). Straddlers — decided by the cut, labelled after
+    it — are in neither."""
+    return (X[X[f"exit{CONFIRM_K}"] <= cut], X[X["decision"] > cut])
+
+
 def sector_dummies(X: pd.DataFrame) -> np.ndarray:
     s = (pd.read_parquet(SECTORS).set_index("ticker")["sector"]
          if os.path.exists(SECTORS) else pd.Series(dtype=object))
@@ -227,13 +292,31 @@ class Month:
     components along the dropped direction, so the kept basis no longer spans
     the controls and the residual is silently correlated with them (a synthetic
     [c1, zeros, c3] case left max |A'e| = 0.049). It never fired on H64's data
-    (smallest relative |diag R| 0.081), so no reported number moves; with
-    pivoting the first ``rank`` columns of Q span the column space by
-    construction.
+    (smallest relative |diag R| 0.081); with pivoting the first ``rank``
+    columns of Q span the column space by construction. The first version of
+    this docstring said "so no reported number moves". That was wrong for the
+    registered (pre-amendment) spec, for the reason below.
+
+    EXACT ZEROS ARE TIES (second review, 2026-11-16). A row that is the only
+    member of its sector that month is fitted exactly by its own dummy, so its
+    residual is zero in exact arithmetic and ~1e-17 in floating point — and
+    floating-point noise then decided its Spearman rank, in the IC and in every
+    null draw. The registered spec has 45 such rows, two or more in 11 months,
+    so its IC and p moved at the fourth decimal with the QR routine and the
+    library build (p 0.0007, 0.0008, 0.0009 across three runs; none of it a
+    "rounding slip"). Amendment A has two such rows, never two in one month, so
+    its numbers never moved. Residuals within ZERO_TOL of the signal's scale
+    are now set to exactly zero, and the null ranks ties by their average as
+    the observed IC always has, so both are what exact arithmetic gives.
+    Measured margin: such residuals are at most 3.5e-17, genuine ones at least
+    2.7e-7.
 
     ``ids`` are integer ticker codes, used only by the relabelling null.
     ``score`` masks which rows enter the IC (all rows still enter the fit).
     """
+
+    #: relative to max |y|; see the class docstring for the measured margin
+    ZERO_TOL = 1e-10
 
     def __init__(self, y, r, X, liq, hs, ids=None, score=None):
         A = np.column_stack([np.ones(len(y)), X])
@@ -250,7 +333,9 @@ class Month:
 
     def resid(self, y=None) -> np.ndarray:
         y = self.y if y is None else y
-        return y - self.Q @ (self.Q.T @ y)
+        e = y - self.Q @ (self.Q.T @ y)
+        e[np.abs(e) <= self.ZERO_TOL * np.abs(y).max()] = 0.0
+        return e
 
     def ic(self, e=None) -> float:
         e = self.resid() if e is None else e
@@ -258,8 +343,10 @@ class Month:
 
     def _ics_of(self, Y: np.ndarray) -> np.ndarray:
         E = Y - (Y @ self.Q) @ self.Q.T
+        tol = self.ZERO_TOL * np.abs(Y).max(axis=1, keepdims=True)
+        E[np.abs(E) <= tol] = 0.0
         E = E[:, self.score]
-        R = np.argsort(np.argsort(E, axis=1), axis=1).astype(float)
+        R = rankdata(E, axis=1)
         R -= R.mean(axis=1, keepdims=True)
         R /= np.sqrt((R * R).sum(axis=1, keepdims=True))
         return R @ self.rr
@@ -530,11 +617,18 @@ def main() -> int:
     a = ap.parse_args()
 
     P = pd.read_parquet(ksei.PANEL_PATH)
+    gaps = ksei.months_missing(P)
+    if gaps:
+        print(f" REFUSED: the KSEI panel is missing {', '.join(gaps)}. The "
+              f"registered sample needs every month (a gap removes the next "
+              f"month's flows); re-run scripts/ksei_collect.py.")
+        return 1
     D = pd.read_parquet(PANEL, columns=["date", "ticker", "close", "adj_close",
                                         "tradeable", "holdout"]
                         + PRICE_CONTROLS)
-    cut = D.loc[~D["holdout"], "date"].max()
-    sessions = pd.DatetimeIndex(sorted(D["date"].unique()))
+    rolling = panel_cut(D)
+    cut = IN_SAMPLE_CUT
+    sessions = trading_sessions(D)
 
     print("=" * 78)
     print(" H64 — KSEI investor-type flow and the next quarter's return"
@@ -543,7 +637,11 @@ def main() -> int:
     print(f"   KSEI files {P.month_end.nunique()} "
           f"({P.month_end.min().date()} … {P.month_end.max().date()}), "
           f"{len(P):,} equity rows")
-    print(f"   price panel cut (in-sample label windows close by) {cut.date()}")
+    print(f"   in-sample label windows close by {cut.date()} (registered, "
+          f"pinned)"
+          + ("" if rolling == cut else
+             f"; the price panel's own rolling cut is {rolling.date()} and is "
+             f"NOT used — it moves with every rebuild"))
 
     K = ksei_frame(P, sessions, LAG)
     X = attach_prices(K, D)
@@ -553,8 +651,7 @@ def main() -> int:
     X, log = apply_filters(X, a.registered)
     for name, n in log:
         print(f"     {name:<34} {n:>8,}")
-    ins = X[X[f"exit{CONFIRM_K}"] <= cut]
-    hold = X[X["decision"] > cut]
+    ins, hold = split_sample(X, cut)
     print(f"   in-sample {len(ins):,} rows over {ins.month_end.nunique()} "
           f"months ({ins.decision.min().date()} … {ins.decision.max().date()});"
           f" purged {len(X) - len(ins) - len(hold):,}; holdout "
@@ -632,21 +729,28 @@ def main() -> int:
             # LEVERAGE on the per-month OLS (the review found the first version
             # of this comment wrong: ranks bound a row's own Spearman term, not
             # its pull on the regression that runs before the ranks).
-            Xr = ins[~ins["xfer"].astype(bool)]
-            Ar = analyse(build_months(Xr, sig, CONFIRM_K), CONFIRM_K, pred)
-            As_ = analyse(build_months(ins, sig, CONFIRM_K, score_col="xfer"),
-                          CONFIRM_K, pred)
-            results[sig]["robust_no_transfers"] = {
-                "ic": Ar["ic_mean"], "t": Ar["ic_t"],
-                "ic_scored_out_only": As_["ic_mean"],
-                "t_scored_out_only": As_["ic_t"],
-                "rows_dropped": int(ins["xfer"].astype(bool).sum())}
-            print(f"   ROBUSTNESS (post-result, not a trial): "
-                  f"{int(ins['xfer'].astype(bool).sum())} type-to-type transfer "
-                  f"rows scored out but still fitted: IC "
-                  f"{As_['ic_mean']:+.4f} (t {As_['ic_t']:+.2f}); dropped from "
-                  f"the fit too: IC {Ar['ic_mean']:+.4f} (t {Ar['ic_t']:+.2f}). "
-                  f"The gap is leverage on the fit, not the rows' own tilt.")
+            # SECOND REVIEW: the first flag looked for the mirror only among
+            # LOCAL types, so it could not see a cross-domicile move at all,
+            # and for H64b — which reads foreign_total — it removed rows a
+            # local-to-local move cannot touch. Each signal is now printed
+            # against its own flag, at 10% and at 1%, and the first version is
+            # kept for comparison. A band, not a number.
+            rob = {}
+            for col in TRANSFER_VARIANTS[sig]:
+                Ar = analyse(build_months(ins[~ins[col].astype(bool)], sig,
+                                          CONFIRM_K), CONFIRM_K, pred)
+                As_ = analyse(build_months(ins, sig, CONFIRM_K, score_col=col),
+                              CONFIRM_K, pred)
+                n_x = int(ins[col].astype(bool).sum())
+                rob[col] = {"ic": Ar["ic_mean"], "t": Ar["ic_t"],
+                            "ic_scored_out_only": As_["ic_mean"],
+                            "t_scored_out_only": As_["ic_t"],
+                            "rows_dropped": n_x}
+                print(f"   ROBUSTNESS (post-result, not a trial) "
+                      f"{TRANSFER_LABEL[col]}: {n_x} rows; scored out but "
+                      f"fitted IC {As_['ic_mean']:+.4f} (t {As_['ic_t']:+.2f}), "
+                      f"dropped IC {Ar['ic_mean']:+.4f} (t {Ar['ic_t']:+.2f})")
+            results[sig]["robust_no_transfers"] = rob
         if sig == "f_retail":
             # EXPLORATORY, ADDED AFTER THE CONFIRMATORY RESULT WAS SEEN. The
             # registered leg holds what retail SOLD; the sign came back the
@@ -704,6 +808,8 @@ def main() -> int:
            "bonferroni": BONFERRONI, "draws": a.draws,
            "in_sample": [str(ins.decision.min().date()),
                          str(ins.decision.max().date())],
+           "in_sample_cut": str(cut.date()),
+           "panel_rolling_cut": str(rolling.date()),
            "holdout_spent": bool(a.spend_holdout),
            "mechanism": me, "null_control_clean": bool(clean),
            "signals": results}

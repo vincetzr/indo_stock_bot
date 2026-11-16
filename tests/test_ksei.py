@@ -197,6 +197,62 @@ def test_silence_is_not_absence(tmp_path):
                         getter=dead, retries=2, delay=0)
 
 
+def test_a_404_is_absence_too(tmp_path):
+    assert ksei.fetch_file("BalanceposEfek20171229.zip", raw_dir=str(tmp_path),
+                           getter=lambda u: (404, b"<html>"), delay=0) is None
+
+
+@pytest.mark.parametrize("code,body", [(503, b"busy"), (500, b""),
+                                       (429, b"slow down"), (403, b"no"),
+                                       (200, b"<html>maintenance</html>")])
+def test_a_server_that_does_not_answer_is_not_absence(tmp_path, code, body):
+    """Second review, 2026-11-16: the first version returned None for ANY
+    non-200, so a 503 was recorded exactly like a file that does not exist."""
+    with pytest.raises(ConnectionError, match=str(code)):
+        ksei.fetch_file("BalanceposEfek20261030.zip", raw_dir=str(tmp_path),
+                        getter=lambda u: (code, body), retries=2, delay=0)
+
+
+def test_a_transient_error_is_retried_into_the_file(tmp_path):
+    blob = _zip(_text(_row("AADI", L1, F1)))
+    answers = iter([(503, b""), (429, b""), (200, blob)])
+    got = ksei.fetch_file("BalanceposEfek20261030.zip", raw_dir=str(tmp_path),
+                          getter=lambda u: next(answers), retries=4, delay=0)
+    assert got is not None and got.blob == blob
+
+
+def test_a_missing_archive_month_breaks_the_chain():
+    """If the WHOLE archive lacks March, April's change is a two-month change
+    and must be NaN — the first version counted positions in the archive, so
+    April looked consecutive to February."""
+    m = pd.to_datetime(["2026-01-30", "2026-02-27", "2026-04-30"])
+    rows = [[m[0], "AAAA", 100, 1, 10, 80, 20],
+            [m[1], "AAAA", 100, 1, 20, 80, 20],
+            [m[2], "AAAA", 100, 1, 50, 80, 20]]
+    P = _full(_panel(rows))
+    S = ksei.changes(ksei.shares(P))
+    a = S.set_index("month_end")["d_retail"]
+    assert a[m[1]] == pytest.approx(0.1) and np.isnan(a[m[2]])
+    assert ksei.months_missing(P) == ["2026-03"]
+    assert ksei.months_missing(P[P.month_end < m[2]]) == []
+
+
+def test_the_manifest_identifies_content_not_only_the_zip(tmp_path):
+    """The legacy host's 2018-01 copy has a different zip hash and the same
+    text; a re-download must be checkable by content."""
+    text = _text(_row("AADI", L1, F1))
+    a = ksei.manifest_row(dt.date(2026, 10, 30), ksei.Fetched(
+        "BalanceposEfek20261030.zip", _zip(text, stamp=(2026, 11, 2, 6, 0, 0)),
+        True))
+    b = ksei.manifest_row(dt.date(2026, 10, 30), ksei.Fetched(
+        "BalanceposEfek20261030.zip", _zip(text, stamp=(2027, 4, 13, 12, 32, 10)),
+        True))
+    assert a["sha256"] != b["sha256"]
+    assert (a["member_crc"], a["member_bytes"], a["text_sha256"]) == (
+        b["member_crc"], b["member_bytes"], b["text_sha256"])
+    assert a["created"] != b["created"]
+
+
 def test_the_cache_is_read_without_touching_the_network(tmp_path):
     blob = _zip(_text(_row("AADI", L1, F1)))
     calls = []

@@ -36,7 +36,13 @@ THE HOLDOUT IS NOT IN THIS FILE
 --------------------------------
 §11 reserves the most recent 24 months, untouched, to be spent once. The panel
 carries a boolean `holdout` column and every statistic in `price_ic.py` filters
-it out. The split is by date, computed here, so it cannot drift between runs.
+it out. The split is by date, computed here, so every script reading one
+build sees the same split — ~~so it cannot drift between runs~~ but it is the
+panel's LAST date minus 24 months, so it ROLLS FORWARD with every rebuild. A
+study registered against a fixed cut must pin that date itself, as
+``ksei_flow.IN_SAMPLE_CUT`` does: H64 read this column first, and a re-run
+after a refresh would have moved registered-holdout months into its in-sample
+(second review, 2026-11-16).
 """
 
 from __future__ import annotations

@@ -68,6 +68,18 @@ onward answers 200 and every 2017 candidate answers 302. Unlisted files can
 disappear without notice, so the raw zips are cached permanently and a manifest
 of their sizes, hashes and creation stamps is kept under ``data/reference/``.
 
+THAT IS THE HISTORY OF ONE PATH, NOT OF THE ARCHIVE (review, 2026-11-16).
+KSEI's legacy server ``web.ksei.co.id/Download/`` answered HEAD 200 for the
+2009-12, 2012-12 and 2017-12 files (2007-12 404, 2008-12 500), and its copy of
+2018-01 carries the SAME member text — CRC 0x0010c988, 263,916 bytes, identical
+sha256 — stamped 2018-02-01 06:00 where this path's copy is stamped 2020-04-13.
+So the 2020 stamps are a re-zip, at least for that month, and the archive is
+probably older than 2018. Neither host fact is used: ``web.ksei.co.id`` is not
+in ``data.ksei_allowed_hosts`` (A5 — the user's call), no pre-2018 file has been
+opened, and a re-dated month is adopted only on an exact CRC match. The
+manifest records the member CRC so a copy from either host can be checked by
+CONTENT; its zip sha256 differs between hosts for the same text.
+
 TERMS
 -----
 KSEI's "Penafian Umum" and "Ketentuan dan Kebijakan" pages (read 2026-11-15)
@@ -100,14 +112,21 @@ BASE_URL = "https://www.ksei.co.id/storage/Download/"
 UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
       "Chrome/124.0 Safari/537.36")
 
-#: First month found by probing; every 2017 candidate answered 302.
+#: First month on THIS path (2017 candidates answered 302). Not the first
+#: month KSEI published: see "HISTORY" above for the legacy host.
 FIRST_MONTH = (2018, 1)
 CACHE_DIR = os.path.join("data", "cache", "ksei")
 RAW_DIR = os.path.join(CACHE_DIR, "raw")
 PANEL_PATH = os.path.join(CACHE_DIR, "ownership.parquet")
 MANIFEST_PATH = os.path.join("data", "reference", "ksei_manifest.csv")
-#: Someone else's public server. A courtesy, not a latency to tune.
-DELAY_SECONDS = 2.0
+#: Someone else's public server. A courtesy, not a latency to tune. Was 2 s;
+#: the host reset every TLS handshake for a while some hours after the
+#: 106-file collection, and KSEI's legacy server reset the 7th request in
+#: under three minutes at 2.5 s but none of 14 at >= 30 s (second review,
+#: 2026-11-16). The cache is permanent, so this only costs a cold rebuild.
+DELAY_SECONDS = 30.0
+#: The only answers that mean "no such file". Anything else is "no answer".
+ABSENT = frozenset({301, 302, 303, 307, 308, 404, 410})
 
 CATEGORIES = ("IS", "CP", "PF", "IB", "ID", "MF", "SC", "FD", "OT")
 CATEGORY_NAMES = {
@@ -218,12 +237,17 @@ def fetch_file(name: str, hosts: Optional[Sequence[str]] = None,
     """One zip, from the permanent cache or the server. None if absent.
 
     The server answers a missing file with a 302 to its home page rather than a
-    404, so ANY non-200 is absence. Connection resets are frequent and
-    transient — four probes in a row reset on 2026-11-15 and the fifth
-    succeeded — so they are retried with backoff, and only an exhausted retry
-    budget is reported as a failure (as an exception, never as "absent",
-    because "the server would not answer" and "the file does not exist" are
-    different facts and the second one ends a backfill).
+    404, so a REDIRECT, a 404 or a 410 is absence (``ABSENT``). Everything else
+    that is not a zip — a 5xx, a 429, a 403, a 200 carrying an HTML page — is
+    the server not answering, and is retried like a connection reset. Resets
+    are frequent and transient — four probes in a row reset on 2026-11-15 and
+    the fifth succeeded — so only an exhausted retry budget is reported, as an
+    exception, never as "absent": "the server would not answer" and "the file
+    does not exist" are different facts and the second one ends a backfill.
+
+    The first version returned None for ANY non-200, which put a 503 on the
+    same footing as a missing file (review, 2026-11-16); a month recorded as
+    absent that way then made the NEXT month look consecutive downstream.
     """
     url = BASE_URL + name
     check_host(url, allowed_hosts() if hosts is None else hosts)
@@ -249,8 +273,13 @@ def fetch_file(name: str, hosts: Optional[Sequence[str]] = None,
             time.sleep(delay * (k + 1))
             continue
         time.sleep(delay)
-        if code != 200 or not body or not body.startswith(b"PK"):
+        if code in ABSENT:
             return None
+        if code != 200 or not body or not body.startswith(b"PK"):
+            last_err = RuntimeError(f"HTTP {code}, {len(body or b'')} bytes, "
+                                    f"not a zip")
+            time.sleep(delay * (k + 1))
+            continue
         os.makedirs(raw_dir, exist_ok=True)
         tmp = p + ".tmp"
         with open(tmp, "wb") as fh:
@@ -261,15 +290,19 @@ def fetch_file(name: str, hosts: Optional[Sequence[str]] = None,
                           f"({last_err!r})")
 
 
-def read_zip(blob: bytes) -> Tuple[str, str, dt.datetime]:
-    """(text, member name, member creation stamp). Exactly one member."""
+def _member(blob: bytes) -> Tuple[zipfile.ZipInfo, bytes]:
     with zipfile.ZipFile(io.BytesIO(blob)) as z:
         infos = [i for i in z.infolist() if not i.is_dir()]
         if len(infos) != 1:
             raise ParseError(f"expected one member, found {len(infos)}")
-        i = infos[0]
-        text = z.read(i).decode("utf-8", errors="replace")
-        return text, i.filename, dt.datetime(*i.date_time)
+        return infos[0], z.read(infos[0])
+
+
+def read_zip(blob: bytes) -> Tuple[str, str, dt.datetime]:
+    """(text, member name, member creation stamp). Exactly one member."""
+    i, raw = _member(blob)
+    return (raw.decode("utf-8", errors="replace"), i.filename,
+            dt.datetime(*i.date_time))
 
 
 # --------------------------------------------------------------------------- #
@@ -370,12 +403,18 @@ def fetch_month(year: int, month: int,
 
 
 def manifest_row(day: dt.date, got: Fetched) -> Dict[str, object]:
-    text, member, stamp = read_zip(got.blob)
-    df = parse(text, equity_only=False)
+    """One manifest line. ``sha256`` identifies the ZIP; ``member_crc`` and
+    ``text_sha256`` identify the CONTENT, which is what a copy fetched from
+    another host or re-zipped by KSEI must match (the legacy copy of 2018-01
+    has a different zip hash and an identical text hash)."""
+    i, raw = _member(got.blob)
+    df = parse(raw.decode("utf-8", errors="replace"), equity_only=False)
     return {"month_end": pd.Timestamp(day), "file": got.name,
-            "member": member, "created": pd.Timestamp(stamp),
+            "member": i.filename, "created": pd.Timestamp(dt.datetime(*i.date_time)),
             "bytes": len(got.blob),
             "sha256": hashlib.sha256(got.blob).hexdigest(),
+            "member_crc": f"{i.CRC:08x}", "member_bytes": i.file_size,
+            "text_sha256": hashlib.sha256(raw).hexdigest(),
             "rows": len(df), "equity_rows": int((df["type"] == "EQUITY").sum())}
 
 
@@ -405,6 +444,28 @@ def build_panel(raw_dir: str = RAW_DIR) -> Tuple[pd.DataFrame, pd.DataFrame]:
 # --------------------------------------------------------------------------- #
 # derived quantities
 # --------------------------------------------------------------------------- #
+
+def month_index(month_end) -> pd.Series:
+    """Calendar month as an integer, so "consecutive" means the CALENDAR.
+
+    Every consecutiveness test in the first version was relative to the months
+    present in the archive, so a whole missing file made the next month look
+    consecutive and a two-month change entered as a one-month flow (review,
+    2026-11-16). It fired on nothing — all 106 months are present — and it is
+    the kind of defect that would print a believable number the day it did.
+    """
+    m = pd.to_datetime(pd.Series(month_end))
+    return m.dt.year * 12 + m.dt.month
+
+
+def months_missing(P: pd.DataFrame) -> List[str]:
+    """Calendar months inside the panel's span with no file, as 'YYYY-MM'."""
+    if P.empty:
+        return []
+    have = set(pd.to_datetime(P["month_end"]).dt.to_period("M"))
+    span = pd.period_range(min(have), max(have), freq="M")
+    return [str(p) for p in span if p not in have]
+
 
 #: Investor-class groupings, defined from the type labels alone.
 GROUPS = {
@@ -438,15 +499,13 @@ def shares(P: pd.DataFrame) -> pd.DataFrame:
 def changes(S: pd.DataFrame, cols: Sequence[str] = tuple(GROUPS)) -> pd.DataFrame:
     """Month-on-month change in each share, WITHIN ticker, consecutive only.
 
-    A change is defined only between a ticker's file and the archive's
-    IMMEDIATELY preceding month-end. If a name is missing for a month, the
-    next change is NaN rather than a two-month change mislabelled as one —
-    A11's "never roll on a pivot" in its monthly form.
+    A change is defined only between a ticker's file and the IMMEDIATELY
+    preceding CALENDAR month. If a name — or the whole archive — is missing
+    for a month, the next change is NaN rather than a two-month change
+    mislabelled as one: A11's "never roll on a pivot" in its monthly form.
     """
     S = S.sort_values(["ticker", "month_end"]).copy()
-    grid = pd.Index(sorted(S["month_end"].unique()))
-    pos = pd.Series(np.arange(len(grid)), index=grid)
-    S["_k"] = S["month_end"].map(pos)
+    S["_k"] = month_index(S["month_end"]).to_numpy()
     prev_k = S.groupby("ticker")["_k"].shift(1)
     ok = (S["_k"] - prev_k) == 1
     for c in cols:
@@ -459,35 +518,83 @@ def changes(S: pd.DataFrame, cols: Sequence[str] = tuple(GROUPS)) -> pd.DataFram
 # transfers between types, which are not trades
 # --------------------------------------------------------------------------- #
 
-#: A month is a probable TRANSFER when the individual type moves more than
-#: this share of the balance ...
+#: A month is a probable TRANSFER when a type moves more than this share of
+#: the previous balance ...
 TRANSFER_MIN = 0.01
-#: ... and some other local type moves the opposite way by an amount within
-#: this relative distance of it.
+#: ... and some single type ON THE OTHER SIDE moves the opposite way by an
+#: amount within this relative distance of it.
 TRANSFER_MATCH = 0.10
+#: The near-exact variant, printed as a sensitivity: at 1% the shifted-month
+#: placebo finds 18-29 chance mirrors against 466 real ones (foreign partners)
+#: and 23-29 against 1,191 (local partners); at 10% it is 168-261 against
+#: 1,272 and 2,511.
+TRANSFER_EXACT = 0.01
 
 
-def transfer_flags(P: pd.DataFrame) -> pd.Series:
-    """True where local_ID's change is mirrored by another local type's.
-
-    WHY THIS EXISTS. In October 2026 BYAN's individual holding fell by
-    10,751,166,170 shares while its corporate holding rose by 10,751,301,170 —
-    the controlling holder moving a stake into a company. The balance barely
-    moved, so the share-count and balance filters let it through, and read as
-    flow it was retail "selling" Rp 98 trillion in one month: 88% of that
-    month's absolute retail flow across the whole market came from three names.
-    A type-to-type move of matching size is a re-registration, not the crowd.
-
-    Consecutive months only, within ticker; a name's first month is False.
-    """
+def _mirrored(P: pd.DataFrame, movers: Sequence[str], partners: Sequence[str],
+              match: float) -> pd.Series:
+    """True where a column in ``movers`` moves > TRANSFER_MIN of the previous
+    balance and one column in ``partners`` (other than itself) moves the
+    opposite way within ``match`` of it. Calendar-consecutive months only."""
     P = P.sort_values(["ticker", "month_end"])
     held = (P["local_total"] + P["foreign_total"]).astype(float)
     prev_held = held.groupby(P["ticker"]).shift(1)
-    d = P[LOCAL].astype(float).groupby(P["ticker"]).diff()
-    did = d["local_ID"]
-    others = d.drop(columns="local_ID")
-    big = did.abs() > TRANSFER_MIN * prev_held
-    mirror = ((np.sign(others).mul(-np.sign(did), axis=0) > 0)
-              & ((others.abs().sub(did.abs(), axis=0)).abs()
-                 .le(TRANSFER_MATCH * did.abs(), axis=0))).any(axis=1)
-    return (big & mirror).reindex(P.index).fillna(False).astype(bool)
+    k = month_index(P["month_end"]).to_numpy()
+    cons = pd.Series(k, index=P.index).groupby(P["ticker"]).diff() == 1
+    d = P[list(dict.fromkeys(list(movers) + list(partners)))].astype(float) \
+        .groupby(P["ticker"]).diff()
+    out = pd.Series(False, index=P.index)
+    for a in movers:
+        da = d[a]
+        B = d[[c for c in partners if c != a]]
+        opp = np.sign(B).mul(-np.sign(da), axis=0) > 0
+        near = (B.abs().sub(da.abs(), axis=0)).abs().le(match * da.abs(), axis=0)
+        out |= (da.abs() > TRANSFER_MIN * prev_held) & (opp & near).any(axis=1)
+    return (out & cons).reindex(P.index).fillna(False).astype(bool)
+
+
+def transfer_flags(P: pd.DataFrame, partners: str = "all",
+                   match: float = TRANSFER_MATCH) -> pd.Series:
+    """True where local_ID's change is mirrored by one other type's.
+
+    WHY THIS EXISTS. In October 2026 BYAN's individual holding fell by
+    10,751,166,170 shares while its corporate holding rose by 10,751,301,170.
+    The balance barely moved, so the share-count and balance filters let it
+    through, and read as flow it was retail "selling" Rp 98 trillion in one
+    month: 88% of that month's absolute retail flow across the whole market
+    came from three names. A type-to-type move of matching size is consistent
+    with one holder re-registering a block — KSEI carries no holder identity,
+    so WHO moved it is not observable — and it is not the crowd.
+
+    THE MIRROR IS SEARCHED ON BOTH SIDES OF THE DOMICILE LINE (review,
+    2026-11-16). The first version searched only the other LOCAL types, on the
+    premise that an individual-to-foreign mirror is "the crowd selling to
+    foreigners". The data says otherwise: 122 local_ID moves are mirrored by a
+    single foreign type to within a millionth (0-1 by chance), and the same
+    blocks travel back — EMTK's foreign_ID moved +4,990,264,500, −4,989,570,900
+    and +4,994,405,900 in 2023-01, -02 and -07; PNGO's whole individual
+    holding (98.3% of the balance) went to foreign_CP in 2026-05. Those passed
+    as crowd flow. ``partners="local"`` reproduces the first version.
+
+    Calendar-consecutive months only, within ticker; a name's first month is
+    False.
+    """
+    if partners not in ("all", "local"):
+        raise ValueError(partners)
+    others = [c for c in LOCAL if c != "local_ID"]
+    if partners == "all":
+        others = others + FOREIGN
+    return _mirrored(P, ["local_ID"], others, match)
+
+
+def foreign_transfer_flags(P: pd.DataFrame,
+                           match: float = TRANSFER_MATCH) -> pd.Series:
+    """True where a foreign type's change is mirrored by one LOCAL type's.
+
+    The foreign-side counterpart, for anything that reads foreign_total. A
+    local-to-local transfer leaves foreign_total unchanged and a
+    foreign-to-foreign one cancels inside it, so only a cross-domicile mirror
+    can contaminate it — which is exactly the case the first version could not
+    see.
+    """
+    return _mirrored(P, FOREIGN, LOCAL, match)
