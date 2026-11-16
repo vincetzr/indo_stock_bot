@@ -133,3 +133,104 @@ def test_the_long_leg_follows_the_prediction():
                        M)] * 6, 21, +1)
     assert neg["gross_ex"] > 0 > pos["gross_ex"]
     assert neg["net_ex"] == pytest.approx(neg["gross_ex"] - kf.FEE)
+
+
+# --------------------------------------------------------------------------- #
+# the 2026-11-16 review's fixes, each with the case that exposed it
+# --------------------------------------------------------------------------- #
+
+def test_a_degenerate_column_placed_first_does_not_break_the_projection():
+    """Unpivoted QR left max |A'e| = 0.049 on exactly this case."""
+    rng = np.random.default_rng(5)
+    n = 50
+    c1, c3 = rng.normal(size=n), rng.normal(size=n)
+    X = np.column_stack([c1, np.zeros(n), c3])
+    y = 2 * c3 + rng.normal(size=n)
+    M = kf.Month(y, rng.normal(size=n), X, np.zeros(n), np.zeros(n))
+    A = np.column_stack([np.ones(n), X])
+    assert np.abs(A.T @ M.resid()).max() < 1e-9
+
+
+def _panel_months(n_names=120, n_months=24, persistent=True, seed=0):
+    """Signal and label share a persistent NAME component under the null.
+
+    With overlapping labels and persistent flows, consecutive monthly ICs are
+    correlated; a null that reshuffles every month independently cannot see
+    that, and its spread is too narrow.
+    """
+    rng = np.random.default_rng(seed)
+    y0, a0 = rng.normal(size=n_names), rng.normal(size=n_names)
+    out = []
+    for m in range(n_months):
+        y = y0 + 0.3 * rng.normal(size=n_names) if persistent else rng.normal(size=n_names)
+        r = a0 + 0.3 * rng.normal(size=n_names) if persistent else rng.normal(size=n_names)
+        out.append((m, m, kf.Month(y, r, np.zeros((n_names, 0)), np.zeros(n_names),
+                                   np.zeros(n_names), ids=np.arange(n_names))))
+    return out
+
+
+def test_the_relabelling_null_sees_dependence_the_within_month_null_cannot():
+    months = _panel_months(persistent=True)
+    within = kf.null_test(months, 400, 1)
+    relabel = kf.relabel_test(months, 400, 1)
+    assert np.std(relabel) > 3 * np.std(within)
+    # and with independent months the two nulls agree on scale
+    ind = _panel_months(persistent=False, seed=3)
+    w2, r2 = kf.null_test(ind, 400, 2), kf.relabel_test(ind, 400, 2)
+    assert 0.7 < np.std(r2) / np.std(w2) < 1.4
+
+
+def test_the_relabelling_permutation_has_no_fixed_points_and_is_shared():
+    """A name never keeps its own signal, and keeps the SAME donor every month."""
+    n = 30
+    y = np.arange(n, dtype=float)
+    M1 = kf.Month(y, np.zeros(n) + np.arange(n), np.zeros((n, 0)), np.zeros(n),
+                  np.zeros(n), ids=np.arange(n))
+    keys = np.random.default_rng(9).random((5, n))
+    order = np.argsort(keys[:, M1.ids], axis=1)
+    src = np.roll(order, -1, axis=1)
+    Y = np.empty((5, n))
+    np.put_along_axis(Y, order, y[src], axis=1)
+    assert not (Y == y).any()
+    # a second month with the same names in a different row order gets the
+    # same donor for every name
+    perm = np.random.default_rng(1).permutation(n)
+    M2 = kf.Month(y[perm], np.arange(n, dtype=float), np.zeros((n, 0)),
+                  np.zeros(n), np.zeros(n), ids=perm)
+    order2 = np.argsort(keys[:, M2.ids], axis=1)
+    src2 = np.roll(order2, -1, axis=1)
+    Y2 = np.empty((5, n))
+    np.put_along_axis(Y2, order2, M2.y[src2], axis=1)
+    donor1 = {i: Y[0, i] for i in range(n)}
+    donor2 = {perm[j]: Y2[0, j] for j in range(n)}
+    assert donor1 == donor2
+
+
+def test_scoring_out_rows_keeps_them_in_the_fit():
+    rng = np.random.default_rng(4)
+    n = 80
+    X = rng.normal(size=(n, 2))
+    y = rng.standard_t(2, size=n)
+    r = rng.normal(size=n)
+    mask = np.zeros(n, dtype=bool)
+    mask[:6] = True                                   # rows to score out
+    full = kf.Month(y, r, X, np.zeros(n), np.zeros(n))
+    so = kf.Month(y, r, X, np.zeros(n), np.zeros(n), score=~mask)
+    e = full.resid()
+    assert so.ic() == pytest.approx(spearmanr(e[~mask], r[~mask])[0], abs=1e-12)
+
+
+def test_the_mechanism_pairs_only_adjacent_archive_months():
+    """A filtered-out month must not turn a two-month gap into a lag of one."""
+    grid = pd.DatetimeIndex(["2024-01-31", "2024-02-29", "2024-03-28",
+                             "2024-04-30"])
+    X = pd.DataFrame({
+        "ticker": ["AAAA", "AAAA", "AAAA"],
+        "month_end": pd.to_datetime(["2024-01-31", "2024-02-29", "2024-04-30"]),
+        "consecutive": [True, True, True],      # archive-consecutive; March
+        "f_retail": [0.1, 0.2, 0.4],            # was FILTERED from the frame
+        "f_foreign": [0.0, 0.0, 0.0]})
+    Z = kf.with_predecessor(X, grid)
+    assert list(Z["prev_me"]) == [pd.NaT, grid[0], grid[2]]
+    ar = kf.adjacent_pairs(Z)
+    assert len(ar) == 1 and ar.iloc[0]["f_prev"] == 0.1   # Feb<-Jan only

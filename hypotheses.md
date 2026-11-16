@@ -4004,18 +4004,23 @@ unchanged: one confirmatory specification per signal.
 **The prediction was wrong in sign and is logged as failed, not reframed.**
 What retail accumulated did slightly BETTER over the next quarter than what it
 sold, in all three horizons, both halves and every liquidity tercile — and not
-at the bar (p 0.0069 against 0.000136). Retail is strongly contrarian within
-the month (same-month rank correlation −0.253, negative in 98% of months) and
+at the bar (p 0.0069 against 0.000136; **0.0120** under a null that keeps the
+dependence across months — see REVIEW below). Retail is strongly contrarian
+within the month (same-month rank correlation ~~−0.253, negative in 98% of
+months~~ **−0.249, negative in all 62**, corrected below) and
 is the foreigners' counterparty (−0.479): the Kaniel–Saar–Titman picture, not
 the Barber–Odean one §12 assumed.
 
 **After the result, labelled:** dropping 306 type-to-type transfer rows
 (re-registrations like BYAN's 10.75bn-share individual→corporate move in
 2026-10, found while building the display) takes retail to **+0.0203
-(t 1.87)** — a quarter of the tilt was not trading. Holding what retail
+(t 1.87)** — ~~a quarter of the tilt was not trading~~ *(retracted below: scored
+out but left in the fit, the IC is +0.0280; the drop is leverage on the OLS,
+not the transfers' own tilt)*. Holding what retail
 BOUGHT, exploratory: −1.9%/yr at 63 sessions (t −0.76), +2.7%/yr at 126
 (t +1.04). The pre-amendment spec (coverage ≥ 0.90) reads +0.0505 (t 4.07,
-p 0.0007), +0.0412 (t 2.82) without transfers, and −10.8%/yr against retail.
+~~p 0.0007~~ p 0.0009 within-month / 0.0012 relabelled), +0.0412 (t 2.82)
+without transfers, and −10.8%/yr against retail.
 
 **Survivorship, measured with KSEI itself:** 197 of 996 in-sample codes have
 no price in this container (the delisted store awaits the user's licensing
@@ -4033,3 +4038,45 @@ the literature finds most of retail's losses; that is the one door this does
 not close.
 
 **Trials after H64: 368.** Bonferroni bar 0.000136. Nothing clears it.
+
+### H64 — REVIEW, 2026-11-16: five findings, all confirmed by re-implementation, no verdict changed
+
+**NOT A NEW TRIAL. Trials remain 368.** An independent reviewer reproduced
+every printed number, then found five defects; its skeptic agents did not run
+(a usage limit), so each fix was re-implemented here and the numbers
+recomputed. The registered statistics reproduce exactly (IC +0.0275, t 2.58,
+p 0.00690), so the gate's inputs did not move.
+
+| | retail | foreign | parity |
+|---|---|---|---|
+| registered within-month p | 0.0069 | 0.1075 | 0.1555 |
+| **names relabelled consistently across months** | **0.0120** | **0.1413** | **0.3535** |
+| null sd, within-month → relabelled | 0.0103 → 0.0110 | 0.0104 → 0.0115 | 0.0107 → **0.0172** |
+| rank-space neutralisation | +0.0252 (t 2.07) | −0.0141 (t −1.24) | +0.0197 |
+| winsorised 1/99 | +0.0210 (t 2.05) | −0.0148 (t −1.49) | +0.0137 |
+| transfers scored out, still fitted | **+0.0280 (t 2.80)** | −0.0175 | — |
+| transfers dropped from the fit | +0.0203 (t 1.87) | −0.0173 | — |
+
+1. **The registered null was anti-conservative for this design** — it
+   reshuffles each month independently while overlapping 63-session labels and
+   persistent flows make the real monthly ICs dependent. The persistent parity
+   control shows it most: its null sd rises 60% when names keep their identity
+   across months. A17 and A25 both recorded that clustered data needs a
+   clustered null; this registration applied it within months and not across
+   them. **The relabelled p is the one to quote.**
+2. **OLS on a heavy-tailed flow** (per-month kurtosis median 25.1, max 165.1)
+   lets a few rows set every coefficient; residual leakage onto the controls
+   ran to +0.057 (retail level). The transfer line measured that leverage and
+   was misread as the transfers' own tilt — **retracted above**.
+3. **Mechanism windows** paired 806 of 10,655 flows with multi-month returns;
+   corrected to −0.249 (all 62 months negative) and AR(1) +0.222 on 9,849
+   archive-adjacent pairs.
+4. A rounding slip (0.0007 for 0.0008).
+5. A latent unpivoted-QR rank drop, never triggered here, now a pivoted QR
+   with its failing case as a test.
+
+**What it changes:** the wrong-sign tilt is weaker than first written —
+t ≈ 2.1–2.8 across defensible neutralisations, p ≈ 0.012 — and two sentences
+were false. **What it cannot change:** both signals fail on sign, the gate
+also needs |HAC t| > 3.81, and a null that is too narrow can only make the
+parity control fire, which voids rather than passes.

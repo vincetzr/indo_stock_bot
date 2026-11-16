@@ -2,7 +2,10 @@
 
 **Date:** 2026-11-15
 **Verdict:** the depository publishes the account-type split CLAUDE.md §12 said
-was unavailable, and retail flow measured with it **does not lose**. H64's
+was unavailable, and retail flow measured with it **does not lose**.
+*Corrected 2026-11-16 after an independent review (§4.7): the retail tilt's p
+is ≈ 0.012 under a null that respects dependence across months, not 0.0069,
+and two attributions were wrong. No verdict changed.* H64's
 registered prediction (what retail buys underperforms) failed with the sign
 reversed. Neither side of retail flow is a long-only trade after cost.
 Running trade: nothing new is free; the one new API found has shut down.
@@ -107,7 +110,8 @@ within-month permutations. **11,130 in-sample rows, 62 months
 | predicted | **−** | **+** | 0 |
 | IC, k = 63 | **+0.0275** | −0.0167 | +0.0137 |
 | HAC t | +2.58 | −1.75 | +0.81 |
-| permutation p (bar 0.000136) | 0.0069 | 0.1075 | 0.1555 |
+| permutation p, registered within-month null (bar 0.000136) | 0.0069 | 0.1075 | 0.1555 |
+| **permutation p, names relabelled consistently across months** (review, §4.7) | **0.0120** | **0.1413** | **0.3535** |
 | k = 21 / 126 | +0.0271 / +0.0256 | −0.0187 / +0.0143 | — |
 | halves | +0.0238 (t 1.28) / +0.0313 (t 2.52) | −0.0114 / −0.0219 | +0.0455 / −0.0181 |
 | liquidity terciles | +0.037 / +0.012 / +0.033 | −0.008 / +0.010 / −0.042 (flips) | flips |
@@ -118,15 +122,26 @@ within-month permutations. **11,130 in-sample rows, 62 months
 
 ### 4.2 After the result, labelled as such
 
-- **Without type-to-type transfers** (306 rows): retail IC **+0.0203 (t 1.87)**,
-  foreign −0.0173 (t −1.92). A quarter of the retail tilt was re-registration.
+- **Type-to-type transfers** (306 rows): scored out of the IC but still in the
+  per-month fit, retail reads **+0.0280 (t 2.80)**; dropped from the fit as
+  well, **+0.0203 (t 1.87)**. The transfers carry none of the tilt themselves
+  — their extreme values move the OLS coefficients for every other name.
+  ~~A quarter of the retail tilt was re-registration.~~ *(Retracted by the
+  review, §4.7: that read a leverage effect as the rows' own contribution.)*
+- **Neutralisation, bracketed** (review): rank-space retail **+0.0252
+  (t 2.07)**, winsorised 1/99 **+0.0210 (t 2.05)**; foreign −0.0141 (t −1.24)
+  and −0.0148 (t −1.49). The registered +0.0275 sits near the top of a
+  +0.021 … +0.028 range; positive under every variant.
 - **Holding what retail BOUGHT** (the opposite leg, exploratory): **−1.9%/yr**
   at 63 sessions (t −0.76), **+2.7%/yr** at 126 (t +1.04).
 
 ### 4.3 The pre-amendment spec (coverage ≥ 0.90), as promised
 
-Retail IC **+0.0505 (t 4.07, p 0.0007)**, positive in both halves and every
-tercile; **+0.0412 (t 2.82)** without transfers; holding what retail sold
+Retail IC **+0.0505 (t 4.07; permutation p 0.0009 within-month, 0.0012 with
+names relabelled)** — ~~p 0.0007~~, a truncation of the first run's 0.0008 —
+positive in both halves and every tercile; **+0.0532 (t 4.38)** with transfers
+scored out and **+0.0411 (t 2.82)** with them refitted; rank-space +0.0498
+(t 3.21); holding what retail sold
 **−10.8%/yr**; holding what it bought +2.8%/yr (t 0.63). Same sign, larger, in
 the narrower universe where the controlling holder sits inside the balance —
 and still not under the permutation bar.
@@ -134,9 +149,11 @@ and still not under the permutation bar.
 ### 4.4 Mechanism, descriptive
 
 - **Retail is contrarian within the month:** same-month rank correlation with
-  the month's return **−0.253**, negative in 98% of months.
+  the month's return **−0.249**, negative in **all 62** months (~~−0.253, 98%~~:
+  the first version paired some flows with multi-month returns, §4.7).
 - **Retail is the foreigners' counterparty:** −0.479 within month.
-- Flow persists: AR(1) +0.210.
+- Flow persists: AR(1) **+0.222** on 9,849 archive-adjacent pairs
+  (~~+0.210~~ paired some months up to 50 apart).
 
 That is the Kaniel–Saar–Titman picture — individuals buy what falls, sell what
 rises, and are not punished for it at a quarter's horizon — not the
@@ -167,6 +184,44 @@ retail's losses.
 hypothesis, and with ~24 months it has roughly a coin's chance of detecting the
 in-sample effect, while the economics are already ~zero in-sample. Spending
 the only clean data on that is the wrong trade.
+
+---
+
+### 4.7 Review, 2026-11-16 — five findings, all confirmed, no verdict changed
+
+An independent reviewer reproduced every printed number and then found five
+defects. Its own skeptic agents never ran (a usage limit), so each was
+confirmed by re-implementing the fix here and recomputing; the registered
+statistics reproduced exactly (IC +0.0275, t 2.58, p 0.00690).
+
+1. **The registered null is anti-conservative for this design.** It reshuffles
+   each month independently, so its draws are independent across months while
+   the real ICs are not: 63-session labels span three monthly decisions and
+   flows persist (AR(1) +0.22). A null that relabels names *consistently
+   across months* keeps that dependence. Retail p **0.0069 → 0.0120**,
+   foreign 0.1075 → 0.1413, and the persistent parity control's null widens
+   from sd 0.0107 to **0.0172** (p 0.1555 → 0.3535) — the textbook signature.
+   The reviewer's own construction gave 0.0165 / 0.1447 / 0.4064. **Quote the
+   relabelled p.** A17 and A25 already said clustered data needs a clustered
+   null; the registration did not apply it across time.
+2. **OLS neutralisation of a heavy-tailed flow.** Per-month kurtosis of
+   `f_retail` has median 25; a few rows set the coefficients. The transfer line
+   therefore measured leverage, not the transfers' tilt (§4.2), and residual
+   leakage onto the controls ran to |r| ≈ 0.06. Rank-space and winsorised
+   variants are now printed beside the registered OLS.
+3. **Mechanism windows.** `shift(1)` over filtered rows paired 806 of 10,655
+   flows with returns spanning 2–50 months. Fixed with archive-adjacent
+   predecessors: −0.249 (all 62 months negative), AR(1) +0.222.
+4. **A rounding slip** in the pre-amendment p (written 0.0007).
+5. **A latent unpivoted-QR rank drop** that would silently break the
+   projection if a degenerate column ever preceded others. Never fired here;
+   now a pivoted QR, with the failing case as a test.
+
+None of these could pass a signal: both fail on sign, the gate also requires
+|HAC t| > 3.81, and a too-narrow null can only make the parity control fire,
+which voids rather than passes. What they change is how strong the wrong-sign
+tilt looks — t ≈ 2 with p ≈ 0.012, not p 0.0069 — and two sentences that were
+false.
 
 ---
 

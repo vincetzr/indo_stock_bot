@@ -121,11 +121,11 @@ def h64_caveat(path: str = RESULT) -> List[str]:
         f"H64, {r['spec']}, in-sample {r['in_sample'][0]} … "
         f"{r['in_sample'][1]}, k={r['confirm_k']} sessions:",
         f"  retail flow  IC {rt['ic']:+.4f} (HAC t {rt['t']:+.2f}, "
-        f"permutation p {rt['p']:.4f}) — predicted NEGATIVE, came back "
+        f"permutation p {_p(rt)}) — predicted NEGATIVE, came back "
         f"{'positive' if rt['ic'] > 0 else 'negative'}; gate "
         f"{'PASSED' if rt['gate'] else 'FAILED'} (bar p < {r['bonferroni']:.6f})",
         f"  foreign flow IC {fo['ic']:+.4f} (HAC t {fo['t']:+.2f}, "
-        f"permutation p {fo['p']:.4f}); gate "
+        f"permutation p {_p(fo)}); gate "
         f"{'PASSED' if fo['gate'] else 'FAILED'}",
         f"  holding what retail SOLD, net of cost: "
         f"{rt['net_annual_predicted_leg']*100:+.1f}%/yr long-only",
@@ -137,6 +137,19 @@ def h64_caveat(path: str = RESULT) -> List[str]:
     lines.append("  Neither side is a trade. What follows is who holds the "
                  "stock, not what it will do.")
     return lines
+
+
+def _p(sig: dict) -> str:
+    """The registered p, and the dependence-preserving one when present.
+
+    The registered null shuffles each month independently, which is
+    anti-conservative when labels overlap and flows persist (review,
+    2026-11-16); the relabelling null's p is the one to read.
+    """
+    dp = sig.get("p_dependence_preserving")
+    return (f"{sig['p']:.4f}" if dp is None else
+            f"{dp:.4f} with names relabelled across months; "
+            f"{sig['p']:.4f} within-month")
 
 
 def open_book_tickers() -> List[str]:

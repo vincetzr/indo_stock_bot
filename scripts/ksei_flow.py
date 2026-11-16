@@ -55,10 +55,11 @@ import json
 import math
 import os
 import sys
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
+from scipy.linalg import qr as _pivoted_qr
 from scipy.stats import rankdata
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir, "src"))
@@ -218,15 +219,34 @@ def _rank(v: np.ndarray) -> np.ndarray:
 
 
 class Month:
-    """One month's cross-section, factorised once for every draw."""
+    """One month's cross-section, factorised once for every draw.
 
-    def __init__(self, y, r, X, liq, hs):
+    PIVOTED QR (review, 2026-11-16). The first version used an unpivoted
+    ``np.linalg.qr`` and dropped columns with a tiny |diag R|. Without pivoting
+    a degenerate column placed BEFORE others leaves later columns with
+    components along the dropped direction, so the kept basis no longer spans
+    the controls and the residual is silently correlated with them (a synthetic
+    [c1, zeros, c3] case left max |A'e| = 0.049). It never fired on H64's data
+    (smallest relative |diag R| 0.081), so no reported number moves; with
+    pivoting the first ``rank`` columns of Q span the column space by
+    construction.
+
+    ``ids`` are integer ticker codes, used only by the relabelling null.
+    ``score`` masks which rows enter the IC (all rows still enter the fit).
+    """
+
+    def __init__(self, y, r, X, liq, hs, ids=None, score=None):
         A = np.column_stack([np.ones(len(y)), X])
-        Q, R = np.linalg.qr(A)
-        keep = np.abs(np.diag(R)) > 1e-10 * max(1.0, np.abs(np.diag(R)).max())
-        self.Q = Q[:, keep]
+        Q, R, _ = _pivoted_qr(A, mode="economic", pivoting=True)
+        d = np.abs(np.diag(R))
+        rank = int((d > 1e-10 * max(1.0, d.max())).sum())
+        self.Q = Q[:, :rank]
         self.y, self.r, self.liq, self.hs = y, r, liq, hs
-        self.rr = _rank(r)
+        self.ids = (np.asarray(ids) if ids is not None
+                    else np.arange(len(y)))
+        self.score = (np.asarray(score, dtype=bool) if score is not None
+                      else np.ones(len(y), dtype=bool))
+        self.rr = _rank(r[self.score])
 
     def resid(self, y=None) -> np.ndarray:
         y = self.y if y is None else y
@@ -234,37 +254,82 @@ class Month:
 
     def ic(self, e=None) -> float:
         e = self.resid() if e is None else e
-        return float(_rank(e) @ self.rr)
+        return float(_rank(e[self.score]) @ self.rr)
 
-    def null_ics(self, draws: int, rng) -> np.ndarray:
-        n = len(self.y)
-        perm = np.argsort(rng.random((draws, n)), axis=1)
-        Y = self.y[perm]
+    def _ics_of(self, Y: np.ndarray) -> np.ndarray:
         E = Y - (Y @ self.Q) @ self.Q.T
+        E = E[:, self.score]
         R = np.argsort(np.argsort(E, axis=1), axis=1).astype(float)
         R -= R.mean(axis=1, keepdims=True)
         R /= np.sqrt((R * R).sum(axis=1, keepdims=True))
         return R @ self.rr
 
+    def null_ics(self, draws: int, rng) -> np.ndarray:
+        """The REGISTERED null: an independent shuffle inside this month."""
+        n = len(self.y)
+        perm = np.argsort(rng.random((draws, n)), axis=1)
+        return self._ics_of(self.y[perm])
 
-def build_months(X: pd.DataFrame, sig: str, k: int) -> List[tuple]:
+    def relabel_ics(self, keys: np.ndarray) -> np.ndarray:
+        """The DEPENDENCE-PRESERVING null (review, 2026-11-16).
+
+        ``keys`` is (draws, n_tickers): one random key per ticker per draw,
+        SHARED BY EVERY MONTH. Present tickers are ordered by key and each
+        takes the signal of its successor in that order — a fixed-point-free
+        permutation that is the same in every month a name is present, so a
+        name's whole signal history moves to another name together. That keeps
+        what the within-month shuffle destroys: the dependence across months
+        that overlapping 63-session labels and persistent flows create.
+        """
+        order = np.argsort(keys[:, self.ids], axis=1)
+        src = np.roll(order, -1, axis=1)
+        Y = np.empty((keys.shape[0], len(self.y)))
+        np.put_along_axis(Y, order, self.y[src], axis=1)
+        return self._ics_of(Y)
+
+
+#: Neutralisation variants. "ols" is the REGISTERED one. The other two were
+#: added by the 2026-11-16 review as labelled sensitivities, because f_retail is
+#: heavy-tailed (per-month kurtosis median 25) and a few rows were setting the
+#: OLS coefficients for everyone else.
+MODES = ("ols", "rank", "winsor")
+
+
+def build_months(X: pd.DataFrame, sig: str, k: int, mode: str = "ols",
+                 score_col: Optional[str] = None,
+                 ticker_codes: Optional[Dict[str, int]] = None) -> List[tuple]:
+    """One Month per state month. ``score_col``: rows where it is True are
+    scored OUT of the IC (still fitted), to separate a row's own contribution
+    from its leverage on the fit."""
     lvl = LEVEL[sig]
     ctrl = PRICE_CONTROLS + ["log_mcap"] + ([lvl] if lvl else [])
     need = [sig, f"fwd{k}"] + ctrl
     Z = X[np.isfinite(X[need].to_numpy(dtype=float)).all(axis=1)]
+    codes = ticker_codes or {t: i for i, t in
+                             enumerate(sorted(Z["ticker"].unique()))}
     out = []
     for me, g in Z.groupby("month_end"):
         if len(g) < MIN_NAMES:
             continue
         S = sector_dummies(g)
+        y = g[sig].to_numpy(dtype=float)
         C = g[ctrl].to_numpy(dtype=float)
+        if mode == "rank":
+            y = rankdata(y)
+            C = np.column_stack([rankdata(c) for c in C.T])
+        elif mode == "winsor":
+            lo, hi = np.percentile(y, [1, 99])
+            y = np.clip(y, lo, hi)
+        elif mode != "ols":
+            raise ValueError(mode)
         C = (C - C.mean(axis=0)) / np.where(C.std(axis=0) > 0, C.std(axis=0), 1)
         Xm = np.column_stack([C, S]) if S.size else C
+        score = (~g[score_col].astype(bool).to_numpy() if score_col else None)
         out.append((me, g["decision"].iloc[0],
-                    Month(g[sig].to_numpy(dtype=float),
-                          g[f"fwd{k}"].to_numpy(dtype=float), Xm,
+                    Month(y, g[f"fwd{k}"].to_numpy(dtype=float), Xm,
                           g["log_turnover"].to_numpy(dtype=float),
-                          g["hs_frac"].to_numpy(dtype=float))))
+                          g["hs_frac"].to_numpy(dtype=float),
+                          ids=g["ticker"].map(codes).to_numpy(), score=score)))
     return out
 
 
@@ -315,6 +380,23 @@ def null_test(months: List[tuple], draws: int, seed: int) -> np.ndarray:
     return tot / len(months)
 
 
+def relabel_test(months: List[tuple], draws: int, seed: int) -> np.ndarray:
+    """Mean IC under the dependence-preserving null. See Month.relabel_ics."""
+    rng = np.random.default_rng(seed)
+    n_t = 1 + max(int(M.ids.max()) for _, _, M in months)
+    keys = rng.random((draws, n_t))
+    tot = np.zeros(draws)
+    for _, _, M in months:
+        tot += M.relabel_ics(keys)
+    return tot / len(months)
+
+
+def two_sided_p(null: np.ndarray, obs: float) -> float:
+    v = null[np.isfinite(null)]
+    return float((np.abs(v - v.mean()) >= abs(obs - v.mean())).sum() + 1) / (
+        len(v) + 1)
+
+
 def halves(A: Dict[str, object], k: int):
     n = A["n"]
     h = n // 2
@@ -337,7 +419,8 @@ def drop_largest_year(A: Dict[str, object], k: int):
     return worst, mu, t
 
 
-def mechanism(X: pd.DataFrame, D: pd.DataFrame) -> Dict[str, float]:
+def mechanism(X: pd.DataFrame, D: pd.DataFrame,
+              grid: pd.DatetimeIndex) -> Dict[str, float]:
     """Same-month return link, AR(1), retail-vs-foreign. Descriptive only."""
     D = D.sort_values(["ticker", "date"])
     px = {}
@@ -350,9 +433,7 @@ def mechanism(X: pd.DataFrame, D: pd.DataFrame) -> Dict[str, float]:
             return np.nan
         i = s.index.searchsorted(d, side="right") - 1
         return float(s.iloc[i]) if i >= 0 else np.nan
-    Z = X.sort_values(["ticker", "month_end"]).copy()
-    Z["prev_me"] = Z.groupby("ticker")["month_end"].shift(1)
-    Z = Z[Z["consecutive"].fillna(False)]
+    Z = with_predecessor(X, grid)
     Z["ret_m"] = [at(t, a) / at(t, b) - 1.0 if pd.notna(b) else np.nan
                   for t, a, b in zip(Z["ticker"], Z["month_end"], Z["prev_me"])]
     same = Z.groupby("month_end").apply(
@@ -361,13 +442,42 @@ def mechanism(X: pd.DataFrame, D: pd.DataFrame) -> Dict[str, float]:
     rf = Z.groupby("month_end").apply(
         lambda g: g["f_retail"].rank().corr(g["f_foreign"].rank())
         if len(g) >= MIN_NAMES else np.nan)
-    Z["f_prev"] = Z.groupby("ticker")["f_retail"].shift(1)
-    ar = Z[["f_retail", "f_prev"]].dropna()
+    ar = adjacent_pairs(Z)
     return {"same_month": float(np.nanmean(same)),
             "same_month_pos": float(np.nanmean(same > 0)),
+            "same_month_months": int(np.isfinite(same).sum()),
             "retail_vs_foreign": float(np.nanmean(rf)),
             "ar1": float(ar["f_retail"].rank().corr(ar["f_prev"].rank())),
             "n_ar": len(ar)}
+
+
+def with_predecessor(X: pd.DataFrame, grid: pd.DatetimeIndex) -> pd.DataFrame:
+    """Each row's previous state date from the ARCHIVE grid, not the frame.
+
+    REVIEW, 2026-11-16. The first version took ``shift(1)`` over the FILTERED
+    rows, so when a name's previous month had failed a filter the "same-month"
+    return spanned several months against a one-month flow (806 of 10,655 rows,
+    2 to 50 months apart) — A19's window mismatch. The flow is defined only for
+    archive-consecutive months, so its window is exactly (grid[k-1], grid[k]].
+    """
+    Z = X[X["consecutive"].fillna(False).astype(bool)].copy()
+    pos = pd.Series(np.arange(len(grid)), index=grid)
+    k = Z["month_end"].map(pos)
+    Z["prev_me"] = [grid[int(i) - 1] if pd.notna(i) and int(i) > 0 else pd.NaT
+                    for i in k]
+    return Z
+
+
+def adjacent_pairs(Z: pd.DataFrame) -> pd.DataFrame:
+    """(f_retail, f_prev) only where the previous row is the PREVIOUS MONTH.
+
+    The first version paired each row with the previous FILTERED row, which
+    could be up to 50 months back.
+    """
+    prev = Z[["ticker", "month_end", "f_retail"]].rename(
+        columns={"month_end": "prev_me", "f_retail": "f_prev"})
+    return Z.merge(prev, on=["ticker", "prev_me"], how="inner")[
+        ["f_retail", "f_prev"]].dropna()
 
 
 def report(sig: str, A, null, k: int, H, Y) -> tuple:
@@ -453,11 +563,12 @@ def main() -> int:
     print(f"   names per month: median "
           f"{ins.groupby('month_end').size().median():.0f}\n")
 
-    me = mechanism(ins, D)
+    me = mechanism(ins, D, pd.DatetimeIndex(sorted(P["month_end"].unique())))
     print(" MECHANISM (descriptive, in-sample, not trials)")
     print(f"   same-month rank corr(f_retail, month return)  "
-          f"{me['same_month']:+.3f}  (positive in {me['same_month_pos']:.0%} "
-          f"of months)")
+          f"{me['same_month']:+.3f}  (positive in "
+          f"{round(me['same_month_pos'] * me['same_month_months'])} of "
+          f"{me['same_month_months']} months)")
     print(f"   rank corr(f_retail, f_foreign) within month    "
           f"{me['retail_vs_foreign']:+.3f}")
     print(f"   AR(1) of f_retail within name, rank           "
@@ -490,19 +601,52 @@ def main() -> int:
                         "p": pval, "months": A["n"],
                         "net_annual_predicted_leg": A["net_ex"] * A["annual"],
                         "gate": bool(passed[sig])}
+        # REVIEW, 2026-11-16 — NOT TRIALS, AND THE GATE ABOVE IS UNCHANGED.
+        # (1) The registered null shuffles each month independently, so its
+        # draws are independent across months while the real monthly ICs are
+        # not (63-session labels overlap three monthly decisions and flows
+        # persist). The relabelling null keeps that dependence. Its p is the
+        # one to quote; the registered p is anti-conservative here.
+        rel = relabel_test(months, a.draws, a.seed + 1)
+        results[sig]["p_dependence_preserving"] = two_sided_p(rel, A["ic_mean"])
+        results[sig]["null_sd_within_month"] = float(np.std(null))
+        results[sig]["null_sd_dependence_preserving"] = float(np.std(rel))
+        print(f"   REVIEW: dependence-preserving null (names relabelled "
+              f"consistently across months): sd {np.std(rel):.4f} against the "
+              f"within-month {np.std(null):.4f}; p "
+              f"{results[sig]['p_dependence_preserving']:.4f}")
+        # (2) Neutralisation: OLS on a heavy-tailed raw flow lets a few rows
+        # set every coefficient. Rank-space and winsorised variants bracket it.
+        for mode in ("rank", "winsor"):
+            Am = analyse(build_months(ins, sig, CONFIRM_K, mode=mode),
+                         CONFIRM_K, pred)
+            results[sig][f"ic_{mode}"] = Am["ic_mean"]
+            results[sig][f"t_{mode}"] = Am["ic_t"]
+            print(f"   REVIEW: {mode}-space neutralisation: IC "
+                  f"{Am['ic_mean']:+.4f} (t {Am['ic_t']:+.2f})")
         if sig != "parity":
             # ROBUSTNESS, ADDED AFTER THE RESULT WAS SEEN, NOT A TRIAL. A
             # type-to-type re-registration (BYAN 2026-10: 10.75bn shares from
             # individual to corporate) passes every registered filter and reads
-            # as flow. Ranks bound its influence; this line shows by how much.
+            # as flow. Two numbers separate its OWN contribution from its
+            # LEVERAGE on the per-month OLS (the review found the first version
+            # of this comment wrong: ranks bound a row's own Spearman term, not
+            # its pull on the regression that runs before the ranks).
             Xr = ins[~ins["xfer"].astype(bool)]
             Ar = analyse(build_months(Xr, sig, CONFIRM_K), CONFIRM_K, pred)
+            As_ = analyse(build_months(ins, sig, CONFIRM_K, score_col="xfer"),
+                          CONFIRM_K, pred)
             results[sig]["robust_no_transfers"] = {
                 "ic": Ar["ic_mean"], "t": Ar["ic_t"],
+                "ic_scored_out_only": As_["ic_mean"],
+                "t_scored_out_only": As_["ic_t"],
                 "rows_dropped": int(ins["xfer"].astype(bool).sum())}
-            print(f"   ROBUSTNESS (post-result, not a trial): without "
+            print(f"   ROBUSTNESS (post-result, not a trial): "
                   f"{int(ins['xfer'].astype(bool).sum())} type-to-type transfer "
-                  f"rows: IC {Ar['ic_mean']:+.4f} (t {Ar['ic_t']:+.2f})")
+                  f"rows scored out but still fitted: IC "
+                  f"{As_['ic_mean']:+.4f} (t {As_['ic_t']:+.2f}); dropped from "
+                  f"the fit too: IC {Ar['ic_mean']:+.4f} (t {Ar['ic_t']:+.2f}). "
+                  f"The gap is leverage on the fit, not the rows' own tilt.")
         if sig == "f_retail":
             # EXPLORATORY, ADDED AFTER THE CONFIRMATORY RESULT WAS SEEN. The
             # registered leg holds what retail SOLD; the sign came back the

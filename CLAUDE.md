@@ -3570,16 +3570,32 @@ catches a mirrored move (2.84% of name-months). Found while building the
 display, after H64 ran, so it is a robustness line, not a filter.
 
 **H64 FAILED, WITH THE SIGN REVERSED.** Retail flow → next 63 sessions:
-IC **+0.0275** (HAC t +2.58, permutation p 0.0069 against a 0.000136 bar), the
-same sign at 21 and 126 sessions, in both halves and every liquidity tercile.
-Holding what retail SOLD — §12's trade, long-only — nets **−7.9%/yr**. Without
-transfers the tilt is +0.0203 (t 1.87); holding what retail BOUGHT is −1.9%/yr
-(t −0.76) at 63 sessions, +2.7% (t +1.04) at 126. H64b foreign: −0.0167
-(t −1.75). The parity control was silent. **Retail is contrarian within the
-month (−0.253, negative in 98% of months) and is the foreigners'
-counterparty (−0.479)** — Kaniel–Saar–Titman, not Barber–Odean. The holdout is
-unspent: a reversed-sign test would be a new hypothesis with about a coin's
-power on 24 months and no economics to win.
+IC **+0.0275** (HAC t +2.58; permutation p **0.0120** with names relabelled
+consistently across months, 0.0069 under the registered within-month null —
+against a 0.000136 bar), the same sign at 21 and 126 sessions, in both halves
+and every liquidity tercile, and +0.021 … +0.028 across rank, winsorised and
+OLS neutralisation. Holding what retail SOLD — §12's trade, long-only — nets
+**−7.9%/yr**. Holding what retail BOUGHT is −1.9%/yr (t −0.76) at 63 sessions,
++2.7% (t +1.04) at 126. H64b foreign: −0.0167 (t −1.75, relabelled p 0.141).
+The parity control was silent. **Retail is contrarian within the month
+(−0.249, negative in all 62 months) and is the foreigners' counterparty
+(−0.479)** — Kaniel–Saar–Titman, not Barber–Odean. The holdout is unspent: a
+reversed-sign test would be a new hypothesis with about a coin's power on 24
+months and no economics to win.
+
+**AND AN INDEPENDENT REVIEW (2026-11-16) CORRECTED FIVE THINGS, NONE OF WHICH
+COULD PASS A SIGNAL.** The registered null reshuffled each month independently,
+which is anti-conservative when 63-session labels overlap three monthly
+decisions and flows persist — the persistent parity control's null widens 60%
+once names keep their identity across months. That is A17's and A25's lesson
+(clustered data needs a clustered null) applied within months and forgotten
+across them. The transfer line measured LEVERAGE on a per-month OLS of a flow
+with kurtosis 25, not the transfers' own tilt (scored out but still fitted:
++0.0280), so "a quarter of the tilt was not trading" is retracted. The
+mechanism statistics paired 806 flows with multi-month returns. Plus a
+rounding slip and a latent unpivoted-QR rank drop. Every fix was
+re-implemented and recomputed rather than taken on the reviewer's word,
+because the reviewer's own skeptics never ran.
 
 **§12 HAS NOW BEEN ASKED OF FIVE INSTRUMENTS** — aggregate flow, broker
 identity, domicile, price structure, investor type — and none identifies a

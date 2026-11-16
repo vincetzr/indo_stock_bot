@@ -112,3 +112,19 @@ def test_no_h64_figure_is_typed_into_the_report():
                encoding="utf-8").read()
     for typed in ("0.0275", "2.58", "0.0069", "-7.9", "0.0167", "1.75"):
         assert typed not in src, typed
+
+
+def test_the_caveat_prefers_the_dependence_preserving_p(tmp_path):
+    p = tmp_path / "r.json"
+    p.write_text(json.dumps({
+        "spec": "amendment A", "in_sample": ["2019-05-03", "2024-08-02"],
+        "confirm_k": 63, "bonferroni": 0.000136,
+        "signals": {
+            "f_retail": {"ic": 0.0123, "t": 1.11, "p": 0.0011,
+                         "p_dependence_preserving": 0.0222, "gate": False,
+                         "net_annual_predicted_leg": -0.031},
+            "f_foreign": {"ic": -0.0456, "t": -2.22, "p": 0.0333,
+                          "gate": False}}}))
+    text = "\n".join(ow.h64_caveat(str(p)))
+    assert "0.0222 with names relabelled across months" in text
+    assert "0.0011 within-month" in text
