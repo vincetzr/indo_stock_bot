@@ -377,6 +377,9 @@ Recorded so this is not re-litigated. Every one of these was actually attempted:
 | **indopremier.com public module** | ✅ **works — see section 0b** |
 | idxpro.id (MCP server: live prices, orderbook, running trade) — *checked 2026-11-15* | closed: *"idxpro telah tutup … Unofficial, tidak berafiliasi dengan PT Bursa Efek Indonesia"* |
 | Growin' (Mandiri Sekuritas) API or export — *re-checked 2026-11-15* | none found in Mandiri's 2026 material; Smart Running Trade is in-app only |
+| IPOT app opened to any broker's customers — *checked 2026-11-16* | **free to VIEW** since April 2026 (live orderbook, HAKA/HAKI, LADI; no fund transfer, no broker switch; per Kontan, Emiten News, Infobank quoting IPOT). Not a feed: the stream is a logged-in websocket, and scripting it is the restricted act. Its broker summary is reported delayed up to 16 h |
+| IndoPremier anonymous stock page — *checked 2026-11-16* | 301 to the homepage (site redesign; now a single-page app). The broker-summary module `ipot.py` calls directly was NOT requested (`data.broker_allowed_hosts` is empty by design), so whether it still answers is unknown |
+| Stockbit / Pluang / Ajaib per-stock pages and APIs — *checked 2026-11-16* | 401 (bearer token required) / 403 Akamai / 403 Cloudflare |
 
 The old conclusion here was "every legitimate route runs through an account
 someone holds". That was wrong, and wrong in an instructive way: the search had

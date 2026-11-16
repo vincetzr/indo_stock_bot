@@ -4018,9 +4018,11 @@ the Barber–Odean one §12 assumed.
 out but left in the fit, the IC is +0.0280; the drop is leverage on the OLS,
 not the transfers' own tilt)*. Holding what retail
 BOUGHT, exploratory: −1.9%/yr at 63 sessions (t −0.76), +2.7%/yr at 126
-(t +1.04). The pre-amendment spec (coverage ≥ 0.90) reads +0.0505 (t 4.07,
-~~p 0.0007~~ p 0.0009 within-month / 0.0012 relabelled), +0.0412 (t 2.82)
-without transfers, and −10.8%/yr against retail.
+(t +1.04). The pre-amendment spec (coverage ≥ 0.90) reads ~~+0.0505~~ +0.0504
+(t 4.07, p 0.0009 within-month / 0.0012 relabelled), ~~+0.0412 (t 2.82)~~
++0.0410 (t 2.81) without transfers, and −10.8%/yr against retail — figures
+that moved at the fourth decimal between runs until REVIEW 2 below made them
+deterministic.
 
 **Survivorship, measured with KSEI itself:** 197 of 996 in-sample codes have
 no price in this container (the delisted store awaits the user's licensing
@@ -4028,14 +4030,15 @@ call), and their mean within-month retail-flow percentile is 0.490 against
 0.504 — the missing names did not lean toward retail buying.
 
 **The holdout stays unspent.** A reversed-sign test would be a new
-hypothesis, ~24 months gives it about a coin's chance against the in-sample
-effect, and the economics are already ~zero in-sample.
+hypothesis, ~24 months gives it ~~about a coin's chance~~ about 45–60% power at
+a nominal 5% but only ~1–3% at the Bonferroni-plus-|t| bar this repo applies
+(REVIEW 2), and the economics are already ~zero in-sample.
 
-**§12 now has five instruments and five non-answers:** aggregate flow (H9),
-broker identity (H10/H11), domicile (H12), price structure (H13), investor
-type (H64). Monthly holdings cannot see intramonth round trips, which is where
-the literature finds most of retail's losses; that is the one door this does
-not close.
+**§12 now has ~~five~~ four instruments and four non-answers:** aggregate flow
+(H9), broker identity (H10/H11), domicile (H12), investor type (H64). ~~Price
+structure (H13)~~ was §8, not §12 (A8, A9). Monthly holdings cannot see
+intramonth round trips, which is where the literature finds most of retail's
+losses; that is the one door this does not close.
 
 **Trials after H64: 368.** Bonferroni bar 0.000136. Nothing clears it.
 
@@ -4071,7 +4074,8 @@ p 0.00690), so the gate's inputs did not move.
 3. **Mechanism windows** paired 806 of 10,655 flows with multi-month returns;
    corrected to −0.249 (all 62 months negative) and AR(1) +0.222 on 9,849
    archive-adjacent pairs.
-4. A rounding slip (0.0007 for 0.0008).
+4. ~~A rounding slip (0.0007 for 0.0008).~~ Wrong diagnosis — REVIEW 2,
+   item 4.
 5. A latent unpivoted-QR rank drop, never triggered here, now a pivoted QR
    with its failing case as a test.
 
@@ -4080,3 +4084,47 @@ t ≈ 2.1–2.8 across defensible neutralisations, p ≈ 0.012 — and two sente
 were false. **What it cannot change:** both signals fail on sign, the gate
 also needs |HAC t| > 3.81, and a null that is too narrow can only make the
 parity control fire, which voids rather than passes.
+
+### H64 — REVIEW 2, 2026-11-16: eight findings survived two skeptics each, no verdict changed
+
+**NOT A NEW TRIAL. Trials remain 368.** A second review ran three finders with
+two adversarial verifiers per finding. Every fix was re-implemented here
+first. **The confirmatory statistics are bit-identical after all of them**
+(IC +0.0275, t 2.58, p 0.0069 / 0.0120, every null sd and leg).
+
+1. **The in-sample cut rolled with the price panel.** `ksei_flow.py` read the
+   panel's `holdout` column, which is the last date minus 24 months. That was
+   exactly 2024-11-13 on the day it ran. A re-run after a refresh past
+   2026-12-03 would have moved registered-holdout labels into the in-sample,
+   and past 2027-03-11 whole holdout months, still printing "holdout
+   UNTOUCHED". It is now pinned (`IN_SAMPLE_CUT`), with a test.
+2. **The transfer flag searched only LOCAL types for the mirror.** 122
+   individual-type moves are mirrored by one foreign type to within a
+   millionth, against 0–1 by chance (EMTK 2023, PNGO 2026-05). So the H64b
+   transfer line tested nothing about foreign flow. Each signal now has its
+   own flag, printed as a band:
+
+   | flag (scored out / dropped) | retail | foreign |
+   |---|---|---|
+   | first version, local only, 10% | +0.0280 / +0.0203 | −0.0175 / −0.0173 |
+   | either side, 10% | +0.0314 / +0.0215 | −0.0223 / −0.0119 |
+   | either side, 1% | +0.0285 / +0.0250 | −0.0156 / −0.0126 |
+
+   Every value is wrong-signed and none is near |t| 3.81.
+3. **A 503 was recorded as an absent file, and consecutiveness counted
+   archive positions.** One failed fetch would have entered a two-month flow
+   as a one-month signal. It never fired. Fixed, and H64 now refuses a panel
+   with a missing month.
+4. **The pre-amendment drift was floating-point ties, not a slip.** The first
+   run did print 0.00070. 45 rows are alone in their sector that month, so
+   their residuals are zero in exact arithmetic and ~1e-17 in floating point,
+   and that noise ranked them. They are now exact ties: retail +0.0504
+   (t 4.07), p 0.0009 / 0.0012, invariant to row order. Amendment A has two
+   such rows, never two in one month, and never moved.
+5. Re-dating the 14 backfilled KSEI files would add **13** in-sample months,
+   not four (62 → 75; IC +0.0229, t 2.41). KSEI's legacy server holds a copy
+   of 2018-01 with identical text stamped 2018-02-01, but that host is not on
+   the allowlist.
+6. The holdout's power, with its level stated (above).
+7. The stamp-lag median is 2 days, not 3.
+8. Four §12 instruments, not five (above).

@@ -46,10 +46,11 @@ When I ask for a result, give effect size and uncertainty, not a p-value alone.
 | **News / narrative** | **Free** | *Added 2026-08-24, after this table's silence was misread as absence.* Public RSS: Google News (per-query and per-ticker), CNBC Indonesia, Kontan, Detik finance. Verified 200-OK with parseable items; Bisnis.com and idnfinancials 403. `src/idxbot/data/news.py`. **No point-in-time archive, so it may never enter a statistic** |
 | **Overnight / global** | **Free** | *Added 2026-08-25.* The same unauthenticated Yahoo chart endpoint the `.JK` names use also serves ^GSPC, ^IXIC, DX-Y.NYB, IDR=X, ^TNX, BZ=F, CL=F, GC=F, HG=F, ALI=F, TIO=F, GLEN.L, BHP, RIO — and `^JKSE` itself. `src/idxbot/data/overnight.py`. **Palm oil `CPO=F` added 2026-08-25 after the claim that it did not exist was disproved (A14).** Thermal coal and LME nickel genuinely have no free front-month series; the listed miners stand in, labelled |
 | Foreign net flow | Free | IDX trading summary |
-| **Holdings by investor TYPE** | **Free** | *Added 2026-11-15.* KSEI, the depository, publishes `BalanceposEfekYYYYMMDD.zip` monthly: every security's depository-held units split into 9 types (individual, corporate, mutual fund, insurance, pension, bank, securities co., foundation, other) × local/foreign. **2018-01 onward, 106 files; only 36 are linked, the rest are served at the same path.** Positions, so a month's change IS that type's flow, uncensored. `src/idxbot/data/ksei.py`. Three traps: backfilled files (2018-01…2019-02 created 2020-04-13), "held" excludes the controlling block, and type-to-type re-registrations read as flow (A51). Named holders above 1% are a separate monthly IDX publication since 2026-03-03, 403 from here |
+| **Holdings by investor TYPE** | **Free** | *Added 2026-11-15.* KSEI, the depository, publishes `BalanceposEfekYYYYMMDD.zip` monthly: every security's depository-held units split into 9 types (individual, corporate, mutual fund, insurance, pension, bank, securities co., foundation, other) × local/foreign. **2018-01 onward on `www.ksei.co.id/storage/Download/`, 106 files; only 36 are linked, the rest are served at the same path. That is one path, not the archive: KSEI's legacy server `web.ksei.co.id/Download/` answered for 2009-12, 2012-12 and 2017-12 (HEAD only) and holds a content-identical 2018-01 stamped 2018-02-01 — not on the allowlist, the user's call (A52).** Positions, so a month's change IS that type's flow, uncensored. `src/idxbot/data/ksei.py`. Three traps: backfilled files (2018-01…2019-02 created 2020-04-13), "held" excludes the controlling block, and type-to-type re-registrations read as flow, across the domicile line too (A51, A52). Named holders above 1% are a separate monthly IDX publication since 2026-03-03, 403 from here |
 | Market-wide spread & turnover | Free | *Added 2026-11-15.* OJK weekly xlsx: average quoted bid-ask spread and turnover ratio, daily within the month. Aggregate only; used once as a cost-model check (A51) |
 | Macro (USDIDR, BI rate, DXY, UST) | Free | BI, FRED |
-| Real-time tick / running trade | **Licensed** | IDX Data Services. Free route is scraping my own broker session — brittle, ToS-grey. *Re-checked 2026-11-15:* no Growin' API or export; the one new API found (idxpro.id) was unofficial and has shut down |
+| Real-time tick / running trade | **Licensed** | IDX Data Services. Free route is scraping my own broker session — brittle, ToS-grey. *Re-checked 2026-11-15:* no Growin' API or export; the one new API found (idxpro.id) was unofficial and has shut down. *2026-11-16:* IPOT's app is free to ANY broker's customers since April 2026 (live orderbook, HAKA/HAKI) — a free way to WATCH running trade by hand, not a feed |
+| **More free sources, tested 2026-11-16** | **Free, not built** | OJK monthly broker list (codes, every former name, revocation dates: the §5 broker master); OJK sharia list (semiannual, decree-dated); KPEI haircut list (backfilled before 2026-09-26) and its unguaranteed-securities notice; KSEI legacy corporate-action letters (2010+); Bank Indonesia BI-Rate, JISDOR, INDONIA, CPI and BIS's keyless policy rate (2005+). Each needs its host approved (A5). PEFINDO's terms forbid scraping; Kontan's robots.txt disallows AI crawlers by name. `reports/ksei_ownership.md` §2 |
 | Order execution | **Does not exist** | No Indonesian retail broker offers a public order API |
 
 Two consequences that shape the whole architecture:
@@ -3552,10 +3553,12 @@ type's net flow — exact, uncensored, no starting inventory.
 **Three traps, each found before or instead of a result:**
 
 *Backfills.* Each zip member carries a creation stamp. From 2019-03 it is
-06:00, median 3 days after the state date; the 14 files for 2018-01 … 2019-02
-were all created **2020-04-13**, and 2020-12 on **2021-10-19**. Availability is
-taken from the stamp, so those months cannot be signals. archive.org reset
-twice, so whether 2018's data was public in 2018 is open.
+06:00 on 87 of 91 files, ~~median 3~~ **median 2** days after the state date
+(A52); the 14 files for 2018-01 … 2019-02 were all created **2020-04-13**, and
+2020-12 on **2021-10-19**. Availability is taken from the stamp, so those
+months cannot be signals. ~~archive.org reset twice, so whether 2018's data
+was public in 2018 is open~~ — KSEI's legacy server answered it for 2018-01
+(A52).
 
 *"Held" is not the shareholder base.* `held / sec_num` < 0.90 on 46.4% of
 equity rows, and it is the controlling block: BBCA 0.4255, TLKM 0.4786, BBRI
@@ -3566,8 +3569,9 @@ registered spec still prints.
 *Type-to-type re-registration reads as flow.* BYAN, October 2026: 10.75bn
 shares from individual to corporate — retail "selling" Rp 98 trillion, 88% of
 that month's absolute retail flow from three names. `ksei.transfer_flags`
-catches a mirrored move (2.84% of name-months). Found while building the
-display, after H64 ran, so it is a robustness line, not a filter.
+catches a mirrored move (~~2.84% of name-months~~ — that version searched only
+local types; A52). Found while building the display, after H64 ran, so it is a
+robustness line, not a filter.
 
 **H64 FAILED, WITH THE SIGN REVERSED.** Retail flow → next 63 sessions:
 IC **+0.0275** (HAC t +2.58; permutation p **0.0120** with names relabelled
@@ -3580,8 +3584,9 @@ OLS neutralisation. Holding what retail SOLD — §12's trade, long-only — net
 The parity control was silent. **Retail is contrarian within the month
 (−0.249, negative in all 62 months) and is the foreigners' counterparty
 (−0.479)** — Kaniel–Saar–Titman, not Barber–Odean. The holdout is unspent: a
-reversed-sign test would be a new hypothesis with about a coin's power on 24
-months and no economics to win.
+reversed-sign test would be a new hypothesis with ~~about a coin's power~~
+about half power at a nominal 5% and **~1–3% at this repo's Bonferroni-plus-|t|
+bar** on 24 months (A52), and no economics to win.
 
 **AND AN INDEPENDENT REVIEW (2026-11-16) CORRECTED FIVE THINGS, NONE OF WHICH
 COULD PASS A SIGNAL.** The registered null reshuffled each month independently,
@@ -3592,14 +3597,16 @@ once names keep their identity across months. That is A17's and A25's lesson
 across them. The transfer line measured LEVERAGE on a per-month OLS of a flow
 with kurtosis 25, not the transfers' own tilt (scored out but still fitted:
 +0.0280), so "a quarter of the tilt was not trading" is retracted. The
-mechanism statistics paired 806 flows with multi-month returns. Plus a
-rounding slip and a latent unpivoted-QR rank drop. Every fix was
+mechanism statistics paired 806 flows with multi-month returns. Plus ~~a
+rounding slip~~ a drift A52 traced to floating-point ties, and a latent
+unpivoted-QR rank drop. Every fix was
 re-implemented and recomputed rather than taken on the reviewer's word,
 because the reviewer's own skeptics never ran.
 
-**§12 HAS NOW BEEN ASKED OF FIVE INSTRUMENTS** — aggregate flow, broker
-identity, domicile, price structure, investor type — and none identifies a
-losing cohort a long-only holder can fade after cost. The door it leaves open
+**§12 HAS NOW BEEN ASKED OF ~~FIVE~~ FOUR INSTRUMENTS** — aggregate flow,
+broker identity, domicile, investor type (~~price structure~~: H13 was §8, per
+A8 and A9; A52) — and none identifies a losing cohort a long-only holder can
+fade after cost. The door it leaves open
 is intramonth: monthly positions cannot see the round trips where the
 literature finds retail's losses.
 
@@ -3613,8 +3620,8 @@ workbook gives the market-wide average quoted spread: 1.517% in October 2026,
 against 0.952% for one fraksi-harga tick averaged over the same names. Every
 net figure here is, if anything, optimistic — as `half_spread_frac` said.
 
-**RUNNING TRADE: NOTHING NEW IS FREE.** No Growin' API or export in Mandiri's
-2026 material. The one new route, idxpro.id, an MCP server selling live IDX
+**RUNNING TRADE: NO NEW FREE FEED** (but a free way to watch it — A52). No
+Growin' API or export in Mandiri's 2026 material. The one new route, idxpro.id, an MCP server selling live IDX
 prices, orderbook and running trade, now reads *"idxpro telah tutup …
 Unofficial, tidak berafiliasi dengan PT Bursa Efek Indonesia"*. §3's deferral
 still binds: no end-of-day signal exists whose edge is intraday, and the one
@@ -3637,6 +3644,93 @@ produce. **Check the artefacts' own metadata before diagnosing a version.**
 Routine calling the wrong flags; this time nothing visible is calling anything,
 or what runs does not persist its rows. The only out-of-sample evidence this
 project will have stopped accumulating for ten weeks and nothing said so.
+
+---
+
+## A52. The second review: a cut that rolled, a mirror on one side of the line, and a source sweep that was not "all"
+
+A51's first review ran with its own skeptics disabled by a usage limit, so the
+review was re-run in full: three finders (point in time, data layer, written
+claims), with two adversarial verifiers on every finding, plus five source
+sweeps and a critic. Eight findings survived. Every fix was re-implemented
+before it was believed. **H64's confirmatory numbers are bit-identical after
+all of them**, and no verdict moved. Memo `reports/ksei_ownership.md` §4.8,
+logged under H64 REVIEW 2.
+
+**THE IN-SAMPLE CUT ROLLED, AND IT WAS EXACTLY RIGHT ON THE DAY IT RAN.**
+`ksei_flow.py` took its cut from the price panel's `holdout` column, which is
+the panel's last date minus 24 months. That equalled the registered 2024-11-13
+on the run date, so every printed number was correct and nothing looked wrong.
+After a refresh past 2026-12-03, a re-run would have moved registered-holdout
+labels into the in-sample. Past 2027-03-11 it would have moved whole holdout
+months (642 rows by mid-2027), while printing "holdout UNTOUCHED". The cut is
+now a constant with a test. **A date that is part of a registration has to be
+a constant in the code. Derived from data that moves, it is a draft.** This is
+A41's ledger lesson in a new place: verified once at write time, wrong later,
+invisible in between.
+
+**THE MIRROR WAS SEARCHED ON ONE SIDE OF THE DOMICILE LINE.** The transfer flag
+looked for local_ID's mirror only among LOCAL types, and a test encoded the
+premise that an individual-to-foreign mirror is "the crowd selling to
+foreigners". The data refutes it. 122 individual-type moves are mirrored by a
+single foreign type to within a millionth, against 0–1 when the partner is
+taken from the adjacent month. EMTK's same 4.99bn-share block went out, back
+and out again in 2023. **The descriptive table was wrong in sign for its
+biggest month**: May 2026 printed foreigners buying +Rp 6.94T, of which MAPI's
+51% corporate block re-registered to foreign domicile supplied +Rp 12.59T and
+PNGO's +Rp 2.68T. Corrected, the month reads −Rp 8.56T. The reviewers found
+PNGO. MAPI surfaced only when the fixed table was diffed against the old one,
+which is the cheapest check there is. H64's robustness lines are now a band:
+retail +0.020 … +0.031 and foreign −0.012 … −0.022, all wrong-signed, none near
+the bar. A test that pins a premise is only as good as the premise; this one
+made the blind spot permanent.
+
+**"A ROUNDING SLIP" WAS A WRONG DIAGNOSIS OF A REAL DRIFT.** The pre-amendment
+spec printed p 0.00070, then 0.0008, then 0.0009. The first review called the
+first a slip. It was not: 45 rows are the only member of their sector that
+month, their residuals are exactly zero in exact arithmetic and ~1e-17 in
+floating point, and that noise ranked them. Snapped to exact ties, the numbers
+are deterministic under any row order. **A statistic that changes between
+identical runs is not noise to round away. It is a computation that depends on
+something it should not.**
+
+**A 503 WAS "NO SUCH FILE", AND "CONSECUTIVE" MEANT ARCHIVE POSITION.** One
+failed fetch would have turned a two-month flow into a one-month signal, with
+nothing failing. It never fired. Absence is now only a redirect, 404 or 410;
+consecutiveness is by calendar month; H64 refuses a panel with a gap.
+
+**THE SOURCE SWEEP CLAIMED COVERAGE IT DID NOT HAVE — THE A12 SHAPE AN EIGHTH
+TIME.** A51's memo said "use all free BEI and OJK information" was answered by
+an eight-row table. The wider sweep added:
+
+- KSEI's legacy server, whose archive probably starts before 2018 and whose
+  2018-01 copy is content-identical but stamped 2018-02-01, against 2020-04-13
+  on the path A51 used;
+- OJK's monthly broker list (the §5 broker-code master, with former names and
+  revocation decrees);
+- OJK's sharia list;
+- KPEI's haircut list;
+- Bank Indonesia's policy, FX, interbank and CPI series.
+
+"2018-01 onward" and "every 2017 candidate answered 302" were true of one
+path; they were written as the archive's history. It also showed that the
+13-month value of dating the 2018 files had been written as "four".
+
+**What this changes for the user, and what it does not.**
+- Running trade: still no free FEED. But since April 2026 IPOT's app has been
+  free to any broker's customers, with a live orderbook and HAKA/HAKI. That is
+  the legitimate way to watch it by hand while funds stay at Mandiri.
+- Five decisions are the user's under A5:
+  1. `web.ksei.co.id` on the allowlist: 13 more in-sample months, possibly
+     2009 onward, adopted only on an exact CRC match.
+  2. `ojk.go.id`.
+  3. KPEI's hosts.
+  4. The delisted store.
+  5. The IndoPremier broker-summary host. Its anonymous page now redirects
+     after a redesign, so whether the module `ipot.py` calls still answers is
+     unknown.
+- And it changes no research verdict: §12 has been asked of four flow
+  instruments (not five), and none is a trade.
 
 ---
 
@@ -3678,6 +3772,14 @@ worse.**
 - **TP: it costs money, and the cost is monotone in tightness.** S3's predicted
   null CONFIRMED: +20%/+30%/+50% read 6.36%/7.83%/8.77% CAGR against 10.24% with
   none. A target truncates the right tail, and the right tail is the return.
+- *Re-measured 2026-11-16 on the shipped H62 buffer and the panel through
+  2026-11-13, ten weeks in which the IHSG fell 19.5%.* The −20% stop now costs
+  1.38 points of CAGR (13.19% → 11.81%; 0.70 through 2026-09-04). It still
+  cuts maximum drawdown (−39.4% → −33.5%), still positive in all six calendars.
+  The +100% scale-out reads +0.06, having read −0.28. The surfaces print the
+  current file (`measured.py`); these lines are history. "No measurable cost
+  in return" above is an H56-era sentence: the cost moves by more than its own
+  size between runs, which is why it is unclaimed in either direction.
 - **So the TP that ships is the one that costs least, not a round number**, and
   its cost is printed next to it every time.
 
