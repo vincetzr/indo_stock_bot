@@ -3794,6 +3794,79 @@ OJK's ~1.6 ticks, still 6 of 6 ahead.
 
 ---
 
+## A54. Rp 50 jt from January 2026, and the exchange rule the spine did not know
+
+Asked: *"start with 50 jt at the start of 2026 using your algorithm — what
+would I end up with now?"* `scripts/card_account.py` runs the card as one
+account: whole lots, the Mandiri fees, a 10% dividend tax, orders filled the
+session after each decision, and nothing filled on a locked bar.
+
+**ANSWER:** Rp 50 jt from 2026-01-02 → **Rp 44.48 jt on 2026-11-17 (−11.0%)**.
+The same dates give:
+
+| alternative | value |
+|---|---|
+| IHSG with dividends | Rp 30.79 jt (−38.4%) |
+| Every eligible stock in equal weight | Rp 34.67 jt (−30.7%) |
+| Ten random picks through the identical machine | median Rp 34.3 jt (card beats 96 of 100 draws) |
+| Random, keeping held names | median Rp 36.7 jt (card beats 94 of 100) |
+
+What the result does and does not mean:
+
+- **It is in-sample.** The rule was fixed in August–September 2026 on data
+  containing most of 2026.
+- **It is one path.**
+  - Start week alone moves it from Rp 44.1 to 58.3 jt across nine starts
+    from January to March.
+  - The April review broke a seven-way tie at hi52 = 1.0 by ticker order; 60
+    random tie-breaks span Rp 41.8–45.2 jt.
+- **The result is defence, not picking.** 8 of the 24 positions it opened
+  were stopped out; none reached +100%. Buying the January basket and never
+  touching it ends at **Rp 45.47 jt**. So in 2026 the stops and reviews cost
+  about Rp 1 jt rather than adding anything.
+
+**THE SPINE WAS MISSING A RULE CHANGE, AND A CHECK OF THE REPLAY FOUND IT.**
+After the 2026-10-16 crash (IHSG −11.6% that day), BEI cut the lower
+auto-rejection limit to **7% from 2026-10-19, "until the end of 2026"**.
+
+- Sources: press reports from CNN Indonesia, BeritaSatu, Bareksa and kumparan
+  (idx.co.id is 403 here).
+- The data show it independently: 197 names sat all session at exactly
+  prev × 0.93 rounded up to the tick on 10-19.
+- `reference._ARB` still ended in the 15% regime, so `tradeable` called those
+  bars tradeable.
+- The first replay therefore sold BSML on its sixth straight locked
+  limit-down bar. With the regime added, it exits on the first open bar,
+  11-16, at **−39.6%**.
+
+**A −20% stop is not a −20% loss cap under a 7% daily floor:** it can take a
+week of locked sessions to fill. That is now live-relevant, not historical.
+
+**The guard was right and useless.** `card_account.py` already refused to
+fill on an untradeable bar, and a test proved it — on a synthetic panel that
+set `tradeable` by hand. **A guard tested on an injected flag proves the
+guard, not the flag.** The flag is only as current as the schedule behind it,
+and the schedule is a list someone has to keep extending. The regime is left
+open-ended because its replacement after 2026 is not announced. A guessed end
+date would make the lock test silently wrong in January.
+
+**Other defects the independent check found, all fixed:**
+
+- A name stopped on a review's fill day was bought straight back at the same
+  close.
+- A held name that stops printing would have been carried forever (H41's
+  bug).
+- The dividend tax was called "about 0.2% a year". Dividends were 5.6% of
+  capital on this path, so the tax was about 0.56%.
+- The docstring called the replay's Sep–Nov stretch forward evidence. Its
+  calendar differs from the forward record's, so its September basket shares
+  3 of 10 names with the recorded one.
+
+Not re-run: `reports/stoptest.json` and `reports/card_backtest.json` still
+carry the stale flag for 2026-10-19 → 11-13, about 19 of 4,700 sessions.
+
+---
+
 ---
 
 # STANDING INSTRUCTION — the deliverable is a signal with three levels
