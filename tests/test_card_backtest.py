@@ -36,13 +36,15 @@ def test_the_card_arm_is_the_shipped_card_not_a_copy():
 
 
 def test_walk_still_defaults_to_the_accounting_the_card_quotes():
-    """The correction is opt-in until adopted; the shipped file must not move."""
+    """The correction is opt-in until adopted: the shipped file stays put."""
     sig = inspect.signature(st.walk)
     assert sig.parameters["exit_cost_mult"].default == 1.0
     assert cb.VARIANTS["as_printed"] == {"pit_ticks": False,
-                                         "exit_cost_mult": 1.0}
+                                         "exit_cost_mult": 1.0,
+                                         "spread_mult": st.SPREAD_MULT}
     assert cb.VARIANTS["corrected"] == {"pit_ticks": True,
-                                        "exit_cost_mult": 0.5}
+                                        "exit_cost_mult": 0.5,
+                                        "spread_mult": st.SPREAD_MULT}
 
 
 # ---------------------------------------------------- the cost accounting --
@@ -72,15 +74,56 @@ def test_exit_cost_mult_charges_exactly_what_it_says(m):
     """One full turnover on flat prices.
 
     The first basket is the curve's base (its entry cost is already paid when
-    the curve starts), so what remains is the SALE of ten names and the PURCHASE
-    of ten more: (1 - m*c) * (1 - c/2). With m = 0.5 a round trip is c, which
-    is what `cost` means; with m = 1.0 it is 1.5c.
+    the curve starts), so what remains is the SALE of ten names and the
+    PURCHASE of ten more: (1 - m*c) * (1 - c/2). With m = 0.5 a round trip is
+    c, which is what `cost` means; with m = 1.0 it is 1.5c.
     """
     c = 0.01
     r = st.walk(_panel(c=c), exit_cost_mult=m)
     eqs = r["curve"][1]
     assert eqs[-1] == pytest.approx((1 - m * c) * (1 - 0.5 * c), abs=1e-12)
     assert r["n_band"] == 10
+
+
+def _crash_panel(n_dates: int = 300, c: float = 0.01,
+                 drop: float = 0.70) -> pd.DataFrame:
+    """Ten names bought at the first review; A0 falls to `drop` x on day 5 and
+    stays there, the rest are flat and always kept."""
+    P = _panel(n_dates=n_dates, c=c)
+    P = P[~P["ticker"].str.startswith("B")].copy()
+    P["in_entry"] = P["ticker"].str.startswith("A")
+    P["in_keep"] = P["ticker"].str.startswith("A")
+    day5 = np.sort(P["date"].unique())[5]
+    hit = (P["ticker"] == "A0") & (P["date"] >= day5)
+    P.loc[hit, "adj_close"] = 100.0 * drop
+    return P
+
+
+@pytest.mark.parametrize("m", [1.0, 0.5])
+def test_the_stop_path_charges_what_it_says(m):
+    """A0 stops out at 0.70x; its cash then waits, uncharged, for a review
+    that never needs it (nine names are still held and kept)."""
+    c = 0.01
+    r = st.walk(_crash_panel(c=c), stop=0.20, exit_cost_mult=m)
+    assert r["n_stop"] == 1
+    share = 1.0 / 10
+    want = (1 - share) + share * 0.70 * (1 - m * c)
+    #  the next review re-equalises the nine survivors and the cash at half a
+    #  round trip on the turnover, which is the purchase side
+    eq = r["curve"][1]
+    assert eq[6] == pytest.approx(want, abs=1e-12)
+
+
+@pytest.mark.parametrize("m", [1.0, 0.5])
+def test_the_scale_out_path_charges_what_it_says(m):
+    """A0 doubles on day 5: half is sold at m round trips of cost."""
+    c = 0.01
+    P = _crash_panel(c=c, drop=2.0)
+    r = st.walk(P, tp=1.0, tp_frac=0.5, exit_cost_mult=m)
+    assert r["n_tp"] == 1
+    share = 1.0 / 10
+    after = (1 - share) + share * 2.0 * 0.5 + share * 2.0 * 0.5 * (1 - m * c)
+    assert r["curve"][1][6] == pytest.approx(after, abs=1e-12)
 
 
 def test_no_sales_means_no_difference():
@@ -173,3 +216,47 @@ def test_halves_split_at_the_date_midpoint():
     early, late = cb.halves(s)
     assert early == pytest.approx(0.0)
     assert (1 + late) ** 5 == pytest.approx(2.0, rel=1e-3)
+
+
+# --------------------------------------------- the comparison in between --
+def test_equal_weight_universe_pays_one_round_trip_and_drifts():
+    """Two reviews on flat prices: the first purchase is the base, nothing is
+    traded at the second (weights never drifted), so equity stays at 1.0; a
+    name that doubles between reviews is trimmed back at half a round trip on
+    each side of the turnover."""
+    dates = pd.bdate_range("2020-01-01", periods=130)
+    names = [f"N{i:02d}" for i in range(40)]
+    rows = []
+    for j, d in enumerate(dates):
+        for t in names:
+            px = 100.0 * (2.0 if (t == "N00" and j >= 10) else 1.0)
+            rows.append({"date": d, "ticker": t, "adj_close": px,
+                         "elig": True, "cost": 0.01})
+    P = pd.DataFrame(rows)
+    dts, eqs = cb.ew_universe_curve(P, offset=0)
+    assert eqs[0] == 1.0
+    grown = 1.0 + 1.0 / 40                 # N00's 1/40 share doubled
+    assert eqs[62] == pytest.approx(grown)
+    #  N00 is trimmed from 2/40 to grown/40; the other 39 are topped up
+    turn = abs(2.0 / 40 - grown / 40) + 39 * abs(1.0 / 40 - grown / 40)
+    assert eqs[63] == pytest.approx(grown - 0.5 * turn * 0.01)
+
+
+def test_sub_window_opens_on_the_last_value_before_its_start():
+    idx = pd.bdate_range("2009-12-28", "2010-01-08")
+    s = pd.Series(np.arange(1.0, len(idx) + 1.0), index=idx)
+    w = cb.sub(s, "2010-01-01", None)
+    assert w.index[0] == pd.Timestamp("2009-12-31")
+    assert w.iloc[0] == 1.0
+    assert cb.sub(s, None, "2010-01-05").index[-1] == \
+        pd.Timestamp("2010-01-05")
+
+
+def test_the_chart_does_not_draw_a_drawdown_nobody_had():
+    """The first version plotted the drawdown of the per-date median line,
+    a path no calendar followed, and understated the worst calendar's
+    drawdown by about 18 points."""
+    import inspect as _i
+    src = _i.getsource(cb.chart)
+    assert "card_dd.min(axis=1)" in src
+    assert "dd(card_m)" not in src

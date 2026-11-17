@@ -3734,6 +3734,66 @@ path; they were written as the archive's history. It also showed that the
 
 ---
 
+## A53. The card year by year, and three harness defects in the numbers it prints
+
+Asked to backtest the strategy and show it, without registering anything new.
+`scripts/card_backtest.py` walks the shipped card on its six calendars over
+**one common window** (2008-03-25 → 2026-11-13). Memo
+`reports/card_backtest.md`. Every figure there was re-derived by two
+independent checks with their own code.
+
+**The headline, corrected, and what it rests on.** The card returns **+11.83%**
+a year against the IHSG total return's **+6.19%**, ahead in 6 of 6 calendars;
+maximum drawdown is −30.5% against −55.3%. Three qualifications decide how to
+read that:
+
+- **About half the lead is 2026.** Ending at 2025-12-31 it is +12.21% against
+  +9.33%; ending at 2024-12-31, +10.56% against +8.50%.
+- **2008–09 is a backtest guard, not the rule.** The book was about 82% cash
+  from 2008-03-25 and 71% in 2009, mostly because `MIN_BASKET` refused baskets
+  the entry band could not fill. A first draft blamed the liquidity floor; the
+  check counted 21 reviews against 17.
+- **Most of the lead is in the second half, and only against the index.**
+  Against the cap-weighted IHSG the card ties in the first half and leads only
+  in the second. Against every eligible stock held equally at the same costs
+  (+5.03%), it leads by **+6.86** points: +2.96 in the first half (5 of 6
+  calendars) and +10.36 in the second. That is A19 again. The card-versus-index
+  gap mixes selection with weighting, and the comparison between the two had
+  never been run on this card.
+
+**Three defects in `stoptest.walk`, all inherited by `reports/stoptest.json`
+and so by the card's fourth column:**
+
+1. **Sales were charged a full round trip on top of the half every purchase
+   pays: 1.5 round trips a position.** `exit_cost_mult` (default 1.0, shipped
+   numbers unchanged) charges one at 0.5. Net of the point-in-time tick ladder,
+   which runs the other way, the card reads about +0.5 points a year higher.
+2. **A review landing on a holiday or vendor zero-volume row sees no eligible
+   names and skips the quarter.** The panel carries 59 such holiday rows inside
+   the window. Deferring those reviews barely moves the median, but it
+   **roughly halves the measured CAGR cost of the stop and scale-out (1.47 →
+   0.70 points)**. So the cost the card prints next to its levels is about half
+   harness artefact.
+3. **Unfunded placeholders keep a stale stop and target reference**
+   (+0.09 points when reset).
+
+Defects 2 and 3 are measured, not fixed, and the 1.47 still prints. That is
+the user's call, made with the rest of the fix list. **Pricing the spread
+realistically moves the result more than any of the three**: −1.1 points at
+OJK's ~1.6 ticks, still 6 of 6 ahead.
+
+**Two chart and memo errors caught before showing, both worth the habit:**
+
+- *A drawdown of a median line is a drawdown nobody had.* The first chart
+  plotted the drawdown of the per-date median across calendars. It understated
+  the median calendar's maximum drawdown by about 8 points and the worst one's
+  by about 18. It now shades the range of the calendars' own drawdowns, and a
+  test pins it.
+- *"Common window" is where every series has a curve, not where every series
+  is invested.* Three calendars held no stock on its first day.
+
+---
+
 ---
 
 # STANDING INSTRUCTION — the deliverable is a signal with three levels
