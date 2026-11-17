@@ -116,7 +116,8 @@ def _dd(curve: np.ndarray) -> float:
 
 def walk(P: pd.DataFrame, offset: int = 0, stop: float = 0.0,
          tp: float = 0.0, tp_frac: float = 1.0, trail: float = 0.0,
-         daily_keep: bool = False, redeploy: bool = True) -> Dict:
+         daily_keep: bool = False, redeploy: bool = True,
+         exit_cost_mult: float = 1.0) -> Dict:
     """One path. Selection quarterly; exits checked EVERY SESSION.
 
     `stop` / `tp` are fractions from the ENTRY price of that position, checked
@@ -127,6 +128,15 @@ def walk(P: pd.DataFrame, offset: int = 0, stop: float = 0.0,
     run, which is the only form of take-profit that does not truncate the right
     tail outright. `trail` is a trailing stop from the position's own peak,
     which unlike a fixed target rises with a winner instead of capping it.
+
+    `exit_cost_mult` is the share of a position's ROUND-TRIP cost charged when
+    it is sold. `cost` is a round-trip figure (fee 0.56% + spread), and every
+    PURCHASE already pays half of it through the rebalance turnover below, so
+    1.0 -- the accounting every number in reports/stoptest.json was produced
+    with -- charges 1.5 round trips per position. 0.5 charges exactly one.
+    Found by the 2026-11-16 feature inventory. The default stays at 1.0 so
+    the shipped file does not move until that correction is adopted;
+    scripts/card_backtest.py prints both.
     """
     dates = np.sort(P["date"].unique())
     marks = set(dates[offset::FREQ].tolist())
@@ -182,7 +192,7 @@ def walk(P: pd.DataFrame, offset: int = 0, stop: float = 0.0,
             #  churnier one.
             take = held[t]["val"] * tp_frac
             held[t]["val"] -= take
-            cash += take * (1.0 - cost.get(t, FEE))
+            cash += take * (1.0 - exit_cost_mult * cost.get(t, FEE))
             held[t]["tp_done"] = True
             n_tp += 1
         for t, why in drop:
@@ -190,7 +200,7 @@ def walk(P: pd.DataFrame, offset: int = 0, stop: float = 0.0,
             #  breaches −20% often closes at −25%, and on IDX it can gap to
             #  auto-rejection where nothing trades at all. Filling at the level
             #  flatters exactly the tight stops this test is about.
-            cash += held[t]["val"] * (1.0 - cost.get(t, FEE))
+            cash += held[t]["val"] * (1.0 - exit_cost_mult * cost.get(t, FEE))
             n_stop += why == "stop"
             n_tp += why == "tp"
             n_band += why == "band"
@@ -202,13 +212,14 @@ def walk(P: pd.DataFrame, offset: int = 0, stop: float = 0.0,
             if len(e) >= MIN_UNIV:
                 if not daily_keep:
                     for t in [t for t in held if not keep.get(t, False)]:
-                        cash += held[t]["val"] * (1.0 - cost.get(t, FEE))
+                        cash += held[t]["val"] * (
+                            1.0 - exit_cost_mult * cost.get(t, FEE))
                         n_band += 1
                         del held[t]
                 #  A NAME THAT STOPS PRINTING IS A DELISTING, realised at its
                 #  last price, never carried forward at cost (H41's bug).
                 for t in [t for t in held if t not in px]:
-                    cash += held[t]["val"] * (1.0 - FEE)
+                    cash += held[t]["val"] * (1.0 - exit_cost_mult * FEE)
                     del held[t]
                 need = K - len(held)
                 if need > 0:
