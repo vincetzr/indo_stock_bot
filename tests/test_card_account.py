@@ -112,3 +112,104 @@ def test_cash_is_conserved_through_a_round_trip(tmp_path):
     fees = bought - sum(x["lots"] * 100 * x["price"] for x in r["log"]
                         if x["action"] == "BUY")
     assert r["end_value"] == pytest.approx(50e6 - fees, rel=1e-9)
+
+
+def _cfg_panel(n_days=100, **kw):
+    """_panel with knobs: `crash` {ticker: (day, factor)}, `dividend`
+    {ticker: (day, yield)}, `gone` {ticker: day it stops printing},
+    `n_top` names at hi52 = 1.0."""
+    n_top = kw.get("n_top", 10)
+    dates = pd.bdate_range("2025-12-01", periods=n_days)
+    rows = []
+    for j, d in enumerate(dates):
+        for n in range(40):
+            t = f"W{n}" if n < n_top else f"Z{n:02d}"
+            if t in kw.get("gone", {}) and j >= kw["gone"][t]:
+                continue
+            px = adj = 1000.0
+            day, f = kw.get("crash", {}).get(t, (None, 1.0))
+            if day is not None and j >= day:
+                px = adj = 1000.0 * f
+            day, y = kw.get("dividend", {}).get(t, (None, 0.0))
+            if day is not None and j >= day:
+                adj = adj * (1.0 + y)
+            rows.append({"date": d, "ticker": t, "close": px,
+                         "adj_close": adj, "tv60": 5e9, "tradeable": True,
+                         "hi52": 1.0 if n < n_top else 0.5,
+                         "vol60": 0.01 if n < n_top else 0.03})
+    P = pd.DataFrame(rows)
+    P["elig"] = P["tradeable"]
+    return P, dates
+
+
+def test_a_dividend_is_reinvested_net_of_tax(tmp_path):
+    P, dates = _cfg_panel(dividend={"W1": (40, 0.05)})
+    base, _ = _cfg_panel()
+    ix = _index(tmp_path, dates)
+    r = ca.run(50e6, str(dates[20].date()), raw=P, index_path=ix)
+    r0 = ca.run(50e6, str(dates[20].date()), raw=base, index_path=ix)
+    w1 = 49 * 100 * 1000.0                    # W1's value when it went ex
+    assert r["dividends"] == pytest.approx(w1 * 0.05)
+    #  the review at session 83 re-equalises, so compare just before it
+    d = str(dates[82].date())
+    assert r["curve"][d] - r0["curve"][d] == pytest.approx(
+        w1 * 0.05 * (1 - ca.DIV_TAX))
+
+
+def test_a_name_stopped_on_the_fill_day_is_not_bought_back(tmp_path):
+    """W0 is kept at the review decided on session 82 and falls 30% on 83,
+    the fill day. The stop sells it; the fill must not buy it straight back
+    at the same close."""
+    P, dates = _cfg_panel(crash={"W0": (83, 0.70)})
+    r = ca.run(50e6, str(dates[20].date()), raw=P,
+               index_path=_index(tmp_path, dates))
+    day = str(dates[83].date())
+    acts = [(x["action"], x["ticker"]) for x in r["log"]
+            if x["date"] == day]
+    assert ("SELL", "W0") in acts
+    assert ("BUY", "W0") not in acts
+
+
+def test_a_tie_at_the_cut_is_reported(tmp_path):
+    P, dates = _cfg_panel(n_top=12)
+    r = ca.run(50e6, str(dates[20].date()), raw=P,
+               index_path=_index(tmp_path, dates))
+    assert r["ties"] and "12 names tied" in r["ties"][0]
+    a = ca.run(50e6, str(dates[20].date()), raw=P,
+               index_path=_index(tmp_path, dates), tie_seed=1)
+    assert "random draw" in a["ties"][0]
+
+
+def test_a_name_that_stops_printing_is_realised_at_the_review(tmp_path):
+    P, dates = _cfg_panel(gone={"W5": 50})
+    r = ca.run(50e6, str(dates[20].date()), raw=P,
+               index_path=_index(tmp_path, dates))
+    gone = [x for x in r["log"] if x["ticker"] == "W5"
+            and x["action"] == "SELL"]
+    assert len(gone) == 1 and "stopped printing" in gone[0]["why"]
+    assert gone[0]["date"] == str(dates[82].date())
+
+
+def test_hold_first_never_trades_after_the_first_fill(tmp_path):
+    P, dates = _cfg_panel(crash={"W0": (30, 0.50)})
+    r = ca.run(50e6, str(dates[20].date()), raw=P,
+               index_path=_index(tmp_path, dates), selector="hold_first")
+    assert {x["action"] for x in r["log"]} <= {"REVIEW", "BUY"}
+    assert r["stops"] == 0
+
+
+def test_random_controls_draw_from_the_eligible_board(tmp_path):
+    P, dates = _cfg_panel()
+    for how in ("random_fresh", "random_sticky"):
+        r = ca.run(50e6, str(dates[20].date()), raw=P,
+                   index_path=_index(tmp_path, dates), selector=how, seed=3)
+        buys = {x["ticker"] for x in r["log"] if x["action"] == "BUY"}
+        assert buys and buys <= set(P["ticker"])
+
+
+def test_the_equal_weight_universe_pays_only_its_entry(tmp_path):
+    P, dates = _cfg_panel()
+    r = ca.run(50e6, str(dates[20].date()), raw=P,
+               index_path=_index(tmp_path, dates))
+    assert r["ew_end"] == pytest.approx(
+        50e6 * (1 - ca.side_cost(1000.0, ca.BUY_FEE, 0.5)))

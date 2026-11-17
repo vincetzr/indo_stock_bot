@@ -125,6 +125,9 @@ def test_an_unknown_schedule_name_is_an_error():
     ("2025-04-07", 0.25),        # last day of symmetry
     ("2025-04-08", 0.15),        # asymmetric AGAIN
     ("2026-08-20", 0.15),
+    ("2026-10-16", 0.15),        # the crash day itself
+    ("2026-10-19", 0.07),        # post-crash emergency limit (A54)
+    ("2026-11-17", 0.07),
 ])
 def test_each_arb_regime_starts_on_exactly_the_right_day(day, expected_arb):
     assert auto_rejection(1000.0, day)[1] == pytest.approx(expected_arb)
@@ -132,7 +135,8 @@ def test_each_arb_regime_starts_on_exactly_the_right_day(day, expected_arb):
 
 def test_the_upper_limit_never_moved():
     """Every change since 2020 was to the floor, not the ceiling."""
-    for day in ("2019-06-03", "2020-03-16", "2023-09-05", "2026-08-20"):
+    for day in ("2019-06-03", "2020-03-16", "2023-09-05", "2026-08-20",
+                "2026-10-19"):
         assert auto_rejection(1000.0, day)[0] == pytest.approx(0.25)
 
 

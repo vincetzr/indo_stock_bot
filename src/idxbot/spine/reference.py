@@ -31,6 +31,8 @@ particular window:
     2023-06-05        ARB -> 15%   "tahap I" of the normalisation
     2023-09-04        ARB = ARA, symmetric again "tahap II"
     2025-04-08        ARB -> 15%   asymmetric AGAIN (Kep-00003/BEI/04-2025)
+    2026-10-19        ARB -> 7%    after the 2026-10-16 crash, "until the end
+                                   of 2026" (press reports; added 2026-11-17)
 
 That last one matters more than it looks: it lands in the middle of the
 2025-2026 broker panel this repo collected, so a study of that panel which
@@ -181,9 +183,25 @@ _ARB = [
     Regime(pd.Timestamp("2023-09-04"), pd.Timestamp("2025-04-08"),
            ((200.0, 0.35), (5000.0, 0.25), (None, 0.20)),
            "Kep-00055/BEI/03-2023", "normalisation tahap II; symmetric again"),
-    Regime(pd.Timestamp("2025-04-08"), None,
+    Regime(pd.Timestamp("2025-04-08"), pd.Timestamp("2026-10-19"),
            ((None, 0.15),), "Kep-00003/BEI/04-2025",
            "asymmetric again; effective the reopening after Nyepi/Eid 2025"),
+    #  Found 2026-11-17 by an independent check of scripts/card_account.py,
+    #  then confirmed in the press: after the 2026-10-16 crash (IHSG -11.6%)
+    #  BEI cut the lower limit to 7% from 2026-10-19, announced to last until
+    #  the end of 2026 (CNN Indonesia, BeritaSatu, Mettanews, Bareksa, kumparan,
+    #  2026-10-19/21; idx.co.id itself answers 403 here). The data confirm it
+    #  independently: on 2026-10-19, 197 names sat all session at exactly
+    #  prev x 0.93 rounded up to the tick, and from 10-20 no name >= Rp 200
+    #  closes below -10%. Left OPEN-ENDED on purpose: what replaces it after
+    #  2026-12-31 has not been announced, and a guessed end date would make
+    #  the lock test silently wrong in January. Revisit then. The thin-board
+    #  ladder below is NOT changed: the press also reports a Rp 1 floor for
+    #  Rp 11-14 names from 2026-10-20, which is not verified against the data
+    #  and cannot reach any rule here (the card's floor is Rp 100).
+    Regime(pd.Timestamp("2026-10-19"), None,
+           ((None, 0.07),), "BEI announcement 2026-10-19 (press reports)",
+           "post-crash emergency limit, announced until end-2026"),
 ]
 
 #: Acceleration board and watchlist names trade on a different ladder: a flat
